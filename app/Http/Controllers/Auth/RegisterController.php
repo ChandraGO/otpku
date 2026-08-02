@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
+use Throwable;
 
 class RegisterController extends Controller
 {
@@ -27,9 +28,18 @@ class RegisterController extends Controller
         $data['email'] = strtolower($data['email']);
         $data['whatsapp'] = ltrim($data['whatsapp'], '+');
         $user = DB::transaction(fn () => User::query()->create($data));
+
+        try {
+            $otp->send($user);
+        } catch (Throwable $exception) {
+            // Jangan meninggalkan akun setengah jadi ketika SMTP gagal.
+            $user->delete();
+
+            throw $exception;
+        }
+
         Auth::login($user);
         $request->session()->regenerate();
-        $otp->send($user);
         return redirect()->route('verification.notice')->with('success', 'Akun berhasil dibuat. Kode verifikasi telah dikirim ke email Anda.');
     }
 }

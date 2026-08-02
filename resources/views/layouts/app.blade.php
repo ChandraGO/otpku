@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-default-theme="{{ auth()->user()->theme ?? 'light' }}">
+<html lang="id" class="{{ (auth()->user()->theme ?? 'dark') === 'dark' ? 'dark' : '' }}" data-default-theme="{{ auth()->user()->theme ?? 'dark' }}" data-theme-sync-url="{{ route('profile.theme') }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -11,12 +11,17 @@
         (() => {
             try {
                 const saved = localStorage.getItem('theme');
-                const fallback = document.documentElement.dataset.defaultTheme || 'light';
+                const fallback = document.documentElement.dataset.defaultTheme || 'dark';
                 const theme = ['dark', 'light'].includes(saved) ? saved : fallback;
                 document.documentElement.classList.toggle('dark', theme === 'dark');
                 document.documentElement.dataset.theme = theme;
                 document.documentElement.style.colorScheme = theme;
-            } catch (_) {}
+            } catch (_) {
+                const fallback = document.documentElement.dataset.defaultTheme || 'dark';
+                document.documentElement.classList.toggle('dark', fallback === 'dark');
+                document.documentElement.dataset.theme = fallback;
+                document.documentElement.style.colorScheme = fallback;
+            }
         })();
     </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])

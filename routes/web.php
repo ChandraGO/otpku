@@ -68,6 +68,7 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
     Route::view('/bantuan', 'user.support')->name('support.index');
     Route::get('/profil', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profil', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profil/theme', [ProfileController::class, 'theme'])->middleware('throttle:30,1')->name('profile.theme');
     Route::put('/profil/password', [ProfileController::class, 'password'])->name('profile.password');
 
     Route::prefix('admin')->name('admin.')->middleware('admin')->group(function (): void {

@@ -8,7 +8,9 @@ use App\Notifications\EmailOtpNotification;
 use App\Support\Settings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class EmailOtpService
 {
@@ -18,17 +20,66 @@ class EmailOtpService
     {
         $minutes = max(3, (int) $this->settings->get('auth.email_otp_expiry_minutes', 10));
         $resendSeconds = max(30, (int) $this->settings->get('auth.email_otp_resend_seconds', 60));
-        $last = EmailOtp::query()->where('email', $user->email)->where('purpose', $purpose)->latest()->first();
+        $email = strtolower(trim((string) $user->email));
+        $last = EmailOtp::query()
+            ->where('email', $email)
+            ->where('purpose', $purpose)
+            ->latest('id')
+            ->first();
+
         if ($last && $last->created_at->gt(now()->subSeconds($resendSeconds))) {
-            throw ValidationException::withMessages(['otp' => 'Kode baru dapat diminta kembali setelah '.$resendSeconds.' detik.']);
+            throw ValidationException::withMessages([
+                'otp' => 'Kode baru dapat diminta kembali setelah '.$resendSeconds.' detik.',
+            ]);
         }
-        EmailOtp::query()->where('email', $user->email)->where('purpose', $purpose)->whereNull('used_at')->update(['used_at' => now()]);
+
         $code = (string) random_int(100000, 999999);
-        EmailOtp::query()->create([
-            'user_id' => $user->id, 'email' => $user->email, 'purpose' => $purpose, 'code_hash' => Hash::make($code),
-            'expires_at' => now()->addMinutes($minutes), 'ip_address' => request()?->ip(),
+        $otp = EmailOtp::query()->create([
+            'user_id' => $user->id,
+            'email' => $email,
+            'purpose' => $purpose,
+            'code_hash' => Hash::make($code),
+            'expires_at' => now()->addMinutes($minutes),
+            'ip_address' => request()?->ip(),
         ]);
-        $user->notify(new EmailOtpNotification($code, $purpose, $minutes));
+
+        try {
+            // OTP autentikasi harus sampai saat request berlangsung. Ini sengaja
+            // tidak bergantung pada queue worker agar daftar/forgot password tetap
+            // berfungsi meskipun worker sedang restart atau tertinggal.
+            $user->notifyNow(new EmailOtpNotification($code, $purpose, $minutes));
+        } catch (Throwable $exception) {
+            $otp->delete();
+
+            Log::error('Gagal mengirim email OTP.', [
+                'user_id' => $user->id,
+                'email' => $email,
+                'purpose' => $purpose,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw ValidationException::withMessages([
+                'email' => 'Kode OTP belum berhasil dikirim. Silakan coba kembali atau hubungi admin.',
+            ]);
+        }
+
+        try {
+            EmailOtp::query()
+                ->where('email', $email)
+                ->where('purpose', $purpose)
+                ->whereNull('used_at')
+                ->where('id', '<>', $otp->id)
+                ->update(['used_at' => now()]);
+        } catch (Throwable $exception) {
+            // Kode terbaru tetap valid dan selalu dipilih saat verifikasi.
+            Log::warning('OTP lama gagal dinonaktifkan setelah email terkirim.', [
+                'email' => $email,
+                'purpose' => $purpose,
+                'otp_id' => $otp->id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     public function verify(string $email, string $code, string $purpose): EmailOtp
@@ -42,21 +93,29 @@ class EmailOtpService
                 ->lockForUpdate()
                 ->first();
 
-            if (! $otp || ! $otp->isUsable()) return 'invalid';
+            if (! $otp || ! $otp->isUsable()) {
+                return 'invalid';
+            }
 
             $otp->increment('attempts');
-            if (! Hash::check($code, $otp->code_hash)) return 'mismatch';
+
+            if (! Hash::check($code, $otp->code_hash)) {
+                return 'mismatch';
+            }
 
             $otp->update(['used_at' => now()]);
+
             return $otp->refresh();
         }, 3);
 
         if ($result === 'invalid') {
             throw ValidationException::withMessages(['code' => 'Kode OTP tidak valid atau sudah kedaluwarsa.']);
         }
+
         if ($result === 'mismatch') {
             throw ValidationException::withMessages(['code' => 'Kode OTP tidak sesuai.']);
         }
+
         return $result;
     }
 }

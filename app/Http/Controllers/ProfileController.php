@@ -28,6 +28,14 @@ class ProfileController extends Controller
         if ($emailChanged) { $otp->send($user); return redirect()->route('verification.notice')->with('success', 'Profil diperbarui. Verifikasi email baru Anda.'); }
         return back()->with('success', 'Profil berhasil diperbarui.');
     }
+    public function theme(Request $request): array
+    {
+        $data = $request->validate(['theme' => ['required', 'in:dark,light']]);
+        $request->user()->update(['theme' => $data['theme']]);
+
+        return ['ok' => true, 'theme' => $data['theme']];
+    }
+
     public function password(Request $request): RedirectResponse
     {
         $data = $request->validate([

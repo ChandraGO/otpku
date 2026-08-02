@@ -147,7 +147,10 @@ classify_changes() {
   grep -Eq '^(app/|bootstrap/|config/|database/|public/|resources/|routes/|artisan$)' "$CHANGED_FILE" \
     && NEEDS_RESTART=1 || true
 
-  grep -Eq '^(app/|bootstrap/|config/|database/|routes/|composer\.json$|composer\.lock$)' "$CHANGED_FILE" \
+  # Worker hanya direstart bila kode yang benar-benar dapat dijalankan oleh
+  # queue/scheduler berubah. Perubahan controller, Blade, atau route web tidak
+  # perlu memutus worker yang sedang menyelesaikan job.
+  grep -Eq '^(app/(Jobs|Models|Notifications|Providers|Services|Support)/|bootstrap/|config/|database/|routes/console\.php$|composer\.json$|composer\.lock$)' "$CHANGED_FILE" \
     && NEEDS_WORKERS=1 || true
 
   grep -Eq '^database/migrations/' "$CHANGED_FILE" \
@@ -311,6 +314,8 @@ build_assets_only() {
   DOCKER_BUILDKIT=1 timeout "${ASSET_BUILD_TIMEOUT_SECONDS:-900}" \
     nice -n 15 docker build \
       --progress=plain \
+      --build-arg BUILDKIT_INLINE_CACHE=1 \
+      --cache-from kodeotp-assets:cache \
       --build-arg "BASE_IMAGE=$RUNTIME_IMAGE" \
       --target assets \
       -f "$NEW_RELEASE_DIR/deploy/Dockerfile.assets" \
@@ -321,6 +326,7 @@ build_assets_only() {
   rm -rf "$NEW_RELEASE_DIR/public/build"
   docker cp "$temp_cid:/app/public/build" "$NEW_RELEASE_DIR/public/build"
   docker rm "$temp_cid" >/dev/null
+  docker tag "$image" kodeotp-assets:cache
   fix_manifest
 }
 
@@ -340,6 +346,8 @@ build_full_image() {
   DOCKER_BUILDKIT=1 timeout "${FULL_BUILD_TIMEOUT_SECONDS:-3300}" \
     nice -n 15 docker build \
       --progress=plain \
+      --build-arg BUILDKIT_INLINE_CACHE=1 \
+      --cache-from kodeotp-app:latest \
       --build-arg "PHP_BUILD_JOBS=${KODEOTP_PHP_BUILD_JOBS:-2}" \
       -t "$image" \
       "$NEW_RELEASE_DIR"
@@ -376,7 +384,7 @@ wait_healthy() {
         return 1
         ;;
     esac
-    sleep 3
+    sleep 1
     attempts=$((attempts - 1))
   done
   log "$service belum sehat"
@@ -506,7 +514,12 @@ cleanup_releases() {
 }
 cleanup_releases
 
-docker container prune -f >/dev/null 2>&1 || true
-docker image prune -f --filter 'until=168h' >/dev/null 2>&1 || true
+# Prune Docker dapat memakan CPU dan membuang layer cache yang membuat deploy
+# berikutnya cepat. Jalankan hanya bila operator mengaktifkannya secara eksplisit.
+if [ "${KODEOTP_DEPLOY_PRUNE:-0}" = 1 ]; then
+  log 'membersihkan container/image lama karena KODEOTP_DEPLOY_PRUNE=1'
+  docker container prune -f >/dev/null 2>&1 || true
+  docker image prune -f --filter 'until=336h' >/dev/null 2>&1 || true
+fi
 
 log "selesai cepat. commit=$SHORT_SHA release=$NEW_RELEASE_DIR"

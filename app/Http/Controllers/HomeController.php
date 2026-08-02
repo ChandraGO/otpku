@@ -68,9 +68,13 @@ class HomeController extends Controller
                 ->orderBy('sms_services.name'),
         };
 
-        return view('pricing', [
-            'services' => $query->simplePaginate(30)->withQueryString(),
-        ]);
+        $services = $query->simplePaginate(30)->withQueryString();
+
+        if ($request->ajax() || $request->boolean('partial')) {
+            return view('partials.pricing-results', compact('services'));
+        }
+
+        return view('pricing', compact('services'));
     }
 
     public function sitemap(): Response

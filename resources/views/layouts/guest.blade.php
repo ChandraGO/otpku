@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-default-theme="light">
+<html lang="id" class="dark" data-default-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -17,21 +17,26 @@
         (() => {
             try {
                 const saved = localStorage.getItem('theme');
-                const theme = ['dark', 'light'].includes(saved) ? saved : 'light';
+                const theme = ['dark', 'light'].includes(saved) ? saved : 'dark';
                 document.documentElement.classList.toggle('dark', theme === 'dark');
                 document.documentElement.dataset.theme = theme;
                 document.documentElement.style.colorScheme = theme;
-            } catch (_) {}
+            } catch (_) {
+                document.documentElement.classList.add('dark');
+                document.documentElement.dataset.theme = 'dark';
+                document.documentElement.style.colorScheme = 'dark';
+            }
         })();
     </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('head')
 </head>
-<body>
-<header class="fixed inset-x-0 top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85">
+<body x-data="themeSwitcher">
+<header x-data="{ menuOpen: false }" @keydown.escape.window="menuOpen = false" class="fixed inset-x-0 top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85">
     <div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <a href="{{ route('home') }}"><x-app-logo /></a>
-        <nav class="hidden items-center gap-2 md:flex">
+        <a href="{{ route('home') }}" aria-label="Beranda"><x-app-logo /></a>
+
+        <nav class="hidden items-center gap-2 md:flex" aria-label="Navigasi utama">
             <a class="btn-secondary" href="{{ route('home') }}#features">Fitur</a>
             <a class="btn-secondary" href="{{ route('pricing') }}">Harga</a>
             @auth
@@ -41,14 +46,43 @@
                 <a class="btn-primary" href="{{ route('register') }}">Daftar</a>
             @endauth
         </nav>
+
         <div class="flex items-center gap-2">
             <button type="button" @click="$store.theme.toggle()" class="btn-secondary !p-2.5" aria-label="Ganti tema">
                 <x-icon x-show="$store.theme.current === 'light'" name="moon" />
                 <x-icon x-show="$store.theme.current === 'dark'" x-cloak name="sun" />
             </button>
-            @guest<a class="btn-primary !px-3 md:hidden" href="{{ route('login') }}">Masuk</a>@endguest
-            @auth<a class="btn-primary !px-3 md:hidden" href="{{ route('dashboard') }}">Dashboard</a>@endauth
+            <button
+                type="button"
+                @click="menuOpen = ! menuOpen"
+                :aria-expanded="menuOpen"
+                aria-controls="mobile-menu"
+                class="btn-secondary !p-2.5 md:hidden"
+                aria-label="Buka menu"
+            >
+                <x-icon name="menu" />
+            </button>
         </div>
+    </div>
+
+    <div
+        id="mobile-menu"
+        x-show="menuOpen"
+        x-cloak
+        x-transition.origin.top
+        @click.outside="menuOpen = false"
+        class="border-t border-slate-200/70 bg-white/95 px-4 py-4 shadow-xl backdrop-blur-2xl dark:border-white/10 dark:bg-[#0a1020]/95 md:hidden"
+    >
+        <nav class="mx-auto grid max-w-7xl gap-2" aria-label="Navigasi mobile">
+            <a @click="menuOpen = false" class="nav-link" href="{{ route('home') }}#features"><x-icon name="services" /><span>Fitur</span></a>
+            <a @click="menuOpen = false" class="nav-link" href="{{ route('pricing') }}"><x-icon name="chart" /><span>Harga</span></a>
+            @auth
+                <a @click="menuOpen = false" class="nav-link nav-link-active" href="{{ route('dashboard') }}"><x-icon name="home" /><span>Dashboard</span></a>
+            @else
+                <a @click="menuOpen = false" class="nav-link" href="{{ route('login') }}"><x-icon name="user" /><span>Login</span></a>
+                <a @click="menuOpen = false" class="nav-link nav-link-active" href="{{ route('register') }}"><x-icon name="arrow-right" /><span>Daftar</span></a>
+            @endauth
+        </nav>
     </div>
 </header>
 <main class="pt-20">{{ $slot ?? '' }}@yield('content')</main>
