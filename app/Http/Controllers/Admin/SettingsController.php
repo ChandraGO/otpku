@@ -116,13 +116,23 @@ class SettingsController extends Controller
         Settings $settings,
     ): RedirectResponse {
         try {
-            Cache::forget('sms-virtual:provider-balance:v2');
+            try {
+                Cache::forget('sms-virtual:provider-balance:v2');
+            } catch (Throwable) {
+                // Cache bersifat opsional; tes provider tetap boleh berjalan.
+            }
+
             $balance = $client->balance();
-            Cache::put(
-                'sms-virtual:provider-balance:v2',
-                $balance,
-                now()->addSeconds(30),
-            );
+
+            try {
+                Cache::put(
+                    'sms-virtual:provider-balance:v2',
+                    $balance,
+                    now()->addSeconds(30),
+                );
+            } catch (Throwable) {
+                // Nilai utama disimpan di database di bawah.
+            }
             $value = $balance['balance']
                 ?? data_get($balance, 'data.balance')
                 ?? $balance['data']
@@ -133,11 +143,15 @@ class SettingsController extends Controller
             );
             if (is_numeric($value)) {
                 $rawBalance = (float) $value;
-                Cache::put(
-                    'sms-virtual:provider-balance:value',
-                    $rawBalance,
-                    now()->addMinutes(10),
-                );
+                try {
+                    Cache::put(
+                        'sms-virtual:provider-balance:value',
+                        $rawBalance,
+                        now()->addMinutes(10),
+                    );
+                } catch (Throwable) {
+                    // Cache bersifat opsional.
+                }
                 $settings->setMany([
                     'sms_virtual.last_balance_raw' => $rawBalance,
                     'sms_virtual.last_balance_checked_at' => now()->toIso8601String(),

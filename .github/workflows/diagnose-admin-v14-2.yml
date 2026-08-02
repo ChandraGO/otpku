@@ -1,0 +1,28 @@
+name: Diagnose KodeOTP Admin V14.2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Diagnose active admin runtime
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          port: ${{ secrets.VPS_PORT }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 8m
+          script: |
+            set -euo pipefail
+            cd /opt/kodeotp/app
+            git fetch --prune origin master
+            git reset --hard origin/master
+            chmod +x deploy/diagnose-admin-v14-2.sh
+            STACK_DIR=/opt/kodeotp bash deploy/diagnose-admin-v14-2.sh

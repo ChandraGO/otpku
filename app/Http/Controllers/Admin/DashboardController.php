@@ -7,56 +7,74 @@ use App\Models\OtpOrder;
 use App\Models\Topup;
 use App\Models\User;
 use App\Support\Settings;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Throwable;
 
 class DashboardController extends Controller
 {
     public function __invoke(Settings $settings): View
     {
-        $unitToIdr = max(
+        $unitToIdr = $this->safe(fn () => max(
             0.0001,
             (float) $settings->get('sms_virtual.balance_unit_to_idr', 1),
-        );
-        $lowBalanceThreshold = max(
+        ), 1.0);
+        $lowBalanceThreshold = $this->safe(fn () => max(
             0,
             (float) $settings->get('sms_virtual.low_balance_threshold', 5000),
-        );
-        $bufferPercent = max(
+        ), 5000.0);
+        $bufferPercent = $this->safe(fn () => max(
             0,
             (float) $settings->get('sms_virtual.reserve_buffer_percent', 20),
+        ), 20.0);
+
+        // Database-only; tidak memanggil API atau Redis dari dashboard.
+        $providerBalanceRaw = $this->safe(
+            fn () => $settings->get('sms_virtual.last_balance_raw'),
+            null,
         );
-
-        $providerBalanceRaw = Cache::get('sms-virtual:provider-balance:value');
-
-        if (! is_numeric($providerBalanceRaw)) {
-            $providerBalanceRaw = $settings->get(
-                'sms_virtual.last_balance_raw',
-                null,
-            );
-        }
-
-        if (! is_numeric($providerBalanceRaw)) {
-            $legacy = Cache::get('sms-virtual:provider-balance:v2');
-            $providerBalanceRaw = is_array($legacy)
-                ? ($legacy['balance']
-                    ?? data_get($legacy, 'data.balance')
-                    ?? (is_numeric($legacy['data'] ?? null)
-                        ? $legacy['data']
-                        : null))
-                : (is_numeric($legacy) ? $legacy : null);
-        }
-
-        $providerBalanceIdr = is_numeric($providerBalanceRaw)
-            ? (float) $providerBalanceRaw * $unitToIdr
+        $providerBalanceRaw = is_numeric($providerBalanceRaw)
+            ? (float) $providerBalanceRaw
             : null;
+        $providerBalanceIdr = $providerBalanceRaw === null
+            ? null
+            : $providerBalanceRaw * $unitToIdr;
         $providerError = $providerBalanceIdr === null
             ? 'Saldo belum diperbarui. Buka Pengaturan → SMS Virtual lalu klik Tes saldo SMS Virtual.'
             : null;
 
-        $userBalance = (float) User::query()
-            ->where('role', 'user')
-            ->sum('balance');
+        $users = (int) $this->safe(
+            fn () => User::query()->where('role', 'user')->count(),
+            0,
+        );
+        $userBalance = (float) $this->safe(
+            fn () => User::query()->where('role', 'user')->sum('balance'),
+            0,
+        );
+        $completedTopups = (float) $this->safe(
+            fn () => Topup::query()->where('status', 'completed')->sum('amount'),
+            0,
+        );
+        $ordersToday = (int) $this->safe(
+            fn () => OtpOrder::query()->whereDate('created_at', today())->count(),
+            0,
+        );
+        $revenueToday = (float) $this->safe(
+            fn () => OtpOrder::query()
+                ->whereDate('created_at', today())
+                ->whereNotIn('status', ['failed', 'refunded'])
+                ->sum('sell_price'),
+            0,
+        );
+        $profitToday = (float) $this->safe(
+            fn () => OtpOrder::query()
+                ->whereDate('created_at', today())
+                ->whereNotIn('status', ['failed', 'refunded'])
+                ->selectRaw('COALESCE(SUM(sell_price - provider_cost), 0) AS total')
+                ->value('total'),
+            0,
+        );
+
         $reserveTarget = $userBalance * (1 + ($bufferPercent / 100));
         $reserveGap = $providerBalanceIdr === null
             ? null
@@ -76,25 +94,12 @@ class DashboardController extends Controller
 
         return view('admin.dashboard', [
             'stats' => [
-                'users' => User::query()->where('role', 'user')->count(),
+                'users' => $users,
                 'user_balance' => $userBalance,
-                'completed_topups' => (float) Topup::query()
-                    ->where('status', 'completed')
-                    ->sum('amount'),
-                'orders_today' => OtpOrder::query()
-                    ->whereDate('created_at', today())
-                    ->count(),
-                'revenue_today' => (float) OtpOrder::query()
-                    ->whereDate('created_at', today())
-                    ->whereNotIn('status', ['failed', 'refunded'])
-                    ->sum('sell_price'),
-                'profit_today' => (float) OtpOrder::query()
-                    ->whereDate('created_at', today())
-                    ->whereNotIn('status', ['failed', 'refunded'])
-                    ->selectRaw(
-                        'COALESCE(SUM(sell_price - provider_cost), 0) total',
-                    )
-                    ->value('total'),
+                'completed_topups' => $completedTopups,
+                'orders_today' => $ordersToday,
+                'revenue_today' => $revenueToday,
+                'profit_today' => $profitToday,
             ],
             'providerBalanceRaw' => $providerBalanceRaw,
             'providerBalanceIdr' => $providerBalanceIdr,
@@ -106,16 +111,25 @@ class DashboardController extends Controller
             'reserveGap' => $reserveGap,
             'coveragePercent' => $coveragePercent,
             'riskStatus' => $riskStatus,
-            'recentOrders' => OtpOrder::query()
-                ->with('user')
-                ->latest()
-                ->limit(8)
-                ->get(),
-            'recentTopups' => Topup::query()
-                ->with('user')
-                ->latest()
-                ->limit(8)
-                ->get(),
+            'recentOrders' => $this->safe(
+                fn () => OtpOrder::query()->with('user')->latest()->limit(8)->get(),
+                collect(),
+            ),
+            'recentTopups' => $this->safe(
+                fn () => Topup::query()->with('user')->latest()->limit(8)->get(),
+                collect(),
+            ),
         ]);
+    }
+
+    private function safe(callable $callback, mixed $default): mixed
+    {
+        try {
+            return $callback();
+        } catch (Throwable $e) {
+            report($e);
+
+            return $default;
+        }
     }
 }

@@ -8,7 +8,6 @@ use App\Support\Settings;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
@@ -38,9 +37,15 @@ class AppServiceProvider extends ServiceProvider
         app(MailSettingsConfigurator::class)->configure();
 
         View::composer('*', function ($view) use ($settings): void {
-            $view->with('siteName', $settings->get('site.name', config('app.name')));
-            $view->with('siteDescription', $settings->get('site.description'));
-            $view->with('siteSupportWhatsapp', $settings->get('site.support_whatsapp', ''));
+            try {
+                $view->with('siteName', $settings->get('site.name', config('app.name')));
+                $view->with('siteDescription', $settings->get('site.description'));
+                $view->with('siteSupportWhatsapp', $settings->get('site.support_whatsapp', ''));
+            } catch (Throwable) {
+                $view->with('siteName', config('app.name', 'KodeOTP'));
+                $view->with('siteDescription', null);
+                $view->with('siteSupportWhatsapp', '');
+            }
         });
 
         View::composer('layouts.app', function ($view) use ($settings): void {
@@ -48,14 +53,7 @@ class AppServiceProvider extends ServiceProvider
                 $view->with(
                     'navAnnouncements',
                     Schema::hasTable('announcements')
-                        ? Cache::remember(
-                            'announcements:navigation:v2',
-                            now()->addMinute(),
-                            fn () => Announcement::visible()
-                                ->latest()
-                                ->limit(3)
-                                ->get(),
-                        )
+                        ? Announcement::visible()->latest()->limit(3)->get()
                         : collect(),
                 );
             } catch (Throwable) {
@@ -63,64 +61,39 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $user = request()->user();
-            $headerBalanceLabel = 'Balance';
-            $headerBalance = (float) ($user?->balance ?? 0);
-            $headerBalanceAvailable = true;
-            $headerTopupLabel = 'Top Up';
-            $headerTopupUrl = route('topups.index');
-            $headerTopupExternal = false;
+            $data = [
+                'headerBalanceLabel' => 'Balance',
+                'headerBalance' => (float) ($user?->balance ?? 0),
+                'headerBalanceAvailable' => true,
+                'headerTopupLabel' => 'Top Up',
+                'headerTopupUrl' => route('topups.index'),
+                'headerTopupExternal' => false,
+            ];
 
             if ($user?->isAdmin()) {
-                $headerBalanceLabel = 'Saldo provider';
-                $headerTopupLabel = 'Top Up Provider';
-                $headerTopupUrl = 'https://sms-virtual.net';
-                $headerTopupExternal = true;
+                $data['headerBalanceLabel'] = 'Saldo provider';
+                $data['headerTopupLabel'] = 'Top Up Provider';
+                $data['headerTopupUrl'] = 'https://sms-virtual.net';
+                $data['headerTopupExternal'] = true;
+                $data['headerBalanceAvailable'] = false;
 
-                // Jangan pernah melakukan request provider saat render layout.
-                // Header hanya membaca nilai terakhir yang sudah tervalidasi
-                // oleh tombol Tes saldo SMS Virtual di panel pengaturan.
-                $rawBalance = Cache::get('sms-virtual:provider-balance:value');
-
-                if (! is_numeric($rawBalance)) {
-                    $rawBalance = $settings->get(
-                        'sms_virtual.last_balance_raw',
-                        null,
-                    );
-                }
-
-                if (! is_numeric($rawBalance)) {
-                    $legacy = Cache::get('sms-virtual:provider-balance:v2');
-                    $rawBalance = is_array($legacy)
-                        ? ($legacy['balance']
-                            ?? data_get($legacy, 'data.balance')
-                            ?? (is_numeric($legacy['data'] ?? null)
-                                ? $legacy['data']
-                                : null))
-                        : (is_numeric($legacy) ? $legacy : null);
-                }
-
-                if (is_numeric($rawBalance)) {
-                    $unitToIdr = max(
-                        0.0001,
-                        (float) $settings->get(
-                            'sms_virtual.balance_unit_to_idr',
-                            1,
-                        ),
-                    );
-                    $headerBalance = (float) $rawBalance * $unitToIdr;
-                } else {
-                    $headerBalanceAvailable = false;
+                // Database-only. Tidak menyentuh Redis atau API provider saat render.
+                try {
+                    $raw = $settings->get('sms_virtual.last_balance_raw');
+                    if (is_numeric($raw)) {
+                        $unitToIdr = max(
+                            0.0001,
+                            (float) $settings->get('sms_virtual.balance_unit_to_idr', 1),
+                        );
+                        $data['headerBalance'] = (float) $raw * $unitToIdr;
+                        $data['headerBalanceAvailable'] = true;
+                    }
+                } catch (Throwable) {
+                    $data['headerBalanceAvailable'] = false;
                 }
             }
 
-            $view->with([
-                'headerBalanceLabel' => $headerBalanceLabel,
-                'headerBalance' => $headerBalance,
-                'headerBalanceAvailable' => $headerBalanceAvailable,
-                'headerTopupLabel' => $headerTopupLabel,
-                'headerTopupUrl' => $headerTopupUrl,
-                'headerTopupExternal' => $headerTopupExternal,
-            ]);
+            $view->with($data);
         });
     }
 }
