@@ -12,6 +12,5 @@ export default defineConfig({
     ],
     build: {
         sourcemap: false,
-        manifest: true,
     },
 });
