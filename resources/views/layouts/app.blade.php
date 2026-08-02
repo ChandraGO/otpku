@@ -28,22 +28,21 @@
     @stack('head')
 </head>
 <body>
-<div x-data="{ sidebar: false }" class="min-h-screen">
+<div class="min-h-screen">
     <div
-        x-show="sidebar"
-        x-cloak
-        x-transition.opacity
-        @click="sidebar = false"
+        data-sidebar-overlay
+        hidden
         class="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm lg:hidden"
     ></div>
 
     <aside
-        :class="sidebar ? 'translate-x-0' : '-translate-x-full'"
-        class="fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-slate-200/80 bg-white px-4 py-5 shadow-2xl transition-transform duration-300 dark:border-white/10 dark:bg-[#0a1020] lg:translate-x-0 lg:shadow-none"
+        data-sidebar-panel
+        data-open="false"
+        class="fixed inset-y-0 left-0 z-50 flex w-[280px] -translate-x-full flex-col border-r border-slate-200/80 bg-white px-4 py-5 shadow-2xl transition-transform duration-300 dark:border-white/10 dark:bg-[#0a1020] lg:translate-x-0 lg:shadow-none"
     >
         <div class="flex items-center justify-between px-2">
             <a href="{{ route('dashboard') }}"><x-app-logo /></a>
-            <button @click="sidebar = false" class="btn-secondary !p-2 lg:hidden" aria-label="Tutup menu">×</button>
+            <button type="button" data-sidebar-close class="btn-secondary !p-2 lg:hidden" aria-label="Tutup menu">×</button>
         </div>
 
         <nav class="scrollbar-thin mt-7 flex-1 overflow-y-auto pr-1">
@@ -147,9 +146,9 @@
                         </div>
                     </div>
                     <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="btn-primary" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif><x-icon name="topup" size="size-4" /> {{ $headerTopupLabel ?? 'Top Up' }}</a>
-                    <button type="button" @click="$store.theme.toggle()" class="btn-secondary !p-3" aria-label="Ganti tema">
-                        <x-icon x-show="$store.theme.current === 'light'" name="moon" />
-                        <x-icon x-show="$store.theme.current === 'dark'" x-cloak name="sun" />
+                    <button type="button" data-theme-toggle class="btn-secondary !p-3" aria-label="Aktifkan mode terang" aria-pressed="true" title="Aktifkan mode terang">
+                        <x-icon data-theme-icon="light" name="moon" hidden />
+                        <x-icon data-theme-icon="dark" name="sun" />
                     </button>
                 </div>
             </div>
@@ -157,7 +156,7 @@
 
         <header class="sticky top-0 z-30 border-b border-white/20 bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/10 lg:hidden">
             <div class="flex min-h-20 items-center gap-3 px-4 py-3">
-                <button @click="sidebar = true" class="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/15 backdrop-blur" aria-label="Buka menu">
+                <button type="button" data-sidebar-open class="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/15 backdrop-blur" aria-label="Buka menu">
                     <x-icon name="menu" size="size-6" />
                 </button>
                 <div class="min-w-0 flex-1">
@@ -197,5 +196,7 @@
         </div>
     </nav>
 </div>
+@include('partials.ui-runtime')
+@stack('scripts')
 </body>
 </html>

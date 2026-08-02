@@ -31,8 +31,8 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('head')
 </head>
-<body x-data="themeSwitcher">
-<header x-data="{ menuOpen: false }" @keydown.escape.window="menuOpen = false" class="fixed inset-x-0 top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85">
+<body>
+<header class="fixed inset-x-0 top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85">
     <div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
         <a href="{{ route('home') }}" aria-label="Beranda"><x-app-logo /></a>
 
@@ -48,14 +48,21 @@
         </nav>
 
         <div class="flex items-center gap-2">
-            <button type="button" @click="$store.theme.toggle()" class="btn-secondary !p-2.5" aria-label="Ganti tema">
-                <x-icon x-show="$store.theme.current === 'light'" name="moon" />
-                <x-icon x-show="$store.theme.current === 'dark'" x-cloak name="sun" />
+            <button
+                type="button"
+                data-theme-toggle
+                class="btn-secondary !p-2.5"
+                aria-label="Aktifkan mode terang"
+                aria-pressed="true"
+                title="Aktifkan mode terang"
+            >
+                <x-icon data-theme-icon="light" name="moon" hidden />
+                <x-icon data-theme-icon="dark" name="sun" />
             </button>
             <button
                 type="button"
-                @click="menuOpen = ! menuOpen"
-                :aria-expanded="menuOpen"
+                data-mobile-menu-toggle
+                aria-expanded="false"
                 aria-controls="mobile-menu"
                 class="btn-secondary !p-2.5 md:hidden"
                 aria-label="Buka menu"
@@ -67,20 +74,18 @@
 
     <div
         id="mobile-menu"
-        x-show="menuOpen"
-        x-cloak
-        x-transition.origin.top
-        @click.outside="menuOpen = false"
+        data-mobile-menu
+        hidden
         class="border-t border-slate-200/70 bg-white/95 px-4 py-4 shadow-xl backdrop-blur-2xl dark:border-white/10 dark:bg-[#0a1020]/95 md:hidden"
     >
         <nav class="mx-auto grid max-w-7xl gap-2" aria-label="Navigasi mobile">
-            <a @click="menuOpen = false" class="nav-link" href="{{ route('home') }}#features"><x-icon name="services" /><span>Fitur</span></a>
-            <a @click="menuOpen = false" class="nav-link" href="{{ route('pricing') }}"><x-icon name="chart" /><span>Harga</span></a>
+            <a data-mobile-menu-close class="nav-link" href="{{ route('home') }}#features"><x-icon name="services" /><span>Fitur</span></a>
+            <a data-mobile-menu-close class="nav-link" href="{{ route('pricing') }}"><x-icon name="chart" /><span>Harga</span></a>
             @auth
-                <a @click="menuOpen = false" class="nav-link nav-link-active" href="{{ route('dashboard') }}"><x-icon name="home" /><span>Dashboard</span></a>
+                <a data-mobile-menu-close class="nav-link nav-link-active" href="{{ route('dashboard') }}"><x-icon name="home" /><span>Dashboard</span></a>
             @else
-                <a @click="menuOpen = false" class="nav-link" href="{{ route('login') }}"><x-icon name="user" /><span>Login</span></a>
-                <a @click="menuOpen = false" class="nav-link nav-link-active" href="{{ route('register') }}"><x-icon name="arrow-right" /><span>Daftar</span></a>
+                <a data-mobile-menu-close class="nav-link" href="{{ route('login') }}"><x-icon name="user" /><span>Login</span></a>
+                <a data-mobile-menu-close class="nav-link nav-link-active" href="{{ route('register') }}"><x-icon name="arrow-right" /><span>Daftar</span></a>
             @endauth
         </nav>
     </div>
@@ -92,5 +97,7 @@
         <div>© {{ date('Y') }} {{ $siteName }} · <a class="hover:text-violet-500" href="{{ route('terms') }}">Syarat</a> · <a class="hover:text-violet-500" href="{{ route('privacy') }}">Privasi</a></div>
     </div>
 </footer>
+@include('partials.ui-runtime')
+@stack('scripts')
 </body>
 </html>

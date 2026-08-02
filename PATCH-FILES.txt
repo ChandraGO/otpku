@@ -1,0 +1,11 @@
+app/Notifications/EmailOtpNotification.php
+resources/views/components/password-input.blade.php
+resources/views/emails/otp.blade.php
+resources/views/layouts/app.blade.php
+resources/views/layouts/guest.blade.php
+resources/views/partials/ui-runtime.blade.php
+resources/views/partials/pricing-results.blade.php
+resources/views/pricing.blade.php
+resources/views/user/profile.blade.php
+README-PATCH.txt
+PATCH-FILES.txt
