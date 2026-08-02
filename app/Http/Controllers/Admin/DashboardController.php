@@ -6,22 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\OtpOrder;
 use App\Models\Topup;
 use App\Models\User;
-use App\Services\SmsVirtualClient;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
-use Throwable;
 
 class DashboardController extends Controller
 {
-    public function __invoke(
-        SmsVirtualClient $client,
-        Settings $settings,
-    ): View {
-        $providerBalanceRaw = null;
-        $providerBalanceIdr = null;
-        $providerError = null;
-
+    public function __invoke(Settings $settings): View
+    {
         $unitToIdr = max(
             0.0001,
             (float) $settings->get('sms_virtual.balance_unit_to_idr', 1),
@@ -35,42 +27,36 @@ class DashboardController extends Controller
             (float) $settings->get('sms_virtual.reserve_buffer_percent', 20),
         );
 
-        try {
-            $response = Cache::remember(
-                'sms-virtual:provider-balance:v2',
-                now()->addSeconds(30),
-                fn () => $client->balance(),
-            );
-            $providerBalanceRaw = $response['balance']
-                ?? data_get($response, 'data.balance')
-                ?? $response['data']
-                ?? null;
+        $providerBalanceRaw = Cache::get('sms-virtual:provider-balance:value');
 
-            if (is_numeric($providerBalanceRaw)) {
-                $providerBalanceIdr = (float) $providerBalanceRaw * $unitToIdr;
-            }
-        } catch (Throwable $e) {
-            $providerError = $e->getMessage();
+        if (! is_numeric($providerBalanceRaw)) {
+            $providerBalanceRaw = $settings->get(
+                'sms_virtual.last_balance_raw',
+                null,
+            );
         }
 
-        $userStats = User::query()
+        if (! is_numeric($providerBalanceRaw)) {
+            $legacy = Cache::get('sms-virtual:provider-balance:v2');
+            $providerBalanceRaw = is_array($legacy)
+                ? ($legacy['balance']
+                    ?? data_get($legacy, 'data.balance')
+                    ?? (is_numeric($legacy['data'] ?? null)
+                        ? $legacy['data']
+                        : null))
+                : (is_numeric($legacy) ? $legacy : null);
+        }
+
+        $providerBalanceIdr = is_numeric($providerBalanceRaw)
+            ? (float) $providerBalanceRaw * $unitToIdr
+            : null;
+        $providerError = $providerBalanceIdr === null
+            ? 'Saldo belum diperbarui. Buka Pengaturan → SMS Virtual lalu klik Tes saldo SMS Virtual.'
+            : null;
+
+        $userBalance = (float) User::query()
             ->where('role', 'user')
-            ->selectRaw('COUNT(*) AS users')
-            ->selectRaw('COALESCE(SUM(balance), 0) AS user_balance')
-            ->first();
-        $userBalance = (float) ($userStats->user_balance ?? 0);
-
-        $orderStats = OtpOrder::query()
-            ->where('created_at', '>=', today())
-            ->selectRaw('COUNT(*) AS orders_today')
-            ->selectRaw(
-                "COALESCE(SUM(CASE WHEN status NOT IN ('failed', 'refunded') THEN sell_price ELSE 0 END), 0) AS revenue_today",
-            )
-            ->selectRaw(
-                "COALESCE(SUM(CASE WHEN status NOT IN ('failed', 'refunded') THEN sell_price - provider_cost ELSE 0 END), 0) AS profit_today",
-            )
-            ->first();
-
+            ->sum('balance');
         $reserveTarget = $userBalance * (1 + ($bufferPercent / 100));
         $reserveGap = $providerBalanceIdr === null
             ? null
@@ -82,7 +68,7 @@ class DashboardController extends Controller
                 : 100);
 
         $riskStatus = match (true) {
-            $providerError !== null || $providerBalanceIdr === null => 'unknown',
+            $providerBalanceIdr === null => 'unknown',
             $providerBalanceIdr <= $lowBalanceThreshold => 'critical',
             $providerBalanceIdr < $reserveTarget => 'warning',
             default => 'healthy',
@@ -90,14 +76,25 @@ class DashboardController extends Controller
 
         return view('admin.dashboard', [
             'stats' => [
-                'users' => (int) ($userStats->users ?? 0),
+                'users' => User::query()->where('role', 'user')->count(),
                 'user_balance' => $userBalance,
                 'completed_topups' => (float) Topup::query()
                     ->where('status', 'completed')
                     ->sum('amount'),
-                'orders_today' => (int) ($orderStats->orders_today ?? 0),
-                'revenue_today' => (float) ($orderStats->revenue_today ?? 0),
-                'profit_today' => (float) ($orderStats->profit_today ?? 0),
+                'orders_today' => OtpOrder::query()
+                    ->whereDate('created_at', today())
+                    ->count(),
+                'revenue_today' => (float) OtpOrder::query()
+                    ->whereDate('created_at', today())
+                    ->whereNotIn('status', ['failed', 'refunded'])
+                    ->sum('sell_price'),
+                'profit_today' => (float) OtpOrder::query()
+                    ->whereDate('created_at', today())
+                    ->whereNotIn('status', ['failed', 'refunded'])
+                    ->selectRaw(
+                        'COALESCE(SUM(sell_price - provider_cost), 0) total',
+                    )
+                    ->value('total'),
             ],
             'providerBalanceRaw' => $providerBalanceRaw,
             'providerBalanceIdr' => $providerBalanceIdr,
@@ -110,12 +107,12 @@ class DashboardController extends Controller
             'coveragePercent' => $coveragePercent,
             'riskStatus' => $riskStatus,
             'recentOrders' => OtpOrder::query()
-                ->with('user:id,name,email')
+                ->with('user')
                 ->latest()
                 ->limit(8)
                 ->get(),
             'recentTopups' => Topup::query()
-                ->with('user:id,name,email')
+                ->with('user')
                 ->latest()
                 ->limit(8)
                 ->get(),

@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Models\Announcement;
 use App\Services\MailSettingsConfigurator;
-use App\Services\SmsVirtualClient;
 use App\Support\Settings;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -77,30 +76,39 @@ class AppServiceProvider extends ServiceProvider
                 $headerTopupUrl = 'https://sms-virtual.net';
                 $headerTopupExternal = true;
 
-                try {
-                    $response = Cache::remember(
-                        'sms-virtual:provider-balance:v2',
-                        now()->addSeconds(30),
-                        fn () => app(SmsVirtualClient::class)->balance(),
-                    );
-                    $rawBalance = $response['balance']
-                        ?? data_get($response, 'data.balance')
-                        ?? $response['data']
-                        ?? null;
+                // Jangan pernah melakukan request provider saat render layout.
+                // Header hanya membaca nilai terakhir yang sudah tervalidasi
+                // oleh tombol Tes saldo SMS Virtual di panel pengaturan.
+                $rawBalance = Cache::get('sms-virtual:provider-balance:value');
 
-                    if (! is_numeric($rawBalance)) {
-                        $headerBalanceAvailable = false;
-                    } else {
-                        $unitToIdr = max(
-                            0.0001,
-                            (float) $settings->get(
-                                'sms_virtual.balance_unit_to_idr',
-                                1,
-                            ),
-                        );
-                        $headerBalance = (float) $rawBalance * $unitToIdr;
-                    }
-                } catch (Throwable) {
+                if (! is_numeric($rawBalance)) {
+                    $rawBalance = $settings->get(
+                        'sms_virtual.last_balance_raw',
+                        null,
+                    );
+                }
+
+                if (! is_numeric($rawBalance)) {
+                    $legacy = Cache::get('sms-virtual:provider-balance:v2');
+                    $rawBalance = is_array($legacy)
+                        ? ($legacy['balance']
+                            ?? data_get($legacy, 'data.balance')
+                            ?? (is_numeric($legacy['data'] ?? null)
+                                ? $legacy['data']
+                                : null))
+                        : (is_numeric($legacy) ? $legacy : null);
+                }
+
+                if (is_numeric($rawBalance)) {
+                    $unitToIdr = max(
+                        0.0001,
+                        (float) $settings->get(
+                            'sms_virtual.balance_unit_to_idr',
+                            1,
+                        ),
+                    );
+                    $headerBalance = (float) $rawBalance * $unitToIdr;
+                } else {
                     $headerBalanceAvailable = false;
                 }
             }

@@ -97,6 +97,7 @@ class SettingsController extends Controller
 
         if ($group === 'sms_virtual') {
             Cache::forget('sms-virtual:provider-balance:v2');
+            Cache::forget('sms-virtual:provider-balance:value');
         }
 
         $audit->record('settings.update', 'settings', [], [
@@ -130,6 +131,19 @@ class SettingsController extends Controller
                 0.0001,
                 (float) $settings->get('sms_virtual.balance_unit_to_idr', 1),
             );
+            if (is_numeric($value)) {
+                $rawBalance = (float) $value;
+                Cache::put(
+                    'sms-virtual:provider-balance:value',
+                    $rawBalance,
+                    now()->addMinutes(10),
+                );
+                $settings->setMany([
+                    'sms_virtual.last_balance_raw' => $rawBalance,
+                    'sms_virtual.last_balance_checked_at' => now()->toIso8601String(),
+                ]);
+            }
+
             $formatted = is_numeric($value)
                 ? 'Rp '.number_format((float) $value * $unitToIdr, 0, ',', '.')
                 : json_encode($value);
