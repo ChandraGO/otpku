@@ -193,6 +193,15 @@ create_release() {
   rm -rf "$NEW_RELEASE_DIR"
   mkdir -p "$NEW_RELEASE_DIR"
   git archive "$NEW_SHA" | tar -x -C "$NEW_RELEASE_DIR"
+
+  # ZIP/upload dari Windows dapat menyimpan CRLF di blob Git. Shell Linux
+  # memerlukan LF pada shebang, jadi normalkan semua deploy script di release.
+  if [ -d "$NEW_RELEASE_DIR/deploy" ]; then
+    while IFS= read -r -d '' shell_file; do
+      sed -i 's/\r$//' "$shell_file"
+    done < <(find "$NEW_RELEASE_DIR/deploy" -type f -name '*.sh' -print0)
+  fi
+
   mkdir -p "$NEW_RELEASE_DIR/public"
   if [ ! -e "$NEW_RELEASE_DIR/public/storage" ]; then
     ln -s /var/www/html/storage/app/public "$NEW_RELEASE_DIR/public/storage"
@@ -202,6 +211,8 @@ create_release
 
 install -m 0644 "$NEW_RELEASE_DIR/deploy/docker-compose.yml" "$STACK_DIR/docker-compose.yml"
 install -m 0644 "$NEW_RELEASE_DIR/deploy/Caddyfile" "$STACK_DIR/Caddyfile"
+# File sudah dinormalkan oleh create_release(). Tetap gunakan install agar
+# permission executable dan penggantian deployer berlangsung atomik.
 install -m 0755 "$NEW_RELEASE_DIR/deploy/kodeotp-update.sh" /usr/local/bin/kodeotp-update
 
 OLD_RELEASE_DIR="$(read_env_value KODEOTP_RELEASE_DIR "$STACK_ENV")"

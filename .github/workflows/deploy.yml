@@ -32,6 +32,7 @@ jobs:
             # Dengan begitu deployer dapat membandingkan commit sukses terakhir
             # dan hanya mengerjakan bagian yang benar-benar berubah.
             git show "origin/${{ github.ref_name }}:deploy/kodeotp-update.sh" \
+              | tr -d '\r' \
               > /usr/local/bin/kodeotp-update
             chmod 0755 /usr/local/bin/kodeotp-update
 

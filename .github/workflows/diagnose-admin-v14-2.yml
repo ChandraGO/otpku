@@ -23,6 +23,8 @@ jobs:
             set -euo pipefail
             cd /opt/kodeotp/app
             git fetch --prune origin master
-            git reset --hard origin/master
-            chmod +x deploy/diagnose-admin-v14-2.sh
-            STACK_DIR=/opt/kodeotp bash deploy/diagnose-admin-v14-2.sh
+            git show "origin/master:deploy/diagnose-admin-v14-2.sh" \
+              | tr -d '\r' \
+              > /tmp/kodeotp-diagnose-admin-v14-2.sh
+            chmod 0755 /tmp/kodeotp-diagnose-admin-v14-2.sh
+            STACK_DIR=/opt/kodeotp bash /tmp/kodeotp-diagnose-admin-v14-2.sh
