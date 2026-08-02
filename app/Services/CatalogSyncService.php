@@ -79,6 +79,7 @@ class CatalogSyncService
                         'flag_url' => $this->nullableString(
                             $this->first($row, [
                                 'flagUrl',
+                                'imageUrl',
                                 'flag',
                                 'image',
                                 'icon',
@@ -108,14 +109,14 @@ class CatalogSyncService
                     continue;
                 }
 
-                $name = (string) (
+                $name = trim((string) (
                     $this->first($row, [
                         'name',
                         'serviceName',
                         'label',
                         'title',
                     ]) ?: $id
-                );
+                ));
 
                 SmsService::query()->updateOrCreate(
                     ['provider_id' => $id],
@@ -125,6 +126,7 @@ class CatalogSyncService
                         'icon_url' => $this->nullableString(
                             $this->first($row, [
                                 'iconUrl',
+                                'imageUrl',
                                 'icon',
                                 'image',
                                 'logo',
@@ -152,10 +154,85 @@ class CatalogSyncService
             }
         });
 
-        SmsCountry::query()
+        $priceStats = $this->syncPriceCatalog(
+            onlyCountriesWithoutPrices: false,
+            syncedAt: $now,
+        );
+
+        return [
+            'countryCount' => SmsCountry::query()
+                ->where('is_active', true)
+                ->count(),
+            'serviceCount' => SmsService::query()
+                ->where('is_active', true)
+                ->count(),
+            ...$priceStats,
+        ];
+    }
+
+    /**
+     * Continue only the price stage using countries and services already stored
+     * in the database. When $onlyCountriesWithoutPrices is true, a rerun skips
+     * countries that already have an active catalog row.
+     */
+    public function syncPricesOnly(
+        bool $onlyCountriesWithoutPrices = true,
+    ): array {
+        return $this->syncPriceCatalog(
+            onlyCountriesWithoutPrices: $onlyCountriesWithoutPrices,
+            syncedAt: now(),
+        );
+    }
+
+    public function reprice(): int
+    {
+        $count = 0;
+
+        SmsServicePrice::query()->chunkById(
+            500,
+            function ($prices) use (&$count): void {
+                foreach ($prices as $price) {
+                    $price->update([
+                        'sell_price' => $this->pricing->sellingPrice(
+                            $price->provider_price,
+                        ),
+                    ]);
+
+                    $count++;
+                }
+            },
+        );
+
+        return $count;
+    }
+
+    private function syncPriceCatalog(
+        bool $onlyCountriesWithoutPrices,
+        mixed $syncedAt,
+    ): array {
+        $countriesProcessed = 0;
+        $serviceCountryRows = 0;
+        $priceRowsWritten = 0;
+
+        $countryQuery = SmsCountry::query()
             ->where('is_active', true)
-            ->orderBy('name')
-            ->chunk(20, function ($countries) use ($now): void {
+            ->orderBy('id');
+
+        if ($onlyCountriesWithoutPrices) {
+            $countryQuery->whereDoesntHave(
+                'prices',
+                fn ($query) => $query->where('is_active', true),
+            );
+        }
+
+        $countryQuery->chunkById(
+            10,
+            function ($countries) use (
+                &$countriesProcessed,
+                &$serviceCountryRows,
+                &$priceRowsWritten,
+                $syncedAt,
+            ): void {
                 foreach ($countries as $country) {
                     $rows = $this->paginated(
                         fn (array $query) => $this->client->servicesByCountry(
@@ -165,94 +242,149 @@ class CatalogSyncService
                         ['data', 'services', 'items', 'rows'],
                     );
 
-                    foreach ($rows as $serviceRow) {
-                        if (! is_array($serviceRow)) {
-                            continue;
-                        }
-
-                        $serviceProviderId = (string) $this->first($serviceRow, [
-                            'id',
-                            'serviceId',
-                            'service.id',
-                            'service.serviceId',
-                            '_id',
-                            'uuid',
-                            'code',
-                        ]);
-
-                        $serviceName = (string) (
-                            $this->first($serviceRow, [
-                                'name',
-                                'serviceName',
-                                'service.name',
-                                'service.serviceName',
-                                'label',
-                                'title',
-                            ]) ?: $serviceProviderId
-                        );
-
-                        if ($serviceProviderId === '' && $serviceName === '') {
-                            continue;
-                        }
-
-                        $service = SmsService::query()->updateOrCreate(
-                            [
-                                'provider_id' => $serviceProviderId !== ''
-                                    ? $serviceProviderId
-                                    : hash('sha256', $serviceName),
-                            ],
-                            [
-                                'name' => $serviceName ?: 'Layanan',
-                                'slug' => Str::slug($serviceName ?: 'layanan'),
-                                'is_active' => true,
-                                'provider_payload' => $serviceRow,
-                                'synced_at' => $now,
-                            ],
-                        );
-
-                        $priceRows = $this->priceRows($serviceRow);
-
-                        foreach ($priceRows as $priceRow) {
-                            if (! is_array($priceRow)) {
+                    DB::transaction(function () use (
+                        $country,
+                        $rows,
+                        &$serviceCountryRows,
+                        &$priceRowsWritten,
+                        $syncedAt,
+                    ): void {
+                        foreach ($rows as $serviceRow) {
+                            if (! is_array($serviceRow)) {
                                 continue;
                             }
 
-                            $providerPriceId = (string) $this->first($priceRow, [
-                                'serviceCountryPriceId',
-                                'serviceCountryPrice.id',
-                                'id',
-                                'priceId',
-                                '_id',
-                                'uuid',
-                            ]);
-
-                            $providerPrice = $this->numericOrNull(
-                                $this->first($priceRow, [
-                                    'price',
-                                    'amount',
-                                    'cost',
-                                    'providerPrice',
-                                    'basePrice',
-                                    'serviceCountryPrice.price',
-                                ]),
+                            $serviceProviderId = (string) $this->first(
+                                $serviceRow,
+                                [
+                                    'id',
+                                    'serviceId',
+                                    'service.id',
+                                    'service.serviceId',
+                                    '_id',
+                                    'uuid',
+                                    'code',
+                                ],
                             );
 
-                            if ($providerPriceId === '' || $providerPrice === null) {
+                            $serviceName = trim((string) (
+                                $this->first($serviceRow, [
+                                    'name',
+                                    'serviceName',
+                                    'service.name',
+                                    'service.serviceName',
+                                    'label',
+                                    'title',
+                                ]) ?: $serviceProviderId
+                            ));
+
+                            if (
+                                $serviceProviderId === ''
+                                && $serviceName === ''
+                            ) {
                                 continue;
                             }
+
+                            $service = SmsService::query()->updateOrCreate(
+                                [
+                                    'provider_id' => $serviceProviderId !== ''
+                                        ? $serviceProviderId
+                                        : hash('sha256', $serviceName),
+                                ],
+                                [
+                                    'name' => $serviceName ?: 'Layanan',
+                                    'slug' => Str::slug(
+                                        $serviceName ?: 'layanan',
+                                    ),
+                                    'icon_url' => $this->nullableString(
+                                        $this->first($serviceRow, [
+                                            'iconUrl',
+                                            'imageUrl',
+                                            'icon',
+                                            'image',
+                                            'logo',
+                                        ]),
+                                    ),
+                                    'is_active' => $this->activeValue(
+                                        $serviceRow,
+                                    ),
+                                    'provider_payload' => $serviceRow,
+                                    'synced_at' => $syncedAt,
+                                ],
+                            );
+
+                            $candidate = $this->selectPriceCandidate(
+                                $serviceRow,
+                            );
+
+                            if ($candidate === null) {
+                                continue;
+                            }
+
+                            $priceRow = $candidate['row'];
+                            $providerPriceId = $candidate['id'];
+                            $providerPrice = $candidate['amount'];
+                            $candidateCount = $candidate['candidate_count'];
+
+                            $explicitStock = $this->first(
+                                $priceRow,
+                                [
+                                    'stock',
+                                    'stocks',
+                                    'available',
+                                    'quantity',
+                                    'totalStock',
+                                    'stockCount',
+                                ],
+                            );
+
+                            if ($explicitStock === null) {
+                                $explicitStock = $this->first(
+                                    $serviceRow,
+                                    [
+                                        'stock',
+                                        'stocks',
+                                        'available',
+                                        'quantity',
+                                        'totalStock',
+                                        'stockCount',
+                                    ],
+                                );
+                            }
+
+                            $active = $this->activeValue($serviceRow)
+                                && $this->activeValue($priceRow);
+
+                            $stock = $explicitStock !== null
+                                ? max(0, (int) $explicitStock)
+                                : ($active ? max(1, $candidateCount) : 0);
+
+                            SmsServicePrice::query()
+                                ->where('sms_country_id', $country->id)
+                                ->where('sms_service_id', $service->id)
+                                ->where(
+                                    'provider_price_id',
+                                    '!=',
+                                    $providerPriceId,
+                                )
+                                ->update([
+                                    'is_active' => false,
+                                    'stock' => 0,
+                                ]);
 
                             SmsServicePrice::query()->updateOrCreate(
                                 ['provider_price_id' => $providerPriceId],
                                 [
                                     'sms_country_id' => $country->id,
                                     'sms_service_id' => $service->id,
-                                    'provider_operator_id' => $this->nullableString(
-                                        $this->first($priceRow, [
-                                            'operatorId',
-                                            'providerOperatorId',
-                                            'operator.id',
-                                        ]),
-                                    ),
+                                    'provider_operator_id' => $this
+                                        ->nullableString(
+                                            $this->first($priceRow, [
+                                                'operatorId',
+                                                'providerOperatorId',
+                                                'operator.id',
+                                            ]),
+                                        ),
                                     'operator_name' => $this->nullableString(
                                         $this->first($priceRow, [
                                             'operatorName',
@@ -262,49 +394,75 @@ class CatalogSyncService
                                         ]),
                                     ),
                                     'provider_price' => $providerPrice,
-                                    'sell_price' => $this->pricing->sellingPrice($providerPrice),
-                                    'stock' => max(
-                                        0,
-                                        (int) (
-                                            $this->first($priceRow, [
-                                                'stock',
-                                                'stocks',
-                                                'available',
-                                                'quantity',
-                                                'totalStock',
-                                                'stockCount',
-                                            ]) ?? 0
-                                        ),
-                                    ),
+                                    'sell_price' => $this->pricing
+                                        ->sellingPrice($providerPrice),
+                                    'stock' => $stock,
                                     'success_rate' => $this->numericOrNull(
                                         $this->first($priceRow, [
                                             'successRate',
                                             'success_rate',
                                             'rate',
                                             'successPercentage',
-                                        ]),
+                                        ]) ?? $this->first(
+                                            $serviceRow,
+                                            [
+                                                'successRate',
+                                                'success_rate',
+                                                'rate',
+                                                'successPercentage',
+                                            ],
+                                        ),
                                     ),
-                                    'is_active' => $this->activeValue($priceRow),
+                                    'is_active' => $active,
                                     'provider_payload' => [
                                         'service' => $serviceRow,
-                                        'price' => $priceRow,
+                                        'selected_price' => $priceRow,
+                                        'candidate_count' => $candidateCount,
                                     ],
-                                    'synced_at' => $now,
+                                    'synced_at' => $syncedAt,
                                 ],
                             );
-                        }
-                    }
-                }
-            });
 
-        SmsServicePrice::query()
-            ->where('synced_at', '<', $now->copy()->subDay())
-            ->update(['is_active' => false]);
+                            $amounts = array_column(
+                                $candidate['all_candidates'],
+                                'amount',
+                            );
+
+                            $service->update([
+                                'min_provider_price' => min($amounts),
+                                'max_provider_price' => max($amounts),
+                                'is_active' => $active,
+                                'synced_at' => $syncedAt,
+                            ]);
+
+                            $serviceCountryRows++;
+                            $priceRowsWritten++;
+                        }
+
+                        SmsServicePrice::query()
+                            ->where('sms_country_id', $country->id)
+                            ->where(function ($query) use ($syncedAt): void {
+                                $query->whereNull('synced_at')
+                                    ->orWhere('synced_at', '<', $syncedAt);
+                            })
+                            ->update([
+                                'is_active' => false,
+                                'stock' => 0,
+                            ]);
+                    });
+
+                    $countriesProcessed++;
+                }
+            },
+        );
 
         return [
-            'countryCount' => SmsCountry::query()->where('is_active', true)->count(),
-            'serviceCount' => SmsService::query()->where('is_active', true)->count(),
-            'priceCount' => SmsServicePrice::query()->where('is_active', true)->count(),
+            'countriesProcessed' => $countriesProcessed,
+            'serviceCountryRows' => $serviceCountryRows,
+            'priceRowsWritten' => $priceRowsWritten,
+            'priceCount' => SmsServicePrice::query()
+                ->where('is_active', true)
+                ->count(),
             'availablePriceCount' => SmsServicePrice::query()
                 ->where('is_active', true)
                 ->where('stock', '>', 0)
@@ -312,21 +470,81 @@ class CatalogSyncService
         ];
     }
 
-    public function reprice(): int
-    {
-        $count = 0;
+    /**
+     * The provider returns a service-country row with a nested prices[] array.
+     * Each nested entry has its own orderable ID and sellPrice/promoPrice.
+     * Keep one active catalog record per service-country and select the lowest
+     * currently orderable price ID.
+     */
+    private function selectPriceCandidate(
+        array $serviceRow,
+    ): ?array {
+        $valid = [];
 
-        SmsServicePrice::query()->chunkById(500, function ($prices) use (&$count): void {
-            foreach ($prices as $price) {
-                $price->update([
-                    'sell_price' => $this->pricing->sellingPrice($price->provider_price),
-                ]);
-
-                $count++;
+        foreach ($this->priceRows($serviceRow) as $priceRow) {
+            if (! is_array($priceRow)) {
+                continue;
             }
-        });
 
-        return $count;
+            $id = (string) $this->first($priceRow, [
+                'serviceCountryPriceId',
+                'serviceCountryPrice.id',
+                'id',
+                'priceId',
+                '_id',
+                'uuid',
+            ]);
+
+            $amount = $this->numericOrNull(
+                $this->first($priceRow, [
+                    'promoPrice',
+                    'sellPrice',
+                    'price',
+                    'amount',
+                    'cost',
+                    'providerPrice',
+                    'basePrice',
+                    'serviceCountryPrice.price',
+                ]),
+            );
+
+            if ($amount === null) {
+                $amount = $this->numericOrNull(
+                    $this->first($serviceRow, [
+                        'retailSellPrice',
+                        'sellPrice',
+                        'price',
+                        'amount',
+                    ]),
+                );
+            }
+
+            if ($id === '' || $amount === null || $amount <= 0) {
+                continue;
+            }
+
+            $valid[] = [
+                'id' => $id,
+                'amount' => $amount,
+                'row' => $priceRow,
+            ];
+        }
+
+        if ($valid === []) {
+            return null;
+        }
+
+        usort(
+            $valid,
+            fn (array $left, array $right): int => $left['amount']
+                <=> $right['amount'],
+        );
+
+        return [
+            ...$valid[0],
+            'candidate_count' => count($valid),
+            'all_candidates' => $valid,
+        ];
     }
 
     private function paginated(
@@ -408,6 +626,7 @@ class CatalogSyncService
     private function activeValue(array $row): bool
     {
         $value = $this->first($row, [
+            'isActiveServiceCountry',
             'isActive',
             'active',
             'is_available',
@@ -436,11 +655,15 @@ class CatalogSyncService
 
     private function nullableString(mixed $value): ?string
     {
-        return $value === null || $value === '' ? null : (string) $value;
+        return $value === null || $value === ''
+            ? null
+            : (string) $value;
     }
 
     private function numericOrNull(mixed $value): ?float
     {
-        return is_numeric($value) ? (float) $value : null;
+        return is_numeric($value)
+            ? (float) $value
+            : null;
     }
 }
