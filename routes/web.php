@@ -52,6 +52,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/layanan', [CatalogController::class, 'index'])->name('services.index');
+    Route::get('/layanan/{service}', [CatalogController::class, 'show'])->name('services.show');
     Route::get('/pesanan', [OtpOrderController::class, 'index'])->name('orders.index');
     Route::post('/pesanan', [OtpOrderController::class, 'store'])->middleware('throttle:orders')->name('orders.store');
     Route::get('/pesanan/{order}', [OtpOrderController::class, 'show'])->name('orders.show');
@@ -63,6 +64,8 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
     Route::get('/top-up/{topup}/status', [TopupController::class, 'status'])->middleware('throttle:30,1')->name('topups.status');
     Route::get('/mutasi', [WalletController::class, 'index'])->name('wallet.index');
     Route::get('/pengumuman', [AnnouncementController::class, 'index'])->name('announcements.index');
+    Route::view('/api-docs', 'user.api-docs')->name('api.docs');
+    Route::view('/bantuan', 'user.support')->name('support.index');
     Route::get('/profil', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profil', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profil/password', [ProfileController::class, 'password'])->name('profile.password');

@@ -22,8 +22,19 @@ class SettingsController extends Controller
     public function index(Request $request, Settings $settings): View
     {
         $tab = $request->string('tab', 'site')->toString();
+        $tabs = [
+            'site',
+            'auth',
+            'orders',
+            'pricing',
+            'topup',
+            'sms_virtual',
+            'pakasir',
+            'mail',
+            'security',
+        ];
 
-        if (! in_array($tab, ['site', 'auth', 'orders', 'pricing', 'topup', 'sms_virtual', 'pakasir', 'mail', 'security'], true)) {
+        if (! in_array($tab, $tabs, true)) {
             $tab = 'site';
         }
 
@@ -40,7 +51,20 @@ class SettingsController extends Controller
         MailSettingsConfigurator $mailConfigurator,
     ): RedirectResponse {
         $group = $request->validate([
-            'group' => ['required', Rule::in(['site', 'auth', 'orders', 'pricing', 'topup', 'sms_virtual', 'pakasir', 'mail', 'security'])],
+            'group' => [
+                'required',
+                Rule::in([
+                    'site',
+                    'auth',
+                    'orders',
+                    'pricing',
+                    'topup',
+                    'sms_virtual',
+                    'pakasir',
+                    'mail',
+                    'security',
+                ]),
+            ],
         ])['group'];
 
         $data = $request->validate($this->rules($group));
@@ -75,18 +99,33 @@ class SettingsController extends Controller
             'keys' => array_keys($mapped),
         ]);
 
-        return back()->with('success', 'Pengaturan berhasil disimpan dan langsung diterapkan.');
+        return back()->with(
+            'success',
+            'Pengaturan berhasil disimpan dan langsung diterapkan.',
+        );
     }
 
-    public function testSms(SmsVirtualClient $client): RedirectResponse
-    {
+    public function testSms(
+        SmsVirtualClient $client,
+        Settings $settings,
+    ): RedirectResponse {
         try {
             $balance = $client->balance();
-            $value = $balance['balance'] ?? $balance['data']['balance'] ?? $balance['data'] ?? '-';
+            $value = $balance['balance']
+                ?? data_get($balance, 'data.balance')
+                ?? $balance['data']
+                ?? null;
+            $unitToIdr = max(
+                0.0001,
+                (float) $settings->get('sms_virtual.balance_unit_to_idr', 1),
+            );
+            $formatted = is_numeric($value)
+                ? 'Rp '.number_format((float) $value * $unitToIdr, 0, ',', '.')
+                : json_encode($value);
 
             return back()->with(
                 'success',
-                'Koneksi SMS Virtual berhasil. Balance provider: '.json_encode($value),
+                'Koneksi SMS Virtual berhasil. Saldo provider setara '.$formatted.'.',
             );
         } catch (Throwable $e) {
             return back()->withErrors(['settings' => $e->getMessage()]);
@@ -182,6 +221,9 @@ class SettingsController extends Controller
                 'base_url' => ['required', 'url'],
                 'api_key' => ['nullable', 'string', 'max:500'],
                 'timeout' => ['required', 'integer', 'min:5', 'max:120'],
+                'balance_unit_to_idr' => ['required', 'numeric', 'min:0.0001', 'max:1000000'],
+                'low_balance_threshold' => ['required', 'numeric', 'min:0', 'max:1000000000000'],
+                'reserve_buffer_percent' => ['required', 'numeric', 'min:0', 'max:500'],
             ],
             'pakasir' => [
                 'base_url' => ['required', 'url'],
