@@ -4,7 +4,7 @@
 <div x-data="{ filters: {{ request()->hasAny(['country','sort','stock']) ? 'true' : 'false' }} }">
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-            <span class="badge bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">SMS Virtual Catalog</span>
+            <span class="badge bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Katalog Layanan</span>
             <h1 class="section-title mt-4">List Services</h1>
             <p class="section-copy">Cari aplikasi, bandingkan rentang harga, lalu pilih negara dan nomor yang tersedia.</p>
         </div>

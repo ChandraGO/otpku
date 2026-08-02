@@ -24,7 +24,7 @@
                 <a href="{{ route('pricing') }}" class="btn-secondary">Lihat harga</a>
             </div>
             <div class="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
-                <span class="inline-flex items-center gap-2"><span class="grid size-6 place-items-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-400/10"><x-icon name="check" size="size-4" /></span> API key tetap server-side</span>
+                <span class="inline-flex items-center gap-2"><span class="grid size-6 place-items-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-400/10"><x-icon name="check" size="size-4" /></span> Akses aman dan praktis</span>
                 <span class="inline-flex items-center gap-2"><span class="grid size-6 place-items-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-400/10"><x-icon name="check" size="size-4" /></span> Saldo dalam Rupiah</span>
                 <span class="inline-flex items-center gap-2"><span class="grid size-6 place-items-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-400/10"><x-icon name="check" size="size-4" /></span> Status pesanan real-time</span>
             </div>
@@ -57,13 +57,13 @@
     <div class="mx-auto max-w-3xl text-center">
         <span class="badge bg-cyan-100 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300">Summary of key metrics and insights</span>
         <h2 class="section-title mt-5">Dirancang untuk transaksi OTP yang sederhana dan transparan</h2>
-        <p class="section-copy mx-auto">Tidak ada request provider dari browser. Pengguna cukup memilih layanan, membayar dari saldo internal, lalu memantau OTP dari dashboard.</p>
+        <p class="section-copy mx-auto">Pilih layanan, selesaikan pembayaran dari saldo, lalu pantau kode OTP pada satu dashboard.</p>
     </div>
     <div class="mt-10 grid gap-5 md:grid-cols-3">
         <article class="card p-7">
             <span class="grid size-12 place-items-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><x-icon name="wallet" size="size-6" /></span>
             <h3 class="mt-5 text-xl font-black">Transparent Pricing</h3>
-            <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">Harga jual dalam Rupiah mengikuti aturan markup administrator. Pengguna melihat nominal yang sama saat order dan top up.</p>
+            <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">Harga ditampilkan jelas dalam Rupiah sebelum pesanan dibuat.</p>
         </article>
         <article class="card p-7">
             <span class="grid size-12 place-items-center rounded-2xl bg-cyan-100 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300"><x-icon name="bolt" size="size-6" /></span>
@@ -73,7 +73,7 @@
         <article class="card p-7">
             <span class="grid size-12 place-items-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"><x-icon name="shield" size="size-6" /></span>
             <h3 class="mt-5 text-xl font-black">Secure by Default</h3>
-            <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">API key provider dienkripsi dan hanya digunakan backend. Request sensitif tidak pernah dikirim dari JavaScript.</p>
+            <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">Akun dan transaksi dilindungi dengan proses keamanan yang terintegrasi.</p>
         </article>
     </div>
 </section>
@@ -100,7 +100,7 @@
                     <x-icon name="chevron-right" class="text-slate-400" />
                 </a>
             @empty
-                <div class="card col-span-full p-10 text-center text-sm text-slate-500">Katalog akan tampil setelah admin menjalankan sinkronisasi SMS Virtual.</div>
+                <div class="card col-span-full p-10 text-center text-sm text-slate-500">Katalog layanan belum tersedia.</div>
             @endforelse
         </div>
     </div>
@@ -110,7 +110,7 @@
     <div class="grid gap-8 lg:grid-cols-3">
         @foreach([
             ['1', 'Pilih layanan', 'Cari aplikasi, pilih negara, bandingkan harga, lalu lihat stok yang tersedia.'],
-            ['2', 'Bayar dari saldo', 'Saldo internal dalam Rupiah dipotong satu kali dengan perlindungan idempotensi.'],
+            ['2', 'Bayar dari saldo', 'Saldo Rupiah digunakan untuk menyelesaikan pesanan.'],
             ['3', 'Terima OTP', 'Pantau nomor, pesan, kode OTP, status, dan waktu kedaluwarsa dari halaman order.'],
         ] as $step)
             <article class="card p-7">

@@ -12,6 +12,7 @@ use App\Services\SmsVirtualClient;
 use App\Support\Settings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -94,6 +95,10 @@ class SettingsController extends Controller
             $mailConfigurator->configure(true);
         }
 
+        if ($group === 'sms_virtual') {
+            Cache::forget('sms-virtual:provider-balance:v2');
+        }
+
         $audit->record('settings.update', 'settings', [], [
             'group' => $group,
             'keys' => array_keys($mapped),
@@ -110,7 +115,13 @@ class SettingsController extends Controller
         Settings $settings,
     ): RedirectResponse {
         try {
+            Cache::forget('sms-virtual:provider-balance:v2');
             $balance = $client->balance();
+            Cache::put(
+                'sms-virtual:provider-balance:v2',
+                $balance,
+                now()->addSeconds(30),
+            );
             $value = $balance['balance']
                 ?? data_get($balance, 'data.balance')
                 ?? $balance['data']

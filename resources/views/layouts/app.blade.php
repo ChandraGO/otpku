@@ -137,11 +137,11 @@
                     <div class="flex items-center gap-3 rounded-3xl border border-violet-200 bg-white px-4 py-2.5 shadow-sm dark:border-violet-400/20 dark:bg-white/5">
                         <span class="grid size-9 place-items-center rounded-full bg-amber-400 font-black text-white">Rp</span>
                         <div>
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Balance</div>
-                            <div class="font-black">Rp {{ number_format((float) auth()->user()->balance, 0, ',', '.') }}</div>
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ $headerBalanceLabel ?? 'Balance' }}</div>
+                            <div class="font-black">@if($headerBalanceAvailable ?? true) Rp {{ number_format((float) ($headerBalance ?? auth()->user()->balance), 0, ',', '.') }} @else — @endif</div>
                         </div>
                     </div>
-                    <a href="{{ route('topups.index') }}" class="btn-primary"><x-icon name="topup" size="size-4" /> Top Up</a>
+                    <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="btn-primary" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif><x-icon name="topup" size="size-4" /> {{ $headerTopupLabel ?? 'Top Up' }}</a>
                     <button type="button" @click="$store.theme.toggle()" class="btn-secondary !p-3" aria-label="Ganti tema">
                         <x-icon x-show="$store.theme.current === 'light'" name="moon" />
                         <x-icon x-show="$store.theme.current === 'dark'" x-cloak name="sun" />
@@ -159,9 +159,9 @@
                     <div class="text-xs font-medium text-white/75">Hello, welcome back 👋</div>
                     <div class="truncate text-lg font-black">{{ auth()->user()->name }}</div>
                 </div>
-                <a href="{{ route('topups.index') }}" class="rounded-2xl border border-white/35 bg-white/12 px-3 py-2 text-right backdrop-blur">
-                    <div class="text-[9px] font-bold uppercase tracking-wider text-white/70">Balance</div>
-                    <div class="text-sm font-black">Rp {{ number_format((float) auth()->user()->balance, 0, ',', '.') }}</div>
+                <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="rounded-2xl border border-white/35 bg-white/12 px-3 py-2 text-right backdrop-blur" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif>
+                    <div class="text-[9px] font-bold uppercase tracking-wider text-white/70">{{ $headerBalanceLabel ?? 'Balance' }}</div>
+                    <div class="text-sm font-black">@if($headerBalanceAvailable ?? true) Rp {{ number_format((float) ($headerBalance ?? auth()->user()->balance), 0, ',', '.') }} @else — @endif</div>
                 </a>
             </div>
         </header>

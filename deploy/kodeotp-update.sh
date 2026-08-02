@@ -139,7 +139,9 @@ classify_changes() {
     return 0
   fi
 
-  grep -Eq '^(resources/views/|resources/css/|resources/js/|vite\.config\.js$|package\.json$|package-lock\.json$)' "$CHANGED_FILE" \
+  # Blade/PHP-only changes use existing compiled assets. Rebuild Vite only
+  # when CSS, JavaScript, Vite config, or Node dependencies change.
+  grep -Eq '^(resources/css/|resources/js/|vite\.config\.js$|package\.json$|package-lock\.json$)' "$CHANGED_FILE" \
     && NEEDS_ASSETS=1 || true
 
   grep -Eq '^(app/|bootstrap/|config/|database/|public/|resources/|routes/|artisan$)' "$CHANGED_FILE" \
