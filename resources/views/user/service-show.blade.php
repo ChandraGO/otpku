@@ -12,9 +12,9 @@
             </div>
         </div>
         <div class="grid grid-cols-3 gap-2 sm:min-w-[400px]">
-            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Terendah</div><div class="mt-1 text-sm font-black text-violet-700 dark:text-violet-300">Rp {{ number_format((float) ($summary->lowest_price ?? 0), 0, ',', '.') }}</div></div>
-            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Tertinggi</div><div class="mt-1 text-sm font-black">Rp {{ number_format((float) ($summary->highest_price ?? 0), 0, ',', '.') }}</div></div>
-            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Stok</div><div class="mt-1 text-sm font-black text-emerald-600 dark:text-emerald-300">{{ number_format((int) ($summary->total_stock ?? 0)) }}</div></div>
+            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Lowest</div><div class="mt-1 text-sm font-black text-violet-700 dark:text-violet-300">Rp {{ number_format((float) ($summary->lowest_price ?? 0), 0, ',', '.') }}</div></div>
+            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Highest</div><div class="mt-1 text-sm font-black">Rp {{ number_format((float) ($summary->highest_price ?? 0), 0, ',', '.') }}</div></div>
+            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Stock</div><div class="mt-1 text-sm font-black text-emerald-600 dark:text-emerald-300">{{ number_format((int) ($summary->total_stock ?? 0)) }}</div></div>
         </div>
     </div>
 

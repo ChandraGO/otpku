@@ -236,7 +236,6 @@ class SettingsController extends Controller
             'site' => [
                 'name' => ['required', 'string', 'max:100'],
                 'description' => ['required', 'string', 'max:500'],
-                'support_email' => ['nullable', 'email:rfc', 'max:255'],
                 'support_whatsapp' => ['nullable', 'string', 'max:30'],
             ],
             'auth' => [

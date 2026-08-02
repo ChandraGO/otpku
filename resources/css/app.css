@@ -224,33 +224,3 @@
         text-wrap: balance;
     }
 }
-
-/* KodeOTP v15: kontrol tema dan password yang tidak bergantung pada Alpine. */
-.password-toggle {
-    position: absolute;
-    right: .75rem;
-    top: 50%;
-    display: grid;
-    width: 2.25rem;
-    height: 2.25rem;
-    transform: translateY(-50%);
-    place-items: center;
-    border-radius: .75rem;
-    color: rgb(100 116 139);
-    transition: color .15s ease, background-color .15s ease;
-}
-.password-toggle:hover {
-    color: rgb(109 40 217);
-    background: rgb(139 92 246 / .10);
-}
-html[data-theme='dark'] .theme-icon-light,
-html[data-theme='light'] .theme-icon-dark {
-    display: none;
-}
-html[data-theme='dark'] .theme-icon-dark,
-html[data-theme='light'] .theme-icon-light {
-    display: block;
-}
-[data-live-catalog-form][aria-busy='true'] {
-    opacity: .72;
-}

@@ -4,8 +4,7 @@ return [
     'defaults' => [
         'site.name' => env('APP_NAME', 'KodeOTP'),
         'site.description' => 'Layanan penerimaan kode OTP virtual yang cepat, transparan, dan mudah digunakan.',
-        'site.support_email' => 'haficdh@gmail.com',
-        'site.support_whatsapp' => '6282252509320',
+        'site.support_whatsapp' => '',
         'auth.email_otp_expiry_minutes' => 10,
         'auth.email_otp_resend_seconds' => 60,
         'orders.default_expiry_minutes' => 20,

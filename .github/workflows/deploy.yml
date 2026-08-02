@@ -12,7 +12,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 10
 
     steps:
       - name: Incremental deploy via SSH
@@ -22,15 +22,12 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           port: ${{ secrets.VPS_PORT || 22 }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          command_timeout: 55m
+          command_timeout: 8m
           script: |
             set -euo pipefail
             cd /opt/kodeotp/app
             git fetch --prune origin "${{ github.ref_name }}"
 
-            # Ambil deployer dari commit target sebelum working tree diubah.
-            # Dengan begitu deployer dapat membandingkan commit sukses terakhir
-            # dan hanya mengerjakan bagian yang benar-benar berubah.
             git show "origin/${{ github.ref_name }}:deploy/kodeotp-update.sh" \
               | tr -d '\r' \
               > /usr/local/bin/kodeotp-update

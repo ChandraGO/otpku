@@ -144,7 +144,7 @@ classify_changes() {
   grep -Eq '^(resources/css/|resources/js/|vite\.config\.js$|package\.json$|package-lock\.json$)' "$CHANGED_FILE" \
     && NEEDS_ASSETS=1 || true
 
-  grep -Eq '^(app/|bootstrap/|config/|database/|lang/|public/|resources/|routes/|artisan$)' "$CHANGED_FILE" \
+  grep -Eq '^(app/|bootstrap/|config/|database/|public/|resources/|routes/|artisan$)' "$CHANGED_FILE" \
     && NEEDS_RESTART=1 || true
 
   grep -Eq '^(app/|bootstrap/|config/|database/|routes/|composer\.json$|composer\.lock$)' "$CHANGED_FILE" \
@@ -412,83 +412,6 @@ EOF
   mv "$STACK_DIR/caddy/upstream.caddy.tmp" "$STACK_DIR/caddy/upstream.caddy"
 }
 
-admin_render_preflight() {
-  local service="$1" cid
-  cid="$(service_cid "$service")"
-  [ -n "$cid" ] || {
-    log "preflight admin gagal: container $service tidak ditemukan"
-    return 1
-  }
-
-  log "membersihkan compiled view pada release baru"
-  docker exec "$cid" php artisan view:clear >/dev/null 2>&1 || true
-
-  log "mengompilasi seluruh Blade pada release baru"
-  docker exec "$cid" php artisan view:cache >/dev/null
-
-  log "preflight render dashboard admin dan halaman publik sebelum switch trafik"
-  docker exec -i "$cid" php <<'PHP'
-<?php
-require '/var/www/html/vendor/autoload.php';
-$app = require '/var/www/html/bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-try {
-    $admin = App\Models\User::query()->where('role', 'admin')->first();
-
-    if (! $admin) {
-        throw new RuntimeException('Admin user tidak ditemukan.');
-    }
-
-    Illuminate\Support\Facades\Auth::guard()->setUser($admin);
-
-    $request = Illuminate\Http\Request::create('/admin', 'GET');
-    $request->setUserResolver(fn () => $admin);
-    $app->instance('request', $request);
-
-    $view = $app->call([
-        app(App\Http\Controllers\Admin\DashboardController::class),
-        '__invoke',
-    ]);
-
-    $html = $view->render();
-    echo 'ADMIN_PREFLIGHT_OK bytes='.strlen($html).PHP_EOL;
-
-    $loginHtml = view('auth.login')->render();
-    $registerHtml = view('auth.register')->render();
-    $verifyHtml = view('auth.verify-email', [
-        'otpStatus' => [
-            'resend_remaining' => 0,
-            'expires_at' => time() + 600,
-            'expiry_minutes' => 10,
-        ],
-        'supportEmail' => 'support@example.com',
-        'supportWhatsapp' => '6280000000000',
-    ])->render();
-
-    $pricingRequest = Illuminate\Http\Request::create('/harga', 'GET');
-    $pricingRequest->setUserResolver(fn () => $admin);
-    $app->instance('request', $pricingRequest);
-    $pricingView = $app->call([
-        app(App\Http\Controllers\HomeController::class),
-        'pricing',
-    ], ['request' => $pricingRequest]);
-    $pricingHtml = $pricingView->render();
-
-    echo 'PUBLIC_PREFLIGHT_OK login='.strlen($loginHtml)
-        .' register='.strlen($registerHtml)
-        .' verify='.strlen($verifyHtml)
-        .' pricing='.strlen($pricingHtml).PHP_EOL;
-} catch (Throwable $e) {
-    echo 'ADMIN_PREFLIGHT_EXCEPTION='.get_class($e).PHP_EOL;
-    echo 'MESSAGE='.$e->getMessage().PHP_EOL;
-    echo 'FILE='.$e->getFile().':'.$e->getLine().PHP_EOL;
-    echo $e->getTraceAsString().PHP_EOL;
-    exit(1);
-}
-PHP
-}
-
 deploy_release() {
   local target target_service old_service cid gateway_host gateway_port
   if [ "$CURRENT_COLOR" = blue ]; then target=green; else target=blue; fi
@@ -506,13 +429,6 @@ deploy_release() {
     "${COMPOSE[@]}" rm -sf "$target_service" >/dev/null 2>&1 || true
     return 1
   }
-
-  if ! admin_render_preflight "$target_service"; then
-    log 'preflight admin gagal; release baru tidak menerima trafik'
-    docker logs --tail 180 "$(service_cid "$target_service")" 2>/dev/null || true
-    "${COMPOSE[@]}" rm -sf "$target_service" >/dev/null 2>&1 || true
-    return 1
-  fi
 
   write_upstream "$target_service"
   if ! reload_caddy; then

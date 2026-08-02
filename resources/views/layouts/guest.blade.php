@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-default-theme="dark" data-theme="dark" class="dark">
+<html lang="id" data-default-theme="light">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -16,9 +16,8 @@
     <script>
         (() => {
             try {
-                const key = 'kodeotp.theme';
-                const saved = localStorage.getItem(key) || localStorage.getItem('theme');
-                const theme = ['dark', 'light'].includes(saved) ? saved : 'dark';
+                const saved = localStorage.getItem('theme');
+                const theme = ['dark', 'light'].includes(saved) ? saved : 'light';
                 document.documentElement.classList.toggle('dark', theme === 'dark');
                 document.documentElement.dataset.theme = theme;
                 document.documentElement.style.colorScheme = theme;
@@ -38,14 +37,14 @@
             @auth
                 <a class="btn-primary" href="{{ route('dashboard') }}">Dashboard <x-icon name="arrow-right" size="size-4" /></a>
             @else
-                <a class="btn-secondary" href="{{ route('login') }}">Masuk</a>
+                <a class="btn-secondary" href="{{ route('login') }}">Login</a>
                 <a class="btn-primary" href="{{ route('register') }}">Daftar</a>
             @endauth
         </nav>
         <div class="flex items-center gap-2">
-            <button type="button" data-theme-toggle class="btn-secondary !p-2.5" aria-label="Gunakan tema terang" aria-pressed="true">
-                <x-icon name="moon" class="theme-icon-light" />
-                <x-icon name="sun" class="theme-icon-dark" />
+            <button type="button" @click="$store.theme.toggle()" class="btn-secondary !p-2.5" aria-label="Ganti tema">
+                <x-icon x-show="$store.theme.current === 'light'" name="moon" />
+                <x-icon x-show="$store.theme.current === 'dark'" x-cloak name="sun" />
             </button>
             @guest<a class="btn-primary !px-3 md:hidden" href="{{ route('login') }}">Masuk</a>@endguest
             @auth<a class="btn-primary !px-3 md:hidden" href="{{ route('dashboard') }}">Dashboard</a>@endauth

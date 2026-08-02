@@ -15,8 +15,6 @@ echo '=== PHP SYNTAX ==='
 docker exec "$CID" php -l app/Providers/AppServiceProvider.php
 docker exec "$CID" php -l app/Http/Controllers/Admin/DashboardController.php
 docker exec "$CID" php -l app/Http/Controllers/Admin/SettingsController.php
-echo '=== VIEW CACHE CLEAR ==='
-docker exec "$CID" php artisan view:clear || true
 echo '=== AUTHENTICATED ADMIN RENDER TEST ==='
 docker exec -i "$CID" php <<'PHP'
 <?php

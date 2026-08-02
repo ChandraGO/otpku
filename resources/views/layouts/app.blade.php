@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-default-theme="dark" data-theme="dark" class="dark">
+<html lang="id" data-default-theme="{{ auth()->user()->theme ?? 'light' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -10,9 +10,9 @@
     <script>
         (() => {
             try {
-                const key = 'kodeotp.theme';
-                const saved = localStorage.getItem(key) || localStorage.getItem('theme');
-                const theme = ['dark', 'light'].includes(saved) ? saved : 'dark';
+                const saved = localStorage.getItem('theme');
+                const fallback = document.documentElement.dataset.defaultTheme || 'light';
+                const theme = ['dark', 'light'].includes(saved) ? saved : fallback;
                 document.documentElement.classList.toggle('dark', theme === 'dark');
                 document.documentElement.dataset.theme = theme;
                 document.documentElement.style.colorScheme = theme;
@@ -42,70 +42,70 @@
         </div>
 
         <nav class="scrollbar-thin mt-7 flex-1 overflow-y-auto pr-1">
-            <div class="nav-group-label">Beranda</div>
+            <div class="nav-group-label">Home</div>
             <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'nav-link-active' : '' }}">
                 <x-icon name="home" /><span>Dashboard</span>
             </a>
             <a href="{{ route('services.index') }}" class="nav-link {{ request()->routeIs('services.*') ? 'nav-link-active' : '' }}">
-                <x-icon name="services" /><span>Daftar Layanan</span>
+                <x-icon name="services" /><span>List Services</span>
             </a>
 
-            <div class="nav-group-label">Transaksi</div>
+            <div class="nav-group-label">Transaction</div>
             <a href="{{ route('orders.index') }}" class="nav-link {{ request()->routeIs('orders.*') ? 'nav-link-active' : '' }}">
-                <x-icon name="orders" /><span>Pesanan dan Riwayat</span>
+                <x-icon name="orders" /><span>Order & History</span>
             </a>
             <a href="{{ route('wallet.index') }}" class="nav-link {{ request()->routeIs('wallet.*') ? 'nav-link-active' : '' }}">
-                <x-icon name="wallet" /><span>Mutasi Saldo</span>
+                <x-icon name="wallet" /><span>Balance Mutation</span>
             </a>
 
-            <div class="nav-group-label">Saldo</div>
+            <div class="nav-group-label">Deposit</div>
             <a href="{{ route('topups.index') }}" class="nav-link {{ request()->routeIs('topups.*') ? 'nav-link-active' : '' }}">
-                <x-icon name="topup" /><span>Isi Saldo</span>
+                <x-icon name="topup" /><span>Top Up Deposit</span>
             </a>
 
             <div class="nav-group-label">API</div>
             <a href="{{ route('api.docs') }}" class="nav-link {{ request()->routeIs('api.docs') ? 'nav-link-active' : '' }}">
-                <x-icon name="api" /><span>Dokumentasi API</span>
+                <x-icon name="api" /><span>API Docs</span>
             </a>
 
-            <div class="nav-group-label">Bantuan</div>
+            <div class="nav-group-label">Tickets</div>
             <a href="{{ route('support.index') }}" class="nav-link {{ request()->routeIs('support.*') ? 'nav-link-active' : '' }}">
-                <x-icon name="ticket" /><span>Tiket dan Dukungan</span>
+                <x-icon name="ticket" /><span>Tickets & Support</span>
             </a>
 
-            <div class="nav-group-label">Profil</div>
+            <div class="nav-group-label">Profile</div>
             <a href="{{ route('profile.edit') }}" class="nav-link {{ request()->routeIs('profile.*') ? 'nav-link-active' : '' }}">
-                <x-icon name="user" /><span>Pengaturan Akun</span>
+                <x-icon name="user" /><span>Account Settings</span>
             </a>
             <a href="{{ route('announcements.index') }}" class="nav-link {{ request()->routeIs('announcements.*') ? 'nav-link-active' : '' }}">
-                <x-icon name="announcement" /><span>Pengumuman</span>
+                <x-icon name="announcement" /><span>Announcements</span>
             </a>
 
             @if(auth()->user()->isAdmin())
                 <div class="nav-group-label">Administrator</div>
                 <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'nav-link-active' : '' }}">
-                    <x-icon name="chart" /><span>Ringkasan Operasional</span>
+                    <x-icon name="chart" /><span>Operational Summary</span>
                 </a>
                 <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.*') ? 'nav-link-active' : '' }}">
-                    <x-icon name="users" /><span>Pengguna dan Saldo</span>
+                    <x-icon name="users" /><span>Users & Balance</span>
                 </a>
                 <a href="{{ route('admin.orders.index') }}" class="nav-link {{ request()->routeIs('admin.orders.*') ? 'nav-link-active' : '' }}">
-                    <x-icon name="orders" /><span>Semua Pesanan</span>
+                    <x-icon name="orders" /><span>All Orders</span>
                 </a>
                 <a href="{{ route('admin.topups.index') }}" class="nav-link {{ request()->routeIs('admin.topups.*') ? 'nav-link-active' : '' }}">
-                    <x-icon name="topup" /><span>Pembayaran</span>
+                    <x-icon name="topup" /><span>Payments</span>
                 </a>
                 <a href="{{ route('admin.announcements.index') }}" class="nav-link {{ request()->routeIs('admin.announcements.*') ? 'nav-link-active' : '' }}">
-                    <x-icon name="announcement" /><span>Kelola Pengumuman</span>
+                    <x-icon name="announcement" /><span>Manage Announcements</span>
                 </a>
                 <a href="{{ route('admin.reports.index') }}" class="nav-link {{ request()->routeIs('admin.reports.*') ? 'nav-link-active' : '' }}">
-                    <x-icon name="chart" /><span>Laporan</span>
+                    <x-icon name="chart" /><span>Reports</span>
                 </a>
                 <a href="{{ route('admin.backups.index') }}" class="nav-link {{ request()->routeIs('admin.backups.*') ? 'nav-link-active' : '' }}">
-                    <x-icon name="database" /><span>Cadangan Database</span>
+                    <x-icon name="database" /><span>Database Backup</span>
                 </a>
                 <a href="{{ route('admin.settings.index') }}" class="nav-link {{ request()->routeIs('admin.settings.*') ? 'nav-link-active' : '' }}">
-                    <x-icon name="settings" /><span>Pengaturan Sistem</span>
+                    <x-icon name="settings" /><span>System Settings</span>
                 </a>
             @endif
         </nav>
@@ -121,7 +121,7 @@
                 </div>
             </div>
             <form action="{{ route('logout') }}" method="post" class="mt-3">@csrf
-                <button class="btn-secondary w-full"><x-icon name="logout" size="size-4" /> Keluar</button>
+                <button class="btn-secondary w-full"><x-icon name="logout" size="size-4" /> Logout</button>
             </form>
         </div>
     </aside>
@@ -130,21 +130,21 @@
         <header class="sticky top-0 z-30 hidden border-b border-slate-200/80 bg-slate-50/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85 lg:block">
             <div class="flex h-20 items-center justify-between px-8">
                 <div>
-                    <div class="text-xs font-semibold uppercase tracking-[.18em] text-slate-400">Selamat datang kembali 👋</div>
+                    <div class="text-xs font-semibold uppercase tracking-[.18em] text-slate-400">Hello, welcome back 👋</div>
                     <div class="mt-1 text-lg font-black">{{ auth()->user()->name }}</div>
                 </div>
                 <div class="flex items-center gap-3">
                     <div class="flex items-center gap-3 rounded-3xl border border-violet-200 bg-white px-4 py-2.5 shadow-sm dark:border-violet-400/20 dark:bg-white/5">
                         <span class="grid size-9 place-items-center rounded-full bg-amber-400 font-black text-white">Rp</span>
                         <div>
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ $headerBalanceLabel ?? 'Saldo' }}</div>
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ $headerBalanceLabel ?? 'Balance' }}</div>
                             <div class="font-black">@if($headerBalanceAvailable ?? true) Rp {{ number_format((float) ($headerBalance ?? auth()->user()->balance), 0, ',', '.') }} @else — @endif</div>
                         </div>
                     </div>
-                    <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="btn-primary" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif><x-icon name="topup" size="size-4" /> {{ $headerTopupLabel ?? 'Isi Saldo' }}</a>
-                    <button type="button" data-theme-toggle class="btn-secondary !p-3" aria-label="Gunakan tema terang" aria-pressed="true">
-                        <x-icon name="moon" class="theme-icon-light" />
-                        <x-icon name="sun" class="theme-icon-dark" />
+                    <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="btn-primary" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif><x-icon name="topup" size="size-4" /> {{ $headerTopupLabel ?? 'Top Up' }}</a>
+                    <button type="button" @click="$store.theme.toggle()" class="btn-secondary !p-3" aria-label="Ganti tema">
+                        <x-icon x-show="$store.theme.current === 'light'" name="moon" />
+                        <x-icon x-show="$store.theme.current === 'dark'" x-cloak name="sun" />
                     </button>
                 </div>
             </div>
@@ -156,15 +156,11 @@
                     <x-icon name="menu" size="size-6" />
                 </button>
                 <div class="min-w-0 flex-1">
-                    <div class="text-xs font-medium text-white/75">Selamat datang kembali 👋</div>
+                    <div class="text-xs font-medium text-white/75">Hello, welcome back 👋</div>
                     <div class="truncate text-lg font-black">{{ auth()->user()->name }}</div>
                 </div>
-                <button type="button" data-theme-toggle class="grid size-10 shrink-0 place-items-center rounded-2xl bg-white/15" aria-label="Gunakan tema terang" aria-pressed="true">
-                    <x-icon name="moon" class="theme-icon-light" />
-                    <x-icon name="sun" class="theme-icon-dark" />
-                </button>
                 <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="rounded-2xl border border-white/35 bg-white/12 px-3 py-2 text-right backdrop-blur" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif>
-                    <div class="text-[9px] font-bold uppercase tracking-wider text-white/70">{{ $headerBalanceLabel ?? 'Saldo' }}</div>
+                    <div class="text-[9px] font-bold uppercase tracking-wider text-white/70">{{ $headerBalanceLabel ?? 'Balance' }}</div>
                     <div class="text-sm font-black">@if($headerBalanceAvailable ?? true) Rp {{ number_format((float) ($headerBalance ?? auth()->user()->balance), 0, ',', '.') }} @else — @endif</div>
                 </a>
             </div>
@@ -179,19 +175,19 @@
     <nav class="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 px-2 pt-2 shadow-[0_-12px_35px_rgba(15,23,42,.08)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0a1020]/95 lg:hidden">
         <div class="mx-auto flex max-w-xl gap-1">
             <a href="{{ route('dashboard') }}" class="mobile-nav-link {{ request()->routeIs('dashboard') ? 'mobile-nav-link-active' : '' }}">
-                <x-icon name="home" size="size-5" /><span>Beranda</span>
+                <x-icon name="home" size="size-5" /><span>Home</span>
             </a>
             <a href="{{ route('orders.index') }}" class="mobile-nav-link {{ request()->routeIs('orders.*') ? 'mobile-nav-link-active' : '' }}">
-                <x-icon name="orders" size="size-5" /><span>Pesanan</span>
+                <x-icon name="orders" size="size-5" /><span>Order</span>
             </a>
             <a href="{{ route('topups.index') }}" class="mobile-nav-link {{ request()->routeIs('topups.*') ? 'mobile-nav-link-active' : '' }}">
-                <x-icon name="topup" size="size-5" /><span>Isi Saldo</span>
+                <x-icon name="topup" size="size-5" /><span>Top Up</span>
             </a>
             <a href="{{ route('support.index') }}" class="mobile-nav-link {{ request()->routeIs('support.*') ? 'mobile-nav-link-active' : '' }}">
-                <x-icon name="ticket" size="size-5" /><span>Bantuan</span>
+                <x-icon name="ticket" size="size-5" /><span>Ticket</span>
             </a>
             <a href="{{ route('profile.edit') }}" class="mobile-nav-link {{ request()->routeIs('profile.*') ? 'mobile-nav-link-active' : '' }}">
-                <x-icon name="user" size="size-5" /><span>Profil</span>
+                <x-icon name="user" size="size-5" /><span>Profile</span>
             </a>
         </div>
     </nav>
