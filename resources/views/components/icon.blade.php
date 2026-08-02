@@ -30,6 +30,8 @@
         @case('check')<path d="m5 12 4 4L19 6"/>@break
         @case('copy')<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>@break
         @case('info')<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>@break
+        @case('eye')<path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.5"/>@break
+        @case('eye-off')<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a15.7 15.7 0 0 1-2.1 2.8M6.7 6.7C4 8.4 2.5 12 2.5 12s3.5 6 9.5 6a9.9 9.9 0 0 0 4.2-.9"/><path d="M10.2 10.2a2.5 2.5 0 0 0 3.6 3.6"/>@break
         @default<circle cx="12" cy="12" r="9"/>@break
     @endswitch
 </svg>

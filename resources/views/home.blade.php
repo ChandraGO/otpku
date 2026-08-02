@@ -62,7 +62,7 @@
     <div class="mt-10 grid gap-5 md:grid-cols-3">
         <article class="card p-7">
             <span class="grid size-12 place-items-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><x-icon name="wallet" size="size-6" /></span>
-            <h3 class="mt-5 text-xl font-black">Transparent Pricing</h3>
+            <h3 class="mt-5 text-xl font-black">Harga Transparan</h3>
             <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">Harga ditampilkan jelas dalam Rupiah sebelum pesanan dibuat.</p>
         </article>
         <article class="card p-7">
