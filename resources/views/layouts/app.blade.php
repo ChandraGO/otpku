@@ -50,7 +50,7 @@
     <div class="lg:pl-72">
         <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-slate-50/85 backdrop-blur-xl dark:border-white/10 dark:bg-[#050b14]/85">
             <div class="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-                <div class="flex items-center gap-3"><button @click="sidebar=true" class="btn-secondary !p-2 lg:hidden">☰</button><div><div class="text-xs text-slate-500">Saldo aktif</div><div class="font-bold text-brand-600 dark:text-brand-300">Rp {{ number_format((float) auth()->user()->fresh()->balance, 0, ',', '.') }}</div></div></div>
+                <div class="flex items-center gap-3"><button @click="sidebar=true" class="btn-secondary !p-2 lg:hidden">☰</button><div><div class="text-xs text-slate-500">Saldo akun internal</div><div class="font-bold text-brand-600 dark:text-brand-300">Rp {{ number_format((float) auth()->user()->fresh()->balance, 0, ',', '.') }}</div></div></div>
                 <div class="flex items-center gap-2"><a href="{{ route('topups.index') }}" class="btn-primary hidden sm:inline-flex">Top Up</a><button type="button" @click="toggle()" class="btn-secondary !p-2.5" aria-label="Ganti tema"><span x-text="theme==='dark' ? '☀' : '☾'"></span></button></div>
             </div>
         </header>

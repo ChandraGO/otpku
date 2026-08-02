@@ -7,7 +7,7 @@
         <div>
             <span class="badge bg-brand-400/10 text-brand-700 dark:text-brand-300">Aktivasi OTP terpadu</span>
             <h1 class="mt-6 max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-6xl">Terima kode OTP dengan alur yang cepat, transparan, dan terukur.</h1>
-            <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-400">Pilih negara dan layanan, bayar dari saldo, lalu pantau nomor serta kode OTP dari satu dashboard. Harga, stok, dan status tersinkron dari provider.</p>
+            <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-400">{{ $siteDescription ?: 'Pilih negara dan layanan, bayar dari saldo, lalu pantau nomor serta kode OTP dari satu dashboard. Harga, stok, dan status tersinkron dari provider.' }}</p>
             <div class="mt-8 flex flex-wrap gap-3">
                 @auth<a href="{{ route('services.index') }}" class="btn-primary">Pilih layanan</a>@else<a href="{{ route('register') }}" class="btn-primary">Buat akun</a><a href="{{ route('login') }}" class="btn-secondary">Masuk</a>@endauth
                 <a href="{{ route('pricing') }}" class="btn-secondary">Lihat harga</a>
