@@ -1,4 +1,16 @@
 name: kodeotp
+
+x-runtime-volumes: &runtime-volumes
+  - "${KODEOTP_RELEASE_DIR:?KODEOTP_RELEASE_DIR wajib diisi}/app:/var/www/html/app:ro"
+  - "${KODEOTP_RELEASE_DIR:?KODEOTP_RELEASE_DIR wajib diisi}/bootstrap/app.php:/var/www/html/bootstrap/app.php:ro"
+  - "${KODEOTP_RELEASE_DIR:?KODEOTP_RELEASE_DIR wajib diisi}/bootstrap/providers.php:/var/www/html/bootstrap/providers.php:ro"
+  - "${KODEOTP_RELEASE_DIR:?KODEOTP_RELEASE_DIR wajib diisi}/config:/var/www/html/config:ro"
+  - "${KODEOTP_RELEASE_DIR:?KODEOTP_RELEASE_DIR wajib diisi}/database:/var/www/html/database:ro"
+  - "${KODEOTP_RELEASE_DIR:?KODEOTP_RELEASE_DIR wajib diisi}/public:/var/www/html/public:ro"
+  - "${KODEOTP_RELEASE_DIR:?KODEOTP_RELEASE_DIR wajib diisi}/resources:/var/www/html/resources:ro"
+  - "${KODEOTP_RELEASE_DIR:?KODEOTP_RELEASE_DIR wajib diisi}/routes:/var/www/html/routes:ro"
+  - app_backups:/var/www/html/storage/app/backups
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -46,8 +58,7 @@ services:
     restart: unless-stopped
     env_file: [./app.env]
     expose: ["8080"]
-    volumes:
-      - app_backups:/var/www/html/storage/app/backups
+    volumes: *runtime-volumes
     networks: [frontend, backend]
     depends_on:
       postgres: {condition: service_healthy}
@@ -68,8 +79,7 @@ services:
     env_file: [./app.env]
     command: ["php", "artisan", "queue:work", "redis", "--sleep=2", "--tries=3", "--timeout=1000", "--max-time=3600"]
     stop_grace_period: 35s
-    volumes:
-      - app_backups:/var/www/html/storage/app/backups
+    volumes: *runtime-volumes
     networks: [backend]
     depends_on:
       postgres: {condition: service_healthy}
@@ -80,8 +90,7 @@ services:
     restart: unless-stopped
     env_file: [./app.env]
     command: ["php", "artisan", "schedule:work"]
-    volumes:
-      - app_backups:/var/www/html/storage/app/backups
+    volumes: *runtime-volumes
     networks: [backend]
     depends_on:
       postgres: {condition: service_healthy}

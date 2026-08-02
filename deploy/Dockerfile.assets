@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1.7
+ARG BASE_IMAGE=kodeotp-app:latest
+FROM ${BASE_IMAGE} AS runtime_vendor
+
+FROM node:22-alpine AS assets
+WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=768
+ENV npm_config_audit=false
+ENV npm_config_fund=false
+ENV npm_config_update_notifier=false
+
+COPY package.json package-lock.json* ./
+RUN --mount=type=cache,target=/root/.npm \
+    if [ -f package-lock.json ]; then \
+      npm ci --no-audit --no-fund; \
+    else \
+      npm install --no-audit --no-fund; \
+    fi
+
+COPY vite.config.js ./
+COPY resources ./resources
+COPY public ./public
+COPY --from=runtime_vendor \
+  /var/www/html/vendor/laravel/framework/src/Illuminate/Pagination/resources/views \
+  /app/vendor/laravel/framework/src/Illuminate/Pagination/resources/views
+
+RUN npm run build

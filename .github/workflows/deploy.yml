@@ -1,26 +1,41 @@
 name: Deploy KodeOTP
-on:
+
+"on":
   push:
     branches: [main, master]
+  workflow_dispatch:
+
 concurrency:
   group: kodeotp-production
   cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+
     steps:
-      - name: Deploy via SSH
+      - name: Incremental deploy via SSH
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           port: ${{ secrets.VPS_PORT || 22 }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          command_timeout: 30m
+          command_timeout: 55m
           script: |
             set -euo pipefail
             cd /opt/kodeotp/app
-            git fetch --prune origin
-            git reset --hard "origin/${{ github.ref_name }}"
-            install -m 0755 deploy/kodeotp-update.sh /usr/local/bin/kodeotp-update
-            APP_DIR=/opt/kodeotp/app STACK_DIR=/opt/kodeotp /usr/local/bin/kodeotp-update
+            git fetch --prune origin "${{ github.ref_name }}"
+
+            # Ambil deployer dari commit target sebelum working tree diubah.
+            # Dengan begitu deployer dapat membandingkan commit sukses terakhir
+            # dan hanya mengerjakan bagian yang benar-benar berubah.
+            git show "origin/${{ github.ref_name }}:deploy/kodeotp-update.sh" \
+              > /usr/local/bin/kodeotp-update
+            chmod 0755 /usr/local/bin/kodeotp-update
+
+            APP_DIR=/opt/kodeotp/app \
+            STACK_DIR=/opt/kodeotp \
+            BRANCH="${{ github.ref_name }}" \
+            /usr/local/bin/kodeotp-update

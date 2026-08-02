@@ -3,176 +3,393 @@ set -Eeuo pipefail
 
 APP_DIR="${APP_DIR:-/opt/kodeotp/app}"
 STACK_DIR="${STACK_DIR:-/opt/kodeotp}"
+BRANCH="${BRANCH:-master}"
 PROJECT="${PROJECT:-kodeotp}"
-LOCK_FILE="$STACK_DIR/.deploy.lock"
+RELEASES_DIR="$STACK_DIR/releases"
+DEPLOYED_SHA_FILE="$STACK_DIR/.deployed_sha"
 ACTIVE_FILE="$STACK_DIR/.active_color"
+LOCK_FILE="$STACK_DIR/.deploy.lock"
+STACK_ENV="$STACK_DIR/.env"
+APP_ENV="$STACK_DIR/app.env"
+CHANGED_FILE=""
+OLD_RELEASE_DIR=""
+NEW_RELEASE_DIR=""
+NEW_SHA=""
+SHORT_SHA=""
+SUCCESS=0
+FIRST_INCREMENTAL=0
+NEEDS_ASSETS=0
+NEEDS_RESTART=0
+NEEDS_WORKERS=0
+NEEDS_MIGRATE=0
+NEEDS_INFRA=0
+NEEDS_FULL_BUILD=0
+RUNTIME_IMAGE=""
+CURRENT_COLOR="none"
+CURRENT_SERVICE=""
+CURRENT_CID=""
 
-mkdir -p "$STACK_DIR" "$STACK_DIR/caddy"
+log() {
+  printf '[deploy] %s\n' "$*"
+}
+
+read_env_value() {
+  local key="$1" file="$2"
+  [ -f "$file" ] || return 0
+  grep -E "^[[:space:]]*${key}=" "$file" \
+    | tail -n 1 \
+    | sed -E "s/^[^=]+=//; s/^['\"]//; s/['\"]$//" \
+    || true
+}
+
+set_env_value() {
+  local file="$1" key="$2" value="$3" tmp
+  tmp="$(mktemp)"
+  if [ -f "$file" ]; then
+    awk -v key="$key" -v value="$value" '
+      BEGIN { done = 0 }
+      $0 ~ "^[[:space:]]*" key "=" {
+        if (!done) print key "=" value
+        done = 1
+        next
+      }
+      { print }
+      END { if (!done) print key "=" value }
+    ' "$file" > "$tmp"
+  else
+    printf '%s=%s\n' "$key" "$value" > "$tmp"
+  fi
+  install -m 0600 "$tmp" "$file"
+  rm -f "$tmp"
+}
+
+cleanup_exit() {
+  local rc=$?
+  trap - EXIT
+  if [ "$SUCCESS" -ne 1 ] && [ -n "$OLD_RELEASE_DIR" ]; then
+    set_env_value "$STACK_ENV" KODEOTP_RELEASE_DIR "$OLD_RELEASE_DIR" || true
+    log "deploy gagal; KODEOTP_RELEASE_DIR dikembalikan ke $OLD_RELEASE_DIR"
+  fi
+  [ -n "$CHANGED_FILE" ] && rm -f "$CHANGED_FILE" || true
+  rm -f "$LOCK_FILE" || true
+  exit "$rc"
+}
+trap cleanup_exit EXIT
+
+mkdir -p "$STACK_DIR" "$STACK_DIR/caddy" "$RELEASES_DIR"
 exec 9>"$LOCK_FILE"
 flock -w "${LOCK_WAIT_SECONDS:-180}" 9 || {
-  echo '[deploy] deployment lain masih berjalan'
+  log 'deployment lain masih berjalan'
   exit 1
 }
 printf '%s\n' "$$" > "$LOCK_FILE"
-trap 'rm -f "$LOCK_FILE"' EXIT
 
-[ -f "$STACK_DIR/.env" ] || {
-  echo "[deploy] $STACK_DIR/.env belum ada. Jalankan deploy/install.sh terlebih dahulu."
+[ -f "$STACK_ENV" ] || {
+  log "$STACK_ENV belum ada. Instalasi awal belum lengkap."
   exit 1
 }
-[ -f "$STACK_DIR/app.env" ] || {
-  echo "[deploy] $STACK_DIR/app.env belum ada. Jalankan deploy/install.sh terlebih dahulu."
+[ -f "$APP_ENV" ] || {
+  log "$APP_ENV belum ada. Instalasi awal belum lengkap."
   exit 1
 }
+
+cancel_stale_build_clients() {
+  local pids
+  pids="$(pgrep -f 'docker build .*kodeotp-app|docker build .*Dockerfile.*kodeotp' || true)"
+  if [ -n "$pids" ]; then
+    log "menghentikan client build KodeOTP lama: $pids"
+    kill -TERM $pids 2>/dev/null || true
+    sleep 3
+    kill -KILL $pids 2>/dev/null || true
+  fi
+}
+cancel_stale_build_clients
 
 cd "$APP_DIR"
-install -m 0644 deploy/docker-compose.yml "$STACK_DIR/docker-compose.yml"
-install -m 0644 deploy/Caddyfile "$STACK_DIR/Caddyfile"
-install -m 0755 deploy/kodeotp-update.sh /usr/local/bin/kodeotp-update
+log "fetch origin/$BRANCH"
+git fetch --prune origin "$BRANCH"
+NEW_SHA="$(git rev-parse "origin/$BRANCH")"
+SHORT_SHA="$(printf '%s' "$NEW_SHA" | cut -c1-12)"
+NEW_RELEASE_DIR="$RELEASES_DIR/$NEW_SHA"
+
+DEPLOYED_SHA="$(cat "$DEPLOYED_SHA_FILE" 2>/dev/null || true)"
+CHANGED_FILE="$(mktemp)"
+if [ -n "$DEPLOYED_SHA" ] && git cat-file -e "$DEPLOYED_SHA^{commit}" 2>/dev/null; then
+  git diff --name-only "$DEPLOYED_SHA" "$NEW_SHA" > "$CHANGED_FILE" || true
+  log "commit sukses sebelumnya: $DEPLOYED_SHA"
+else
+  FIRST_INCREMENTAL=1
+  log 'marker deploy incremental belum ada; melakukan bootstrap cepat tanpa full build'
+fi
+log "commit target: $NEW_SHA"
+
+if [ -s "$CHANGED_FILE" ]; then
+  log 'file berubah sejak deploy sukses terakhir:'
+  sed 's/^/[deploy]   /' "$CHANGED_FILE" | head -n 200
+else
+  log 'tidak ada diff aplikasi atau ini bootstrap pertama'
+fi
+
+classify_changes() {
+  if [ "$FIRST_INCREMENTAL" -eq 1 ]; then
+    NEEDS_RESTART=1
+    NEEDS_WORKERS=1
+    NEEDS_MIGRATE=1
+    NEEDS_INFRA=1
+    return 0
+  fi
+
+  grep -Eq '^(resources/views/|resources/css/|resources/js/|vite\.config\.js$|package\.json$|package-lock\.json$)' "$CHANGED_FILE" \
+    && NEEDS_ASSETS=1 || true
+
+  grep -Eq '^(app/|bootstrap/|config/|database/|public/|resources/|routes/|artisan$)' "$CHANGED_FILE" \
+    && NEEDS_RESTART=1 || true
+
+  grep -Eq '^(app/|bootstrap/|config/|database/|routes/|composer\.json$|composer\.lock$)' "$CHANGED_FILE" \
+    && NEEDS_WORKERS=1 || true
+
+  grep -Eq '^database/migrations/' "$CHANGED_FILE" \
+    && NEEDS_MIGRATE=1 || true
+
+  grep -Eq '^(deploy/|\.github/workflows/deploy\.yml$|\.dockerignore$)' "$CHANGED_FILE" \
+    && NEEDS_INFRA=1 || true
+
+  if grep -Eq '^deploy/docker-compose\.yml$' "$CHANGED_FILE"; then
+    NEEDS_RESTART=1
+    NEEDS_WORKERS=1
+  fi
+
+  # Hanya perubahan dependency PHP atau runtime container yang memerlukan
+  # image penuh. Blade, controller, route, CSS, dan JS tidak masuk kategori ini.
+  grep -Eq '^(Dockerfile$|composer\.json$|composer\.lock$|deploy/docker/)' "$CHANGED_FILE" \
+    && NEEDS_FULL_BUILD=1 || true
+
+  [ "$NEEDS_ASSETS" -eq 1 ] && NEEDS_RESTART=1
+  if [ "$NEEDS_FULL_BUILD" -eq 1 ]; then
+    NEEDS_RESTART=1
+    NEEDS_WORKERS=1
+  fi
+}
+classify_changes
+
+if [ "$FIRST_INCREMENTAL" -eq 0 ] \
+  && [ "$NEEDS_ASSETS" -eq 0 ] \
+  && [ "$NEEDS_RESTART" -eq 0 ] \
+  && [ "$NEEDS_MIGRATE" -eq 0 ] \
+  && [ "$NEEDS_INFRA" -eq 0 ] \
+  && [ "$NEEDS_FULL_BUILD" -eq 0 ]; then
+  log 'commit sudah terdeploy; tidak ada pekerjaan'
+  printf '%s\n' "$NEW_SHA" > "$DEPLOYED_SHA_FILE"
+  git reset --hard "$NEW_SHA"
+  SUCCESS=1
+  exit 0
+fi
+
+log "mode: assets=$NEEDS_ASSETS restart=$NEEDS_RESTART workers=$NEEDS_WORKERS migrate=$NEEDS_MIGRATE infra=$NEEDS_INFRA full_build=$NEEDS_FULL_BUILD"
+
+create_release() {
+  rm -rf "$NEW_RELEASE_DIR"
+  mkdir -p "$NEW_RELEASE_DIR"
+  git archive "$NEW_SHA" | tar -x -C "$NEW_RELEASE_DIR"
+  mkdir -p "$NEW_RELEASE_DIR/public"
+  if [ ! -e "$NEW_RELEASE_DIR/public/storage" ]; then
+    ln -s /var/www/html/storage/app/public "$NEW_RELEASE_DIR/public/storage"
+  fi
+}
+create_release
+
+install -m 0644 "$NEW_RELEASE_DIR/deploy/docker-compose.yml" "$STACK_DIR/docker-compose.yml"
+install -m 0644 "$NEW_RELEASE_DIR/deploy/Caddyfile" "$STACK_DIR/Caddyfile"
+install -m 0755 "$NEW_RELEASE_DIR/deploy/kodeotp-update.sh" /usr/local/bin/kodeotp-update
+
+OLD_RELEASE_DIR="$(read_env_value KODEOTP_RELEASE_DIR "$STACK_ENV")"
+if [ -z "$OLD_RELEASE_DIR" ] || [ ! -d "$OLD_RELEASE_DIR" ]; then
+  OLD_RELEASE_DIR="$APP_DIR"
+fi
+set_env_value "$STACK_ENV" KODEOTP_RELEASE_DIR "$OLD_RELEASE_DIR"
 
 COMPOSE=(
   docker compose
-  --env-file "$STACK_DIR/.env"
+  --env-file "$STACK_ENV"
   -p "$PROJECT"
   -f "$STACK_DIR/docker-compose.yml"
 )
 
-SHA="$(git rev-parse --short=12 HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
-IMAGE="kodeotp-app:$SHA"
-BUILD_ARGS=(-t "$IMAGE")
-
-# Jangan menarik base image pada setiap perubahan UI. Aktifkan manual dengan
-# KODEOTP_BUILD_PULL=1 saat memang ingin memperbarui image dasar.
-if [ "${KODEOTP_BUILD_PULL:-0}" = 1 ]; then
-  BUILD_ARGS+=(--pull)
-fi
-
-BUILD_HELP="$(docker build --help 2>&1 || true)"
-if grep -q -- '--cpu-period' <<<"$BUILD_HELP"; then
-  BUILD_ARGS+=(--cpu-period "${KODEOTP_BUILD_CPU_PERIOD:-100000}")
-fi
-if grep -q -- '--cpu-quota' <<<"$BUILD_HELP"; then
-  # 80000/100000 = maksimum sekitar 0,8 vCPU untuk proses build.
-  BUILD_ARGS+=(--cpu-quota "${KODEOTP_BUILD_CPU_QUOTA:-80000}")
-fi
-if grep -q -- '--cpu-shares' <<<"$BUILD_HELP"; then
-  BUILD_ARGS+=(--cpu-shares "${KODEOTP_BUILD_CPU_SHARES:-128}")
-fi
-if grep -q -- '--memory' <<<"$BUILD_HELP"; then
-  BUILD_ARGS+=(--memory "${KODEOTP_BUILD_MEMORY:-1536m}")
-fi
-
-BUILD_ARGS+=(
-  --build-arg "PHP_BUILD_JOBS=${KODEOTP_PHP_BUILD_JOBS:-2}"
-)
-BUILD_ARGS+=("$APP_DIR")
-
-echo "[deploy] build hemat CPU $IMAGE"
-if command -v ionice >/dev/null 2>&1; then
-  ionice -c 3 nice -n 15 docker build "${BUILD_ARGS[@]}" || \
-    nice -n 15 docker build "${BUILD_ARGS[@]}"
-else
-  nice -n 15 docker build "${BUILD_ARGS[@]}"
-fi
-
-export KODEOTP_IMAGE="$IMAGE"
-"${COMPOSE[@]}" up -d postgres redis
-
-POSTGRES_CID="$("${COMPOSE[@]}" ps -q postgres)"
-[ -n "$POSTGRES_CID" ] || {
-  echo '[deploy] container PostgreSQL tidak ditemukan'
-  exit 1
+service_cid() {
+  "${COMPOSE[@]}" ps -q "$1" 2>/dev/null | tail -n 1
 }
 
-for _ in $(seq 1 60); do
-  DB_STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$POSTGRES_CID" 2>/dev/null || true)"
-  [ "$DB_STATUS" = healthy ] && break
-  [ "$DB_STATUS" = unhealthy ] && {
-    docker logs --tail 150 "$POSTGRES_CID"
-    exit 1
-  }
-  sleep 2
-done
-
-DB_STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$POSTGRES_CID")"
-[ "$DB_STATUS" = healthy ] || {
-  echo '[deploy] PostgreSQL belum sehat'
-  exit 1
+is_running() {
+  local cid
+  cid="$(service_cid "$1")"
+  [ -n "$cid" ] \
+    && [ "$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || true)" = running ]
 }
 
-# Migrasi dijalankan dari image baru sebelum trafik dialihkan.
-docker run --rm \
-  --network "${PROJECT}_backend" \
-  --env-file "$STACK_DIR/app.env" \
-  "$IMAGE" php artisan migrate --force
+current_color() {
+  local saved upstream
+  saved="$(cat "$ACTIVE_FILE" 2>/dev/null || true)"
+  if [ "$saved" = blue ] && is_running app_blue; then echo blue; return; fi
+  if [ "$saved" = green ] && is_running app_green; then echo green; return; fi
 
-ACTIVE="$(cat "$ACTIVE_FILE" 2>/dev/null || true)"
-if [ "$ACTIVE" = blue ]; then
-  TARGET=green
-  OLD=blue
-else
-  TARGET=blue
-  OLD=green
+  upstream="$(cat "$STACK_DIR/caddy/upstream.caddy" 2>/dev/null || true)"
+  if grep -q 'app_blue:8080' <<<"$upstream" && is_running app_blue; then echo blue; return; fi
+  if grep -q 'app_green:8080' <<<"$upstream" && is_running app_green; then echo green; return; fi
+
+  if is_running app_blue; then echo blue; return; fi
+  if is_running app_green; then echo green; return; fi
+  echo none
+}
+
+CURRENT_COLOR="$(current_color)"
+if [ "$CURRENT_COLOR" != none ]; then
+  CURRENT_SERVICE="app_$CURRENT_COLOR"
+  CURRENT_CID="$(service_cid "$CURRENT_SERVICE")"
 fi
-TARGET_SERVICE="app_$TARGET"
-OLD_SERVICE="app_$OLD"
 
-echo "[deploy] menyalakan slot $TARGET"
-"${COMPOSE[@]}" up -d --no-deps --force-recreate "$TARGET_SERVICE"
-CID="$("${COMPOSE[@]}" ps -q "$TARGET_SERVICE")"
-[ -n "$CID" ] || {
-  echo '[deploy] container target tidak ditemukan'
-  exit 1
-}
-
-for _ in $(seq 1 60); do
-  STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$CID" 2>/dev/null || true)"
-  [ "$STATUS" = healthy ] && break
-  [ "$STATUS" = unhealthy ] && {
-    docker logs --tail 150 "$CID"
-    exit 1
-  }
-  sleep 3
-done
-
-STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$CID")"
-[ "$STATUS" = healthy ] || {
-  docker logs --tail 150 "$CID"
-  echo '[deploy] health check timeout'
-  exit 1
-}
-
-cat > "$STACK_DIR/caddy/upstream.caddy.tmp" <<EOF
-reverse_proxy ${TARGET_SERVICE}:8080 {
-  header_up Host {http.request.host}
-  header_up X-Forwarded-Host {http.request.host}
-  header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
-  health_uri /healthz
-}
-EOF
-mv "$STACK_DIR/caddy/upstream.caddy.tmp" "$STACK_DIR/caddy/upstream.caddy"
-
-"${COMPOSE[@]}" up -d caddy
-"${COMPOSE[@]}" exec -T caddy \
-  caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
-
-# Verifikasi gateway lokal sebelum slot lama dihentikan. Jika gagal, arahkan
-# kembali ke slot lama sehingga push yang gagal tidak memutus website.
-GATEWAY_OK=0
-for _ in $(seq 1 30); do
-  if curl -fsS --max-time 5 \
-      "http://${KODEOTP_GATEWAY_HOST:-127.0.0.1}:${KODEOTP_GATEWAY_PORT:-3280}/healthz" \
-      | grep -q '"service":"kodeotp"'; then
-    GATEWAY_OK=1
-    break
+select_runtime_image() {
+  local image_id
+  if [ -n "$CURRENT_CID" ]; then
+    image_id="$(docker inspect -f '{{.Image}}' "$CURRENT_CID")"
+    docker tag "$image_id" kodeotp-runtime-base:current
+    RUNTIME_IMAGE=kodeotp-runtime-base:current
+  elif docker image inspect kodeotp-app:latest >/dev/null 2>&1; then
+    docker tag kodeotp-app:latest kodeotp-runtime-base:current
+    RUNTIME_IMAGE=kodeotp-runtime-base:current
+  else
+    log 'tidak ada image runtime lama. Full build diperlukan.'
+    NEEDS_FULL_BUILD=1
   fi
-  sleep 2
-done
+}
+select_runtime_image
 
-if [ "$GATEWAY_OK" -ne 1 ]; then
-  echo '[deploy] gateway baru gagal, melakukan rollback upstream'
+copy_existing_assets() {
+  rm -rf "$NEW_RELEASE_DIR/public/build"
+  if [ -d "$OLD_RELEASE_DIR/public/build" ]; then
+    cp -a "$OLD_RELEASE_DIR/public/build" "$NEW_RELEASE_DIR/public/build"
+    return 0
+  fi
+  if [ -n "$CURRENT_CID" ]; then
+    if docker cp "$CURRENT_CID:/var/www/html/public/build" "$NEW_RELEASE_DIR/public/build" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+fix_manifest() {
+  local build="$NEW_RELEASE_DIR/public/build"
+  if [ ! -s "$build/manifest.json" ] && [ -s "$build/.vite/manifest.json" ]; then
+    cp "$build/.vite/manifest.json" "$build/manifest.json"
+  fi
+  [ -s "$build/manifest.json" ] || {
+    log 'manifest Vite tidak ditemukan setelah menyiapkan assets'
+    return 1
+  }
+}
+
+build_assets_only() {
+  local image="kodeotp-assets:$SHORT_SHA" temp_cid
+  [ -n "$RUNTIME_IMAGE" ] || {
+    log 'assets build memerlukan runtime image lama untuk source pagination Laravel'
+    return 1
+  }
+  log 'build assets-only; PHP runtime dan Composer tidak dibangun ulang'
+  DOCKER_BUILDKIT=1 timeout "${ASSET_BUILD_TIMEOUT_SECONDS:-900}" \
+    nice -n 15 docker build \
+      --progress=plain \
+      --build-arg "BASE_IMAGE=$RUNTIME_IMAGE" \
+      --target assets \
+      -f "$NEW_RELEASE_DIR/deploy/Dockerfile.assets" \
+      -t "$image" \
+      "$NEW_RELEASE_DIR"
+
+  temp_cid="$(docker create "$image")"
+  rm -rf "$NEW_RELEASE_DIR/public/build"
+  docker cp "$temp_cid:/app/public/build" "$NEW_RELEASE_DIR/public/build"
+  docker rm "$temp_cid" >/dev/null
+  fix_manifest
+}
+
+if [ "$NEEDS_ASSETS" -eq 1 ]; then
+  build_assets_only
+elif ! copy_existing_assets; then
+  log 'assets lama tidak ditemukan; menjalankan assets-only build satu kali'
+  build_assets_only
+else
+  fix_manifest
+fi
+
+build_full_image() {
+  local image="kodeotp-app:$SHORT_SHA"
+  log 'perubahan runtime/dependency PHP terdeteksi; menjalankan full build langka'
+  log 'website lama tetap aktif selama full build'
+  DOCKER_BUILDKIT=1 timeout "${FULL_BUILD_TIMEOUT_SECONDS:-3300}" \
+    nice -n 15 docker build \
+      --progress=plain \
+      --build-arg "PHP_BUILD_JOBS=${KODEOTP_PHP_BUILD_JOBS:-2}" \
+      -t "$image" \
+      "$NEW_RELEASE_DIR"
+  docker tag "$image" kodeotp-runtime-base:current
+  RUNTIME_IMAGE=kodeotp-runtime-base:current
+}
+
+if [ "$NEEDS_FULL_BUILD" -eq 1 ] \
+  && { [ "$FIRST_INCREMENTAL" -eq 0 ] || [ -z "$RUNTIME_IMAGE" ]; }; then
+  build_full_image
+fi
+
+[ -n "$RUNTIME_IMAGE" ] || {
+  log 'runtime image tidak tersedia'
+  exit 1
+}
+export KODEOTP_IMAGE="$RUNTIME_IMAGE"
+
+# Mulai titik ini compose target memakai release baru. Container aktif lama
+# tetap mempertahankan mount release lamanya sampai trafik berhasil diswitch.
+set_env_value "$STACK_ENV" KODEOTP_RELEASE_DIR "$NEW_RELEASE_DIR"
+
+wait_healthy() {
+  local service="$1" attempts="${2:-60}" cid status
+  cid="$(service_cid "$service")"
+  [ -n "$cid" ] || { log "container $service tidak ditemukan"; return 1; }
+  while [ "$attempts" -gt 0 ]; do
+    status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || true)"
+    case "$status" in
+      healthy) return 0 ;;
+      unhealthy|exited|dead|restarting)
+        log "$service status=$status"
+        docker logs --tail 180 "$cid" || true
+        return 1
+        ;;
+    esac
+    sleep 3
+    attempts=$((attempts - 1))
+  done
+  log "$service belum sehat"
+  docker logs --tail 180 "$cid" || true
+  return 1
+}
+
+log 'memastikan PostgreSQL, Redis, dan gateway internal aktif'
+"${COMPOSE[@]}" up -d postgres redis caddy
+wait_healthy postgres 60
+wait_healthy redis 40
+
+if [ "$NEEDS_MIGRATE" -eq 1 ]; then
+  log 'menjalankan hanya migration yang belum pernah dijalankan'
+  "${COMPOSE[@]}" run --rm --no-deps app_blue php artisan migrate --force
+fi
+
+reload_caddy() {
+  "${COMPOSE[@]}" exec -T caddy \
+    caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+}
+
+write_upstream() {
+  local service="$1"
   cat > "$STACK_DIR/caddy/upstream.caddy.tmp" <<EOF
-reverse_proxy ${OLD_SERVICE}:8080 {
+reverse_proxy ${service}:8080 {
   header_up Host {http.request.host}
   header_up X-Forwarded-Host {http.request.host}
   header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
@@ -180,19 +397,103 @@ reverse_proxy ${OLD_SERVICE}:8080 {
 }
 EOF
   mv "$STACK_DIR/caddy/upstream.caddy.tmp" "$STACK_DIR/caddy/upstream.caddy"
-  "${COMPOSE[@]}" exec -T caddy \
-    caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile || true
-  docker logs --tail 150 "$CID" || true
-  exit 1
+}
+
+deploy_release() {
+  local target target_service old_service cid gateway_host gateway_port
+  if [ "$CURRENT_COLOR" = blue ]; then target=green; else target=blue; fi
+  [ "$CURRENT_COLOR" = none ] && target=blue
+  target_service="app_$target"
+  old_service="app_$CURRENT_COLOR"
+
+  log "menyalakan release $SHORT_SHA pada slot $target"
+  "${COMPOSE[@]}" rm -sf "$target_service" >/dev/null 2>&1 || true
+  if ! "${COMPOSE[@]}" up -d --no-deps --force-recreate "$target_service"; then
+    "${COMPOSE[@]}" rm -sf "$target_service" >/dev/null 2>&1 || true
+    return 1
+  fi
+  wait_healthy "$target_service" 70 || {
+    "${COMPOSE[@]}" rm -sf "$target_service" >/dev/null 2>&1 || true
+    return 1
+  }
+
+  write_upstream "$target_service"
+  if ! reload_caddy; then
+    log 'reload gateway gagal; target baru dibatalkan'
+    if [ "$CURRENT_COLOR" != none ]; then
+      write_upstream "$old_service"
+      reload_caddy || true
+    fi
+    "${COMPOSE[@]}" rm -sf "$target_service" >/dev/null 2>&1 || true
+    return 1
+  fi
+
+  gateway_host="$(read_env_value KODEOTP_GATEWAY_HOST "$STACK_ENV")"
+  gateway_port="$(read_env_value KODEOTP_GATEWAY_PORT "$STACK_ENV")"
+  gateway_host="${gateway_host:-127.0.0.1}"
+  gateway_port="${gateway_port:-3280}"
+
+  for _ in $(seq 1 30); do
+    if curl -fsS --max-time 5 "http://${gateway_host}:${gateway_port}/healthz" \
+      | grep -q '"service":"kodeotp"'; then
+      printf '%s\n' "$target" > "$ACTIVE_FILE"
+      if [ "$CURRENT_COLOR" != none ] && [ "$CURRENT_COLOR" != "$target" ]; then
+        "${COMPOSE[@]}" rm -sf "$old_service" >/dev/null 2>&1 || true
+      fi
+      if [ "$NEEDS_WORKERS" -eq 1 ]; then
+        log 'restart ringan worker dan scheduler karena kode backend berubah'
+        if ! "${COMPOSE[@]}" up -d --no-deps --force-recreate worker scheduler; then
+          log 'PERINGATAN: web sudah sehat, tetapi worker/scheduler gagal direstart. Web tetap dipertahankan.'
+        fi
+      fi
+      return 0
+    fi
+    sleep 2
+  done
+
+  log 'gateway release baru gagal; mengembalikan trafik lama'
+  if [ "$CURRENT_COLOR" != none ]; then
+    write_upstream "$old_service"
+    reload_caddy || true
+  fi
+  cid="$(service_cid "$target_service")"
+  [ -n "$cid" ] && docker logs --tail 180 "$cid" || true
+  "${COMPOSE[@]}" rm -sf "$target_service" >/dev/null 2>&1 || true
+  return 1
+}
+
+if [ "$NEEDS_RESTART" -eq 1 ] || [ "$NEEDS_FULL_BUILD" -eq 1 ]; then
+  deploy_release
+elif [ "$NEEDS_INFRA" -eq 1 ]; then
+  log 'hanya infra/workflow berubah; image aplikasi dan app container tidak dibangun ulang'
+  reload_caddy || true
 fi
 
-# Worker dan scheduler mengikuti image baru setelah web sehat.
-"${COMPOSE[@]}" up -d --no-deps --force-recreate worker scheduler
-if "${COMPOSE[@]}" ps -q "$OLD_SERVICE" | grep -q .; then
-  "${COMPOSE[@]}" stop "$OLD_SERVICE" || true
+if [ "$NEEDS_FULL_BUILD" -eq 1 ]; then
+  docker tag "$RUNTIME_IMAGE" kodeotp-app:latest || true
 fi
-printf '%s\n' "$TARGET" > "$ACTIVE_FILE"
-docker tag "$IMAGE" kodeotp-app:latest
 
-docker image prune -f --filter 'until=168h' >/dev/null || true
-echo "[deploy] selesai. slot aktif=$TARGET image=$IMAGE"
+printf '%s\n' "$NEW_SHA" > "$DEPLOYED_SHA_FILE"
+if ! git reset --hard "$NEW_SHA"; then
+  log 'PERINGATAN: release sudah aktif tetapi working tree gagal di-reset. Deploy tetap dianggap berhasil.'
+fi
+SUCCESS=1
+
+cleanup_releases() {
+  local dir mounted count=0
+  mounted="$(docker ps -aq | xargs -r docker inspect -f '{{range .Mounts}}{{println .Source}}{{end}}' 2>/dev/null || true)"
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    count=$((count + 1))
+    [ "$count" -le 10 ] && continue
+    grep -Fxq "$dir" <<<"$mounted" && continue
+    rm -rf "$dir"
+  done < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+    | sort -rn | awk '{print $2}')
+}
+cleanup_releases
+
+docker container prune -f >/dev/null 2>&1 || true
+docker image prune -f --filter 'until=168h' >/dev/null 2>&1 || true
+
+log "selesai cepat. commit=$SHORT_SHA release=$NEW_RELEASE_DIR"

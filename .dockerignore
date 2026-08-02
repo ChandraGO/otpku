@@ -3,6 +3,8 @@
 .env
 vendor
 node_modules
+public/build
+public/.build-releases
 storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*
