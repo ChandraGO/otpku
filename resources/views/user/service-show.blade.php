@@ -44,10 +44,10 @@
     </div>
 
     <div class="table-wrap mt-6 hidden lg:block">
-        <table class="table"><thead><tr><th>Negara</th><th>Operator</th><th>Harga</th><th>Stok</th><th>Success rate</th><th></th></tr></thead><tbody>
+        <table class="table"><thead><tr><th>Negara</th><th>Operator</th><th>Harga</th><th>Stok</th><th></th></tr></thead><tbody>
         @forelse($prices as $price)
-            <tr><td class="font-bold">{{ $price->country?->name }}</td><td>{{ $price->operator_name ?: 'Semua operator' }}</td><td class="font-black text-violet-700 dark:text-violet-300">Rp {{ number_format((float) $price->sell_price, 0, ',', '.') }}</td><td>{{ number_format($price->stock) }}</td><td>{{ $price->success_rate !== null ? number_format((float) $price->success_rate, 1).'%' : '—' }}</td><td class="text-right"><form method="post" action="{{ route('orders.store') }}">@csrf<input type="hidden" name="price_id" value="{{ $price->id }}"><input type="hidden" name="idempotency_key" value="{{ (string) Str::uuid() }}"><button class="btn-primary !px-4 !py-2" @disabled($price->stock < 1)>Pesan sekarang</button></form></td></tr>
-        @empty<tr><td colspan="6" class="py-12 text-center text-slate-500">Belum ada harga tersedia untuk filter ini.</td></tr>@endforelse
+            <tr><td class="font-bold">{{ $price->country?->name }}</td><td>{{ $price->operator_name ?: 'Semua operator' }}</td><td class="font-black text-violet-700 dark:text-violet-300">Rp {{ number_format((float) $price->sell_price, 0, ',', '.') }}</td><td>{{ number_format($price->stock) }}</td><td class="text-right"><form method="post" action="{{ route('orders.store') }}">@csrf<input type="hidden" name="price_id" value="{{ $price->id }}"><input type="hidden" name="idempotency_key" value="{{ (string) Str::uuid() }}"><button class="btn-primary !px-4 !py-2" @disabled($price->stock < 1)>Pesan sekarang</button></form></td></tr>
+        @empty<tr><td colspan="5" class="py-12 text-center text-slate-500">Belum ada harga tersedia untuk filter ini.</td></tr>@endforelse
         </tbody></table>
     </div>
     <div class="mt-8">{{ $prices->links() }}</div>

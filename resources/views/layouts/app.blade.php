@@ -138,7 +138,7 @@
                         <span class="grid size-9 place-items-center rounded-full bg-amber-400 font-black text-white">Rp</span>
                         <div>
                             <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Balance</div>
-                            <div class="font-black">Rp {{ number_format((float) auth()->user()->fresh()->balance, 0, ',', '.') }}</div>
+                            <div class="font-black">Rp {{ number_format((float) auth()->user()->balance, 0, ',', '.') }}</div>
                         </div>
                     </div>
                     <a href="{{ route('topups.index') }}" class="btn-primary"><x-icon name="topup" size="size-4" /> Top Up</a>
@@ -161,7 +161,7 @@
                 </div>
                 <a href="{{ route('topups.index') }}" class="rounded-2xl border border-white/35 bg-white/12 px-3 py-2 text-right backdrop-blur">
                     <div class="text-[9px] font-bold uppercase tracking-wider text-white/70">Balance</div>
-                    <div class="text-sm font-black">Rp {{ number_format((float) auth()->user()->fresh()->balance, 0, ',', '.') }}</div>
+                    <div class="text-sm font-black">Rp {{ number_format((float) auth()->user()->balance, 0, ',', '.') }}</div>
                 </a>
             </div>
         </header>

@@ -8,6 +8,7 @@ use App\Support\Settings;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
@@ -47,7 +48,14 @@ class AppServiceProvider extends ServiceProvider
                 $view->with(
                     'navAnnouncements',
                     Schema::hasTable('announcements')
-                        ? Announcement::visible()->latest()->limit(3)->get()
+                        ? Cache::remember(
+                            'announcements:navigation:v2',
+                            now()->addMinute(),
+                            fn () => Announcement::visible()
+                                ->latest()
+                                ->limit(3)
+                                ->get(),
+                        )
                         : collect(),
                 );
             } catch (Throwable) {

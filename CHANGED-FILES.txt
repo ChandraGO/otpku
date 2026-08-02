@@ -1,0 +1,13 @@
+.gitattributes
+.github/workflows/deploy.yml
+Dockerfile
+app/Support/CatalogSummary.php
+app/Providers/AppServiceProvider.php
+app/Http/Controllers/HomeController.php
+app/Http/Controllers/CatalogController.php
+app/Http/Controllers/DashboardController.php
+app/Http/Controllers/Admin/DashboardController.php
+resources/views/layouts/app.blade.php
+resources/views/user/service-show.blade.php
+deploy/kodeotp-update.sh
+database/migrations/2026_08_02_000200_add_catalog_performance_indexes.php

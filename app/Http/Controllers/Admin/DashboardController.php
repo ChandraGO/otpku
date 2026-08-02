@@ -8,6 +8,7 @@ use App\Models\Topup;
 use App\Models\User;
 use App\Services\SmsVirtualClient;
 use App\Support\Settings;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 use Throwable;
 
@@ -35,7 +36,11 @@ class DashboardController extends Controller
         );
 
         try {
-            $response = $client->balance();
+            $response = Cache::remember(
+                'sms-virtual:provider-balance:v2',
+                now()->addSeconds(30),
+                fn () => $client->balance(),
+            );
             $providerBalanceRaw = $response['balance']
                 ?? data_get($response, 'data.balance')
                 ?? $response['data']
@@ -48,9 +53,24 @@ class DashboardController extends Controller
             $providerError = $e->getMessage();
         }
 
-        $userBalance = (float) User::query()
+        $userStats = User::query()
             ->where('role', 'user')
-            ->sum('balance');
+            ->selectRaw('COUNT(*) AS users')
+            ->selectRaw('COALESCE(SUM(balance), 0) AS user_balance')
+            ->first();
+        $userBalance = (float) ($userStats->user_balance ?? 0);
+
+        $orderStats = OtpOrder::query()
+            ->where('created_at', '>=', today())
+            ->selectRaw('COUNT(*) AS orders_today')
+            ->selectRaw(
+                "COALESCE(SUM(CASE WHEN status NOT IN ('failed', 'refunded') THEN sell_price ELSE 0 END), 0) AS revenue_today",
+            )
+            ->selectRaw(
+                "COALESCE(SUM(CASE WHEN status NOT IN ('failed', 'refunded') THEN sell_price - provider_cost ELSE 0 END), 0) AS profit_today",
+            )
+            ->first();
+
         $reserveTarget = $userBalance * (1 + ($bufferPercent / 100));
         $reserveGap = $providerBalanceIdr === null
             ? null
@@ -70,23 +90,14 @@ class DashboardController extends Controller
 
         return view('admin.dashboard', [
             'stats' => [
-                'users' => User::query()->where('role', 'user')->count(),
+                'users' => (int) ($userStats->users ?? 0),
                 'user_balance' => $userBalance,
                 'completed_topups' => (float) Topup::query()
                     ->where('status', 'completed')
                     ->sum('amount'),
-                'orders_today' => OtpOrder::query()
-                    ->whereDate('created_at', today())
-                    ->count(),
-                'revenue_today' => (float) OtpOrder::query()
-                    ->whereDate('created_at', today())
-                    ->whereNotIn('status', ['failed', 'refunded'])
-                    ->sum('sell_price'),
-                'profit_today' => (float) OtpOrder::query()
-                    ->whereDate('created_at', today())
-                    ->whereNotIn('status', ['failed', 'refunded'])
-                    ->selectRaw('COALESCE(SUM(sell_price - provider_cost), 0) total')
-                    ->value('total'),
+                'orders_today' => (int) ($orderStats->orders_today ?? 0),
+                'revenue_today' => (float) ($orderStats->revenue_today ?? 0),
+                'profit_today' => (float) ($orderStats->profit_today ?? 0),
             ],
             'providerBalanceRaw' => $providerBalanceRaw,
             'providerBalanceIdr' => $providerBalanceIdr,
@@ -99,12 +110,12 @@ class DashboardController extends Controller
             'coveragePercent' => $coveragePercent,
             'riskStatus' => $riskStatus,
             'recentOrders' => OtpOrder::query()
-                ->with('user')
+                ->with('user:id,name,email')
                 ->latest()
                 ->limit(8)
                 ->get(),
             'recentTopups' => Topup::query()
-                ->with('user')
+                ->with('user:id,name,email')
                 ->latest()
                 ->limit(8)
                 ->get(),

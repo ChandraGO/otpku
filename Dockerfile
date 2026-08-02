@@ -1,22 +1,26 @@
 FROM composer:2 AS vendor
 WORKDIR /app
-COPY composer.json ./
+COPY composer.json composer.lock* ./
 RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
 COPY . .
 RUN composer dump-autoload --no-dev --optimize --no-interaction
 
 FROM node:22-alpine AS assets
 WORKDIR /app
-COPY package.json vite.config.js ./
+ENV NODE_OPTIONS=--max-old-space-size=768
+COPY package.json ./
+RUN npm install --no-audit --no-fund
+COPY vite.config.js ./
 COPY resources ./resources
 COPY public ./public
 COPY --from=vendor /app/vendor/laravel/framework/src/Illuminate/Pagination/resources/views /app/vendor/laravel/framework/src/Illuminate/Pagination/resources/views
-RUN npm install --no-audit --no-fund && npm run build
+RUN npm run build
 
 FROM php:8.4-fpm-alpine AS runtime
+ARG PHP_BUILD_JOBS=2
 RUN apk add --no-cache bash curl nginx supervisor icu-libs libzip libxml2 oniguruma postgresql-client gzip \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS curl-dev icu-dev libzip-dev libxml2-dev oniguruma-dev postgresql-dev linux-headers \
-    && docker-php-ext-install -j"$(nproc)" bcmath curl dom intl mbstring opcache pcntl pdo_pgsql xml zip \
+    && docker-php-ext-install -j"${PHP_BUILD_JOBS}" bcmath curl dom intl mbstring opcache pcntl pdo_pgsql xml zip \
     && pecl install redis \
     && docker-php-ext-enable redis \
     && apk del .build-deps
