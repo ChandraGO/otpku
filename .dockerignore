@@ -1,0 +1,11 @@
+.git
+.github
+.env
+vendor
+node_modules
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+deploy/caddy/upstream.caddy
+*.zip

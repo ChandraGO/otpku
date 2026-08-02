@@ -1,0 +1,5 @@
+@extends('layouts.guest')
+@php($title = 'Syarat dan Ketentuan')
+@section('content')
+<article class="mx-auto max-w-3xl px-4 py-16 sm:px-6"><div class="card p-6 sm:p-10"><h1 class="text-3xl font-black">Syarat dan Ketentuan</h1><div class="mt-6 space-y-5 text-sm leading-7 text-slate-600 dark:text-slate-400"><p>Layanan ini menyediakan akses penerimaan SMS untuk penggunaan yang sah. Anda dilarang menggunakannya untuk penipuan, penyamaran, pengambilalihan akun, spam, pelecehan, menghindari pembatasan layanan, atau tindakan lain yang melanggar hukum maupun ketentuan aplikasi tujuan.</p><p>Harga dan stok mengikuti ketersediaan provider dan dapat berubah. Pesanan yang gagal sebelum aktivasi akan diproses sesuai status provider dan kebijakan refund platform. Pesanan yang telah menerima OTP atau diselesaikan tidak dapat dikembalikan kecuali diwajibkan hukum.</p><p>Akun dapat ditangguhkan bila terdapat indikasi penyalahgunaan. Pengguna bertanggung jawab menjaga kredensial akun dan memastikan nomor WhatsApp serta email tetap aktif.</p></div></div></article>
+@endsection

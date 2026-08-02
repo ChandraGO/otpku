@@ -1,0 +1,26 @@
+name: Deploy KodeOTP
+on:
+  push:
+    branches: [main, master]
+concurrency:
+  group: kodeotp-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            cd /opt/kodeotp/app
+            git fetch --prune origin
+            git reset --hard "origin/${{ github.ref_name }}"
+            install -m 0755 deploy/kodeotp-update.sh /usr/local/bin/kodeotp-update
+            APP_DIR=/opt/kodeotp/app STACK_DIR=/opt/kodeotp /usr/local/bin/kodeotp-update

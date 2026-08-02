@@ -1,0 +1,8 @@
+{
+  admin 127.0.0.1:2019
+  auto_https off
+}
+:80 {
+  encode zstd gzip
+  import /etc/caddy/snippets/upstream.caddy
+}

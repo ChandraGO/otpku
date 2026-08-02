@@ -1,0 +1,6 @@
+@extends('layouts.app')
+@php($title = 'Pesanan')
+@section('content')
+<div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><h1 class="text-3xl font-black tracking-tight">Riwayat pesanan</h1><p class="mt-2 text-sm text-slate-500">Pantau aktivasi nomor dan status OTP.</p></div><a href="{{ route('services.index') }}" class="btn-primary">Pesan baru</a></div>
+<div class="mt-6 table-wrap"><table class="table"><thead><tr><th>Layanan</th><th>Nomor</th><th>Status</th><th>Harga</th><th>Kedaluwarsa</th><th></th></tr></thead><tbody>@forelse($orders as $order)<tr><td><div class="font-semibold">{{ $order->service_name }}</div><div class="text-xs text-slate-500">{{ $order->country_name }}</div></td><td>{{ $order->phone_number ?: '—' }}</td><td><x-status :value="$order->status" /></td><td>Rp {{ number_format((float)$order->sell_price,0,',','.') }}</td><td>{{ $order->expires_at?->format('d M Y H:i') ?: '—' }}</td><td><a class="btn-secondary !px-3 !py-2" href="{{ route('orders.show',$order) }}">Detail</a></td></tr>@empty<tr><td colspan="6" class="py-10 text-center text-slate-500">Belum ada pesanan.</td></tr>@endforelse</tbody></table></div><div class="mt-6">{{ $orders->links() }}</div>
+@endsection

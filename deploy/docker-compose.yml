@@ -1,0 +1,99 @@
+name: kodeotp
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-kodeotp}"
+      POSTGRES_USER: "${POSTGRES_USER:-kodeotp_app}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kodeotp_app} -d ${POSTGRES_DB:-kodeotp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${KODEOTP_GATEWAY_HOST:-127.0.0.1}:${KODEOTP_GATEWAY_PORT:-3280}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy:/etc/caddy/snippets
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [frontend]
+
+  app_blue: &app
+    image: "${KODEOTP_IMAGE:-kodeotp-app:latest}"
+    restart: unless-stopped
+    env_file: [./app.env]
+    expose: ["8080"]
+    volumes:
+      - app_backups:/var/www/html/storage/app/backups
+    networks: [frontend, backend]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/healthz | grep -q '\"service\":\"kodeotp\"'"]
+      interval: 8s
+      timeout: 5s
+      retries: 25
+      start_period: 20s
+
+  app_green:
+    <<: *app
+
+  worker:
+    image: "${KODEOTP_IMAGE:-kodeotp-app:latest}"
+    restart: unless-stopped
+    env_file: [./app.env]
+    command: ["php", "artisan", "queue:work", "redis", "--sleep=2", "--tries=3", "--timeout=1000", "--max-time=3600"]
+    stop_grace_period: 35s
+    volumes:
+      - app_backups:/var/www/html/storage/app/backups
+    networks: [backend]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  scheduler:
+    image: "${KODEOTP_IMAGE:-kodeotp-app:latest}"
+    restart: unless-stopped
+    env_file: [./app.env]
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - app_backups:/var/www/html/storage/app/backups
+    networks: [backend]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  postgres_data:
+  redis_data:
+  app_backups:
+  caddy_data:
+  caddy_config:
