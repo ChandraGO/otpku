@@ -62,26 +62,33 @@ class SmsVirtualClient
 
     public function countries(array $query = []): array
     {
-        return $this->request('GET', '/v1/public/countries', query: $query, auth: false);
+        return $this->catalogRequest(
+            ['/v1/public/countries', '/v1/countries'],
+            $query,
+        );
     }
 
     public function operators(array $query = []): array
     {
-        return $this->request('GET', '/v1/public/operators', query: $query, auth: false);
+        return $this->catalogRequest(
+            ['/v1/public/operators', '/v1/operators'],
+            $query,
+        );
     }
 
     public function services(array $query = []): array
     {
-        return $this->request('GET', '/v1/public/services', query: $query, auth: false);
+        return $this->catalogRequest(
+            ['/v1/public/services', '/v1/services'],
+            $query,
+        );
     }
 
     public function servicesByCountry(string $countryId, array $query = []): array
     {
-        return $this->request(
-            'GET',
-            '/v1/public/services/list',
-            query: ['countryId' => $countryId, ...$query],
-            auth: false,
+        return $this->catalogRequest(
+            ['/v1/public/services/list', '/v1/services/list'],
+            ['countryId' => $countryId, ...$query],
         );
     }
 
@@ -152,11 +159,12 @@ class SmsVirtualClient
 
     public function serviceCountries(string $serviceId, array $query = []): array
     {
-        return $this->request(
-            'GET',
-            "/v1/services/{$serviceId}/countries",
-            query: $query,
-            auth: false,
+        return $this->catalogRequest(
+            [
+                "/v1/public/services/{$serviceId}/countries",
+                "/v1/services/{$serviceId}/countries",
+            ],
+            $query,
         );
     }
 
@@ -223,6 +231,33 @@ class SmsVirtualClient
         }
 
         return [];
+    }
+
+
+    private function catalogRequest(array $endpoints, array $query = []): array
+    {
+        $errors = [];
+
+        foreach ($endpoints as $endpoint) {
+            foreach ([true, false] as $auth) {
+                try {
+                    return $this->request(
+                        'GET',
+                        $endpoint,
+                        query: $query,
+                        auth: $auth,
+                    );
+                } catch (Throwable $e) {
+                    $mode = $auth ? 'api-key' : 'public';
+                    $errors[] = "{$endpoint} ({$mode}): {$e->getMessage()}";
+                }
+            }
+        }
+
+        throw new RuntimeException(
+            'Katalog SMS Virtual gagal di semua endpoint: '.
+            implode(' | ', array_values(array_unique($errors))),
+        );
     }
 
     private function request(

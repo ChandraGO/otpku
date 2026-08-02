@@ -341,7 +341,6 @@ class CatalogSyncService
             $response = $request([
                 'page' => $page,
                 'pageSize' => $pageSize,
-                'limit' => $pageSize,
             ]);
 
             $rows = $this->client->rows($response, $keys);

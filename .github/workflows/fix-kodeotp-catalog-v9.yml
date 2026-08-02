@@ -1,0 +1,30 @@
+name: Fix KodeOTP Catalog V9 (No Rebuild)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: kodeotp-catalog-v9-production
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Patch and synchronize catalog without rebuild
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          port: ${{ secrets.VPS_PORT }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 32m
+          script: |
+            set -euo pipefail
+            cd /opt/kodeotp/app
+            git fetch --prune origin
+            git reset --hard origin/master
+            chmod +x deploy/kodeotp-catalog-v9.sh
+            bash deploy/kodeotp-catalog-v9.sh
