@@ -33,13 +33,20 @@ class TopupController extends Controller
             $topup = $service->create($request->user(), (int) $data['amount'], $data['payment_method']);
             return redirect()->route('topups.show', $topup)->with('success', 'Invoice top up berhasil dibuat.');
         } catch (Throwable $e) {
+            report($e);
+
             return back()->withErrors(['topup' => 'Gagal membuat pembayaran: '.$e->getMessage()])->withInput();
         }
     }
     public function show(Request $request, Topup $topup): View
     {
         $this->owner($request, $topup);
-        return view('user.topup-show', ['topup' => $topup]);
+
+        return view('user.topup-show', [
+            'topup' => $topup,
+            'paymentNumber' => $topup->payment_number,
+            'providerError' => data_get($topup->provider_payload, 'error'),
+        ]);
     }
     public function status(Request $request, Topup $topup, TopupService $service): JsonResponse
     {

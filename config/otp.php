@@ -5,6 +5,7 @@ return [
         'site.name' => env('APP_NAME', 'KodeOTP'),
         'site.description' => 'Layanan penerimaan kode OTP virtual yang cepat, transparan, dan mudah digunakan.',
         'site.support_whatsapp' => '',
+        'site.logo_url' => '',
         'auth.email_otp_expiry_minutes' => 10,
         'auth.email_otp_resend_seconds' => 60,
         'orders.default_expiry_minutes' => 20,

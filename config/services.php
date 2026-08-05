@@ -2,7 +2,7 @@
 
 return [
     'sms_virtual' => [
-        'base_url' => env('SMS_VIRTUAL_BASE_URL', 'https://api.sms-virtual.net'),
+        'base_url' => env('SMS_VIRTUAL_BASE_URL', 'https://api.sms-virtuals.net'),
         'api_key' => env('SMS_VIRTUAL_API_KEY'),
         'timeout' => (int) env('SMS_VIRTUAL_TIMEOUT', 30),
     ],

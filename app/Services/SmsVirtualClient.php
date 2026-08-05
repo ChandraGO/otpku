@@ -322,13 +322,7 @@ class SmsVirtualClient
 
     private function http(bool $auth): PendingRequest
     {
-        $baseUrl = rtrim(
-            (string) $this->settings->get(
-                'sms_virtual.base_url',
-                config('services.sms_virtual.base_url'),
-            ),
-            '/',
-        );
+        $baseUrl = $this->baseUrl();
 
         $timeout = max(
             5,
@@ -359,6 +353,36 @@ class SmsVirtualClient
         }
 
         return $request;
+    }
+
+
+    private function baseUrl(): string
+    {
+        $baseUrl = rtrim(
+            trim((string) $this->settings->get(
+                'sms_virtual.base_url',
+                config('services.sms_virtual.base_url'),
+            )),
+            '/',
+        );
+
+        if ($baseUrl === '') {
+            throw new RuntimeException('Base URL SMS Virtual belum dikonfigurasi.');
+        }
+
+        // /api is the documentation page, not the API prefix used by /v1/*.
+        if (str_ends_with(strtolower($baseUrl), '/api')) {
+            $baseUrl = substr($baseUrl, 0, -4);
+        }
+
+        // Compatibility with the previous package default that missed the
+        // trailing "s" in the provider hostname.
+        $parts = parse_url($baseUrl);
+        if (is_array($parts) && strtolower((string) ($parts['host'] ?? '')) === 'api.sms-virtual.net') {
+            $baseUrl = 'https://api.sms-virtuals.net';
+        }
+
+        return rtrim($baseUrl, '/');
     }
 
     private function idempotencyHeader(?string $key): array

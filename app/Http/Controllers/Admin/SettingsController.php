@@ -87,7 +87,7 @@ class SettingsController extends Controller
 
         $settings->setMany($mapped);
 
-        if ($group === 'pricing') {
+        if (in_array($group, ['pricing', 'sms_virtual'], true)) {
             app(CatalogSyncService::class)->reprice();
         }
 
@@ -174,11 +174,11 @@ class SettingsController extends Controller
     public function testPakasir(PakasirClient $client): RedirectResponse
     {
         try {
-            $client->project();
+            $configuration = $client->assertConfigured();
 
             return back()->with(
                 'success',
-                'Konfigurasi Pakasir terbaca. Detail transaksi akan diverifikasi saat invoice dibuat.',
+                'Konfigurasi Pakasir siap: '.$configuration['base_url'].' · project '.$configuration['project'].'. Tes transaksi sebenarnya dilakukan saat invoice dibuat.',
             );
         } catch (Throwable $e) {
             return back()->withErrors(['settings' => $e->getMessage()]);
@@ -237,6 +237,7 @@ class SettingsController extends Controller
                 'name' => ['required', 'string', 'max:100'],
                 'description' => ['required', 'string', 'max:500'],
                 'support_whatsapp' => ['nullable', 'string', 'max:30'],
+                'logo_url' => ['nullable', 'url', 'max:2048'],
             ],
             'auth' => [
                 'email_otp_expiry_minutes' => ['required', 'integer', 'min:3', 'max:60'],

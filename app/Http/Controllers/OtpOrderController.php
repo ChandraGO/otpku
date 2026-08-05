@@ -40,7 +40,7 @@ class OtpOrderController extends Controller
         $sellPrice = $pricing->sellingPrice($price->provider_price);
         $price->update(['sell_price' => $sellPrice]);
 
-        $order = DB::transaction(function () use ($request, $data, $price, $sellPrice, $wallet): OtpOrder {
+        $order = DB::transaction(function () use ($request, $data, $price, $sellPrice, $pricing, $wallet): OtpOrder {
             $order = OtpOrder::query()->create([
                 'user_id' => $request->user()->id,
                 'sms_service_price_id' => $price->id,
@@ -50,7 +50,7 @@ class OtpOrderController extends Controller
                 'service_name' => $price->service->name,
                 'country_name' => $price->country->name,
                 'operator_name' => $price->operator_name,
-                'provider_cost' => $price->provider_price,
+                'provider_cost' => $pricing->providerCostIdr($price->provider_price),
                 'sell_price' => $sellPrice,
                 'status' => 'processing',
             ]);
