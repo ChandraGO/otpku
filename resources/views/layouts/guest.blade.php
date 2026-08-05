@@ -37,8 +37,6 @@
         <a href="{{ route('home') }}" aria-label="Beranda"><x-app-logo /></a>
 
         <nav class="hidden items-center gap-2 md:flex" aria-label="Navigasi utama">
-            <a class="btn-secondary" href="{{ route('home') }}#features">Fitur</a>
-            <a class="btn-secondary" href="{{ route('home') }}#faq">FAQ</a>
             @auth
                 <a class="btn-primary" href="{{ route('dashboard') }}">Dashboard <x-icon name="arrow-right" size="size-4" /></a>
             @endauth
@@ -76,8 +74,6 @@
         class="border-t border-slate-200/70 bg-white/95 px-4 py-4 shadow-xl backdrop-blur-2xl dark:border-white/10 dark:bg-[#0a1020]/95 md:hidden"
     >
         <nav class="mx-auto grid max-w-7xl gap-2" aria-label="Navigasi mobile">
-            <a data-mobile-menu-close class="nav-link" href="{{ route('home') }}#features"><x-icon name="services" /><span>Fitur</span></a>
-            <a data-mobile-menu-close class="nav-link" href="{{ route('home') }}#faq"><x-icon name="info" /><span>FAQ</span></a>
             @auth
                 <a data-mobile-menu-close class="nav-link nav-link-active" href="{{ route('dashboard') }}"><x-icon name="home" /><span>Dashboard</span></a>
             @endauth
