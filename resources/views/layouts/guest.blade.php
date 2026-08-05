@@ -38,12 +38,9 @@
 
         <nav class="hidden items-center gap-2 md:flex" aria-label="Navigasi utama">
             <a class="btn-secondary" href="{{ route('home') }}#features">Fitur</a>
-            <a class="btn-secondary" href="{{ route('pricing') }}">Harga</a>
+            <a class="btn-secondary" href="{{ route('home') }}#faq">FAQ</a>
             @auth
                 <a class="btn-primary" href="{{ route('dashboard') }}">Dashboard <x-icon name="arrow-right" size="size-4" /></a>
-            @else
-                <a class="btn-secondary" href="{{ route('login') }}">Login</a>
-                <a class="btn-primary" href="{{ route('register') }}">Daftar</a>
             @endauth
         </nav>
 
@@ -80,12 +77,9 @@
     >
         <nav class="mx-auto grid max-w-7xl gap-2" aria-label="Navigasi mobile">
             <a data-mobile-menu-close class="nav-link" href="{{ route('home') }}#features"><x-icon name="services" /><span>Fitur</span></a>
-            <a data-mobile-menu-close class="nav-link" href="{{ route('pricing') }}"><x-icon name="chart" /><span>Harga</span></a>
+            <a data-mobile-menu-close class="nav-link" href="{{ route('home') }}#faq"><x-icon name="info" /><span>FAQ</span></a>
             @auth
                 <a data-mobile-menu-close class="nav-link nav-link-active" href="{{ route('dashboard') }}"><x-icon name="home" /><span>Dashboard</span></a>
-            @else
-                <a data-mobile-menu-close class="nav-link" href="{{ route('login') }}"><x-icon name="user" /><span>Login</span></a>
-                <a data-mobile-menu-close class="nav-link nav-link-active" href="{{ route('register') }}"><x-icon name="arrow-right" /><span>Daftar</span></a>
             @endauth
         </nav>
     </div>

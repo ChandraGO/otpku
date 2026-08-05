@@ -224,3 +224,34 @@
         text-wrap: balance;
     }
 }
+
+@media (min-width: 1024px) {
+    body.sidebar-collapsed [data-sidebar-panel] {
+        transform: translateX(-100%);
+    }
+
+    body.sidebar-collapsed [data-app-content] {
+        padding-left: 0;
+    }
+}
+
+.faq-item > summary::-webkit-details-marker {
+    display: none;
+}
+
+.faq-chevron {
+    transition: transform .25s ease;
+}
+
+.faq-item[open] .faq-chevron {
+    transform: rotate(180deg);
+}
+
+.faq-answer {
+    animation: faq-in .22s ease-out;
+}
+
+@keyframes faq-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}

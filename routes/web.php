@@ -64,12 +64,14 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
     Route::get('/top-up/{topup}/status', [TopupController::class, 'status'])->middleware('throttle:30,1')->name('topups.status');
     Route::get('/mutasi', [WalletController::class, 'index'])->name('wallet.index');
     Route::get('/pengumuman', [AnnouncementController::class, 'index'])->name('announcements.index');
-    Route::view('/api-docs', 'user.api-docs')->name('api.docs');
+    Route::get('/api-docs', [ProfileController::class, 'apiDocs'])->name('api.docs');
     Route::view('/bantuan', 'user.support')->name('support.index');
     Route::get('/profil', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profil', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profil/theme', [ProfileController::class, 'theme'])->middleware('throttle:30,1')->name('profile.theme');
     Route::put('/profil/password', [ProfileController::class, 'password'])->name('profile.password');
+    Route::post('/profil/api-key/rotate', [ProfileController::class, 'rotateApiKey'])->middleware('throttle:5,1')->name('profile.api-key.rotate');
+    Route::post('/profil/hapus-akun', [ProfileController::class, 'requestDeletion'])->middleware('throttle:3,60')->name('profile.deletion.request');
 
     Route::prefix('admin')->name('admin.')->middleware('admin')->group(function (): void {
         Route::get('/', AdminDashboardController::class)->name('dashboard');
@@ -77,6 +79,7 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
         Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show');
         Route::put('/users/{user}/status', [AdminUserController::class, 'status'])->name('users.status');
         Route::post('/users/{user}/balance', [AdminUserController::class, 'adjustBalance'])->name('users.balance');
+        Route::put('/users/{user}/deletion-request', [AdminUserController::class, 'reviewDeletionRequest'])->name('users.deletion-request');
         Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
         Route::post('/orders/{order}/action', [AdminOrderController::class, 'action'])->name('orders.action');

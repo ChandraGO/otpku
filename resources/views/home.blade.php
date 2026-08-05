@@ -44,9 +44,9 @@
                     <img src="/illustrations/otp-hero.svg" alt="Ilustrasi verifikasi OTP" class="mt-4 w-full" loading="eager">
                 </div>
                 <div class="mt-4 grid grid-cols-3 gap-3">
-                    <div class="card-soft p-3 text-center"><div class="text-lg font-black text-violet-600 dark:text-violet-300">{{ number_format($serviceCount) }}+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Services</div></div>
-                    <div class="card-soft p-3 text-center"><div class="text-lg font-black text-violet-600 dark:text-violet-300">{{ number_format($countryCount) }}+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Countries</div></div>
-                    <div class="card-soft p-3 text-center"><div class="text-lg font-black text-violet-600 dark:text-violet-300">24/7</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Monitoring</div></div>
+                    <div class="card-soft p-3 text-center"><div data-count-to="{{ (int) $serviceCount }}" data-count-suffix="+" class="text-lg font-black text-violet-600 dark:text-violet-300">0+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Layanan</div></div>
+                    <div class="card-soft p-3 text-center"><div data-count-to="{{ (int) $countryCount }}" data-count-suffix="+" class="text-lg font-black text-violet-600 dark:text-violet-300">0+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Negara</div></div>
+                    <div class="card-soft p-3 text-center"><div data-count-to="24" data-count-suffix="/7" class="text-lg font-black text-violet-600 dark:text-violet-300">0/7</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Monitoring</div></div>
                 </div>
             </div>
         </div>
@@ -131,5 +131,33 @@
             </div>
         </div>
     @endif
+</section>
+
+<section id="faq" class="border-t border-slate-200 bg-white py-20 dark:border-white/10 dark:bg-[#0a1020]">
+    <div class="mx-auto max-w-4xl px-4 sm:px-6">
+        <div class="text-center">
+            <span class="badge bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Frequently Asked Questions</span>
+            <h2 class="section-title mt-5">Pertanyaan yang sering diajukan</h2>
+            <p class="section-copy mx-auto">Panduan singkat sebelum membeli layanan dan meminta OTP.</p>
+        </div>
+        <div class="mt-10 space-y-3">
+            @foreach([
+                ['Bagaimana cara memesan nomor OTP?', 'Pilih layanan, tentukan negara atau operator, pastikan saldo mencukupi, lalu tekan tombol Pesan. Setelah nomor tersedia, gunakan aksi Ready sebelum meminta kode dari aplikasi tujuan. Nomor dan status akan tampil pada halaman detail pesanan.'],
+                ['Apakah OTP aman digunakan?', 'Kode OTP hanya ditampilkan pada akun pemesan dan digunakan untuk layanan yang dipilih. Keamanan akun tujuan tetap menjadi tanggung jawab pengguna.'],
+                ['Apa yang harus dilakukan jika OTP belum masuk?', 'Gunakan aksi kirim ulang selama waktu pesanan masih aktif. Bila tetap tidak diterima, batalkan pesanan sebelum waktu habis jika status provider mengizinkan.'],
+                ['Apakah kirim ulang OTP dikenakan biaya?', 'Tidak ada biaya tambahan dari platform untuk aksi Resend selama pesanan masih aktif. Setelah OTP berhasil digunakan, tekan Complete untuk mengakhiri layanan. Kebijakan akhir tetap mengikuti respons provider.'],
+                ['Kapan saldo dikembalikan?', 'Saldo dikembalikan untuk pesanan yang dibatalkan atau gagal sesuai status provider dan kebijakan refund platform. Pesanan yang sudah selesai atau sudah menerima OTP tidak dapat direfund.'],
+                ['Apakah layanan dapat dihubungkan ke bot Telegram?', 'Bisa. Setiap pengguna memiliki API key sendiri pada Account Settings dan dapat memakai endpoint API pelanggan yang tersedia di menu API Docs.'],
+            ] as $index => $faq)
+                <details class="faq-item card overflow-hidden" @if($index === 0) open @endif>
+                    <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-5 font-black sm:px-6">
+                        <span>{{ $faq[0] }}</span>
+                        <span class="faq-chevron grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><x-icon name="chevron-right" class="rotate-90" size="size-4" /></span>
+                    </summary>
+                    <div class="faq-answer border-t border-slate-200 px-5 py-5 text-sm leading-7 text-slate-500 dark:border-white/10 dark:text-slate-400 sm:px-6">{{ $faq[1] }}</div>
+                </details>
+            @endforeach
+        </div>
+    </div>
 </section>
 @endsection

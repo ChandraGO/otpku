@@ -28,7 +28,7 @@
     @stack('head')
 </head>
 <body>
-<div class="min-h-screen">
+<div class="min-h-screen" data-app-shell>
     <div
         data-sidebar-overlay
         hidden
@@ -130,12 +130,17 @@
         </div>
     </aside>
 
-    <div class="min-h-screen lg:pl-[280px]">
+    <div data-app-content class="min-h-screen transition-[padding] duration-300 lg:pl-[280px]">
         <header class="sticky top-0 z-30 hidden border-b border-slate-200/80 bg-slate-50/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85 lg:block">
             <div class="flex h-20 items-center justify-between px-8">
-                <div>
+                <div class="flex items-center gap-4">
+                    <button type="button" data-sidebar-collapse-toggle class="btn-secondary !p-3" aria-label="Sembunyikan sidebar" title="Sembunyikan sidebar">
+                        <x-icon name="menu" />
+                    </button>
+                    <div>
                     <div class="text-xs font-semibold uppercase tracking-[.18em] text-slate-400">Hello, welcome back 👋</div>
                     <div class="mt-1 text-lg font-black">{{ auth()->user()->name }}</div>
+                    </div>
                 </div>
                 <div class="flex items-center gap-3">
                     <div class="flex items-center gap-3 rounded-3xl border border-violet-200 bg-white px-4 py-2.5 shadow-sm dark:border-violet-400/20 dark:bg-white/5">

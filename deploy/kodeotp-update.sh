@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+DEPLOY_SCRIPT_VERSION="2026.08.05-auto-payment-v1"
+
 APP_DIR="${APP_DIR:-/opt/kodeotp/app}"
 STACK_DIR="${STACK_DIR:-/opt/kodeotp}"
 BRANCH="${BRANCH:-master}"
@@ -32,6 +34,8 @@ CURRENT_CID=""
 log() {
   printf '[deploy] %s\n' "$*"
 }
+
+log "KodeOTP deployer $DEPLOY_SCRIPT_VERSION"
 
 read_env_value() {
   local key="$1" file="$2"

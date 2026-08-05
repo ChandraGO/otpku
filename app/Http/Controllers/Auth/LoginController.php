@@ -26,8 +26,11 @@ class LoginController extends Controller
             Auth::logout();
             return back()->withErrors(['login' => 'Akun sedang dinonaktifkan.']);
         }
+        $user->ensureApiKey();
         $user->update(['last_login_at' => now()]);
-        return redirect()->intended($user->hasVerifiedEmail() ? route('dashboard') : route('verification.notice'));
+        return redirect()
+            ->intended($user->hasVerifiedEmail() ? route('dashboard') : route('verification.notice'))
+            ->with('success', 'Login berhasil. Selamat datang kembali, '.$user->name.'.');
     }
     public function destroy(Request $request): RedirectResponse
     {

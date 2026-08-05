@@ -33,6 +33,8 @@ class AppServiceProvider extends ServiceProvider
             ->by((string) ($request->user()?->id ?? $request->ip())));
         RateLimiter::for('topups', fn (Request $request) => Limit::perMinute(5)
             ->by((string) ($request->user()?->id ?? $request->ip())));
+        RateLimiter::for('customer-api', fn (Request $request) => Limit::perMinute(120)
+            ->by((string) ($request->user()?->id ?? $request->ip())));
 
         app(MailSettingsConfigurator::class)->configure();
 
@@ -41,10 +43,12 @@ class AppServiceProvider extends ServiceProvider
                 $view->with('siteName', $settings->get('site.name', config('app.name')));
                 $view->with('siteDescription', $settings->get('site.description'));
                 $view->with('siteSupportWhatsapp', $settings->get('site.support_whatsapp', ''));
+                $view->with('siteLogoUrl', $settings->get('site.logo_url', ''));
             } catch (Throwable) {
                 $view->with('siteName', config('app.name', 'KodeOTP'));
                 $view->with('siteDescription', null);
                 $view->with('siteSupportWhatsapp', '');
+                $view->with('siteLogoUrl', '');
             }
         });
 

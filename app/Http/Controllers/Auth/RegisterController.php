@@ -27,7 +27,11 @@ class RegisterController extends Controller
         ]);
         $data['email'] = strtolower($data['email']);
         $data['whatsapp'] = ltrim($data['whatsapp'], '+');
-        $user = DB::transaction(fn () => User::query()->create($data));
+        $user = DB::transaction(function () use ($data): User {
+            $user = User::query()->create($data);
+            $user->rotateApiKey();
+            return $user;
+        });
 
         try {
             $otp->send($user);
