@@ -22,10 +22,8 @@ class ProviderBalanceService
      */
     public function get(bool $refresh = true): array
     {
-        $unitToIdr = max(
-            0.0001,
-            (float) $this->settings->get('sms_virtual.balance_unit_to_idr', 1),
-        );
+        // SMS Virtual balance is already in the same monetary unit charged by orders.
+        $unitToIdr = 1.0;
 
         $lastRaw = $this->numeric($this->settings->get('sms_virtual.last_balance_raw'));
         $lastCheckedAt = $this->settings->get('sms_virtual.last_balance_checked_at');

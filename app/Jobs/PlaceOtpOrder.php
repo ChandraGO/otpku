@@ -46,35 +46,77 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
                 'serviceCountryPriceId' => $order->provider_price_id,
                 'operatorId' => $order->provider_operator_id,
                 'quantity' => 1,
-                'autoSearchServer' => true,
+                // Keep the provider charge tied to the exact price shown in
+                // KodeOTP. When autoSearchServer=true SMS Virtual may fall back
+                // to another server/priceId with a higher sellPrice, which can
+                // make a Rp1.000 quote consume Rp2.439 at the provider.
+                'autoSearchServer' => false,
             ], fn ($value) => $value !== null && $value !== ''), $order->idempotency_key);
 
             $provider = $response['data'] ?? $response;
             if (! is_array($provider)) $provider = [];
+
+            // request-single-service pada SMS Virtual dapat mengembalikan objek
+            // ORDER terlebih dahulu. Pada bentuk respons itu data.id adalah
+            // UUID order, BUKAN activationId yang diterima getStatus/ready/etc.
+            // Jangan pernah memakai field id generik sebagai activation ID.
             $activationId = $this->findValue($provider, [
                 'activationId',
                 'activation.activationId',
-                'activation.id',
                 'activations.0.activationId',
-                'activations.0.id',
                 'items.0.activationId',
-                'items.0.id',
                 '0.activationId',
-                '0.id',
                 'order.activationId',
-                'order.activation.id',
-                'id',
+                'order.activation.activationId',
             ]);
-            if (! $activationId) throw new RuntimeException('Provider belum mengembalikan activation ID.', 503);
 
-            $providerOrderId = $this->findValue($provider, ['orderId', 'order.id', 'invoiceNo', 'order.invoiceNo', 'activations.0.orderId']);
-            $expiresAt = $this->findValue($provider, [
+            $providerOrderId = $this->findValue($provider, [
+                'orderId',
+                'order.id',
+                'activations.0.orderId',
+                'items.0.orderId',
+                '0.orderId',
+            ]);
+
+            // Bentuk respons yang terkonfirmasi di production:
+            // data.id=<UUID order>, data.transactionId=..., tanpa activationId.
+            if (! $providerOrderId && ! $activationId) {
+                $providerOrderId = $this->findValue($provider, ['id']);
+            }
+
+            $resolvedActivation = null;
+            if (! $activationId && $providerOrderId) {
+                $resolvedActivation = $this->findActivationByOrderId($client, (string) $providerOrderId);
+                $activationId = $this->findValue($resolvedActivation ?? [], ['activationId']);
+            }
+
+            if (! $activationId) {
+                throw new RuntimeException('Provider sudah membuat order, tetapi activation ID belum tersedia. Akan dicoba lagi otomatis.', 503);
+            }
+
+            if (! $providerOrderId && $resolvedActivation) {
+                $providerOrderId = $this->findValue($resolvedActivation, ['orderId', 'order.id']);
+            }
+
+            $activationPayload = $resolvedActivation ?: $provider;
+            $phoneNumber = $this->findValue($activationPayload, [
+                'phoneNumber',
+                'number',
+                'phone',
+                'activation.phoneNumber',
+                'activation.number',
+            ]);
+            $expiresAt = $this->findValue($activationPayload, [
+                'expiredTime',
                 'expiredAt',
                 'expiresAt',
+                'activation.expiredTime',
                 'activation.expiredAt',
                 'activation.expiresAt',
+                'activations.0.expiredTime',
                 'activations.0.expiredAt',
                 'activations.0.expiresAt',
+                '0.expiredTime',
                 '0.expiredAt',
                 '0.expiresAt',
             ])
@@ -82,7 +124,7 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
 
             $cancelProviderActivation = false;
 
-            DB::transaction(function () use ($order, $response, $activationId, $providerOrderId, $expiresAt, &$cancelProviderActivation): void {
+            DB::transaction(function () use ($order, $response, $activationId, $providerOrderId, $phoneNumber, $expiresAt, &$cancelProviderActivation): void {
                 $locked = OtpOrder::query()->lockForUpdate()->findOrFail($order->id);
                 if ($locked->provider_activation_id) return;
 
@@ -93,14 +135,16 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
                     return;
                 }
 
-                $locked->update([
+                $updates = [
                     'provider_activation_id' => (string) $activationId,
                     'provider_order_id' => $providerOrderId ? (string) $providerOrderId : null,
                     'provider_payload' => $response,
                     'provider_message' => null,
                     'status' => 'pending',
                     'expires_at' => $expiresAt,
-                ]);
+                ];
+                if ($phoneNumber) $updates['phone_number'] = (string) $phoneNumber;
+                $locked->update($updates);
             }, 3);
 
             if ($cancelProviderActivation) {
@@ -114,7 +158,12 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
 
             $fresh = $order->refresh();
             if ($fresh->provider_activation_id) {
-                $statusService->apply($fresh, $response);
+                // Jika activation ditemukan lewat ongoing/history, gunakan record
+                // activation tersebut untuk langsung mengisi nomor/status/durasi.
+                $statusService->apply(
+                    $fresh,
+                    $resolvedActivation ? ['data' => $resolvedActivation] : $response,
+                );
             }
         } catch (Throwable $e) {
             $code = (int) $e->getCode();
@@ -156,6 +205,56 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
                 'refunded_at' => $refund ? now() : null,
             ]);
         }, 3);
+    }
+
+    private function findActivationByOrderId(SmsVirtualClient $client, string $providerOrderId): ?array
+    {
+        $lookups = [
+            fn () => $client->ongoingActivations(['page' => 1, 'pageSize' => 50]),
+            fn () => $client->orderHistory(['page' => 1, 'pageSize' => 50]),
+            fn () => $client->activationHistory(['page' => 1, 'pageSize' => 50]),
+        ];
+
+        foreach ($lookups as $lookup) {
+            try {
+                $response = $lookup();
+            } catch (Throwable $e) {
+                // Satu endpoint history gagal tidak boleh membuat placement baru.
+                // Lanjutkan ke sumber lain; retry queue tetap menangani jika semua
+                // sumber belum menampilkan activation.
+                report($e);
+                continue;
+            }
+
+            $rows = $response['data'] ?? [];
+            if (! is_array($rows)) continue;
+
+            foreach ($rows as $row) {
+                if (! is_array($row)) continue;
+
+                $rowOrderId = $this->findValue($row, ['orderId', 'order.id']);
+                $rowActivationId = $this->findValue($row, ['activationId']);
+                if ($rowOrderId && (string) $rowOrderId === $providerOrderId && $rowActivationId) {
+                    return $row;
+                }
+
+                // /orders/history berbentuk order -> orderDetail[].
+                if ((string) ($row['id'] ?? '') !== $providerOrderId) continue;
+
+                $details = $row['orderDetail'] ?? [];
+                if (! is_array($details)) continue;
+
+                foreach ($details as $detail) {
+                    if (! is_array($detail)) continue;
+                    if (! $this->findValue($detail, ['activationId'])) continue;
+
+                    if (! isset($detail['orderId'])) $detail['orderId'] = $providerOrderId;
+                    return $detail;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function findValue(array $payload, array $keys): mixed

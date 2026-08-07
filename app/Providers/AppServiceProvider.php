@@ -85,11 +85,7 @@ class AppServiceProvider extends ServiceProvider
                 try {
                     $raw = $settings->get('sms_virtual.last_balance_raw');
                     if (is_numeric($raw)) {
-                        $unitToIdr = max(
-                            0.0001,
-                            (float) $settings->get('sms_virtual.balance_unit_to_idr', 1),
-                        );
-                        $data['headerBalance'] = (float) $raw * $unitToIdr;
+                        $data['headerBalance'] = (float) $raw;
                         $data['headerBalanceAvailable'] = true;
                     }
                 } catch (Throwable) {

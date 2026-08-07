@@ -222,7 +222,6 @@ class SettingsController extends Controller
                 'base_url' => ['required', 'url'],
                 'api_key' => ['nullable', 'string', 'max:500'],
                 'timeout' => ['required', 'integer', 'min:5', 'max:120'],
-                'balance_unit_to_idr' => ['required', 'numeric', 'min:0.0001', 'max:1000000'],
                 'low_balance_threshold' => ['required', 'numeric', 'min:0', 'max:1000000000000'],
                 'reserve_buffer_percent' => ['required', 'numeric', 'min:0', 'max:500'],
             ],

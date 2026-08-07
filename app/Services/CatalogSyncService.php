@@ -497,8 +497,11 @@ class CatalogSyncService
 
             $amount = $this->numericOrNull(
                 $this->first($priceRow, [
-                    'promoPrice',
+                    // request-single-service charges the selected price row's
+                    // sellPrice. Prefer it over promotional/display-only fields
+                    // so the KodeOTP quote cannot be lower than provider cost.
                     'sellPrice',
+                    'promoPrice',
                     'price',
                     'amount',
                     'cost',

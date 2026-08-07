@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-DEPLOY_SCRIPT_VERSION="2026.08.08-assets-compat-v2"
+DEPLOY_SCRIPT_VERSION="2026.08.08-final-v3"
 
 APP_DIR="${APP_DIR:-/opt/kodeotp/app}"
 STACK_DIR="${STACK_DIR:-/opt/kodeotp}"
@@ -386,6 +386,9 @@ fi
   exit 1
 }
 export KODEOTP_IMAGE="$RUNTIME_IMAGE"
+# Persist juga ke stack .env supaya perintah manual `docker compose up` tidak
+# kembali mencoba menarik image default kodeotp-app:latest yang tidak ada.
+set_env_value "$STACK_ENV" KODEOTP_IMAGE "$RUNTIME_IMAGE"
 
 # Mulai titik ini compose target memakai release baru. Container aktif lama
 # tetap mempertahankan mount release lamanya sampai trafik berhasil diswitch.
