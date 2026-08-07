@@ -149,7 +149,7 @@ class CustomerApiController extends Controller
 
         if ($existing) {
             if (! $existing->provider_activation_id && in_array($existing->status, ['processing', 'provider_pending'], true)) {
-                PlaceOtpOrder::dispatch($existing->id);
+                $this->queuePlacement($existing);
             }
 
             return $this->success($this->orderPayload($existing), 'Pesanan idempoten ditemukan.', 200);
@@ -203,7 +203,7 @@ class CustomerApiController extends Controller
             return $this->error('Pesanan belum dapat diproses. Silakan coba kembali.', 'ORDER_FAILED', 422);
         }
 
-        PlaceOtpOrder::dispatch($order->id);
+        $this->queuePlacement($order);
 
         return $this->success($this->orderPayload($order), 'Pesanan diterima dan sedang diproses.', 202);
     }
@@ -211,8 +211,13 @@ class CustomerApiController extends Controller
     public function showOrder(Request $request, OtpOrder $order, OtpOrderStatusService $service): JsonResponse
     {
         $this->authorizeOwner($request, $order);
+        $order = $order->refresh();
 
-        if ($order->shouldPoll() && (! $order->last_synced_at || $order->last_synced_at->lt(now()->subSeconds(5)))) {
+        if (! $order->provider_activation_id && in_array($order->status, ['processing', 'provider_pending'], true)) {
+            $this->queuePlacement($order);
+        }
+
+        if ($order->shouldPoll() && (! $order->last_synced_at || $order->last_synced_at->lt(now()->subSeconds(3)))) {
             try { $order = $service->sync($order); } catch (Throwable) { $order = $order->refresh(); }
         }
 
@@ -226,17 +231,30 @@ class CustomerApiController extends Controller
             'action' => ['required', Rule::in(['ready', 'resend', 'cancel', 'complete', 'reactivate'])],
         ]);
 
-        if (! $order->provider_activation_id) {
-            return $this->error('Nomor masih diproses oleh provider.', 'ORDER_NOT_READY', 409);
-        }
-
         try {
-            $updated = $service->action($order, $data['action']);
+            $updated = $service->action($order->refresh(), $data['action']);
             return $this->success($this->orderPayload($updated), 'Perintah berhasil dikirim.');
         } catch (Throwable $exception) {
             report($exception);
 
             return $this->error('Aksi belum dapat diproses untuk status pesanan saat ini.', 'ACTION_FAILED', 422);
+        }
+    }
+
+    private function queuePlacement(OtpOrder $order): void
+    {
+        try {
+            PlaceOtpOrder::dispatch($order->id);
+        } catch (Throwable $exception) {
+            report($exception);
+            OtpOrder::query()
+                ->whereKey($order->id)
+                ->whereNull('provider_activation_id')
+                ->whereIn('status', ['processing', 'provider_pending'])
+                ->update([
+                    'status' => 'provider_pending',
+                    'provider_message' => 'Antrian provider sementara tidak tersedia. Sistem akan mencoba lagi otomatis.',
+                ]);
         }
     }
 

@@ -125,6 +125,19 @@
     };
 
     document.addEventListener('click', (event) => {
+        const quickAmount = event.target.closest('[data-quick-amount]');
+        if (quickAmount) {
+            event.preventDefault();
+            const form = quickAmount.closest('form');
+            const input = form?.querySelector('[name=amount]');
+            if (input) {
+                input.value = quickAmount.dataset.quickAmount || '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.focus({ preventScroll: true });
+            }
+            return;
+        }
+
         const themeButton = event.target.closest('[data-theme-toggle]');
         if (themeButton) {
             event.preventDefault();

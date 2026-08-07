@@ -1,4 +1,4 @@
-import Alpine from 'alpinejs';
+import Alpine from '@alpinejs/csp';
 import axios from 'axios';
 import QRCode from 'qrcode';
 
@@ -154,6 +154,125 @@ Alpine.data('copyText', (value) => ({
         await navigator.clipboard.writeText(value);
         this.copied = true;
         window.setTimeout(() => { this.copied = false; }, 1600);
+    },
+}));
+
+
+Alpine.data('orderStatus', () => ({
+    url: '',
+    data: {
+        status: 'processing',
+        phone_number: null,
+        otp_code: null,
+        message: null,
+        expires_at: null,
+        provider_activation_id: null,
+        terminal: false,
+    },
+    can: {
+        ready: false,
+        resend: false,
+        complete: false,
+        cancel: true,
+        reactivate: false,
+    },
+    countdown: 'Menunggu nomor dari provider',
+    copied: false,
+    timer: null,
+    fetching: false,
+    lastChecked: 'Belum diperbarui',
+    init() {
+        this.url = this.$root.dataset.statusUrl || '';
+
+        const encoded = this.$root.dataset.initial || '';
+        if (encoded) {
+            try {
+                const bytes = Uint8Array.from(window.atob(encoded), (char) => char.charCodeAt(0));
+                const initial = JSON.parse(new TextDecoder().decode(bytes));
+                this.applyPayload(initial);
+            } catch (_) {
+                // Server-rendered fallback remains visible when initial JSON fails.
+            }
+        }
+
+        this.tick();
+        this.fetch();
+        this.timer = window.setInterval(() => {
+            this.tick();
+            if (!this.data.terminal || this.data.status === 'expired' || this.data.status === 'cancelled') {
+                this.fetch();
+            }
+        }, 3000);
+    },
+    destroy() {
+        if (this.timer) window.clearInterval(this.timer);
+    },
+    applyPayload(payload) {
+        if (!payload || typeof payload !== 'object') return;
+        this.data = { ...this.data, ...payload };
+        this.can = payload.can || this.deriveActions(this.data);
+        this.lastChecked = this.formatChecked(payload.last_checked_at);
+        this.tick();
+    },
+    deriveActions(payload) {
+        const hasActivation = Boolean(payload.provider_activation_id);
+        const terminal = Boolean(payload.terminal);
+        const hasOtp = Boolean(payload.otp_code);
+        const status = String(payload.status || '');
+        return {
+            ready: hasActivation && !terminal,
+            resend: hasActivation && !terminal,
+            complete: hasActivation && !terminal,
+            cancel: (!hasActivation && ['processing', 'provider_pending'].includes(status)) || (hasActivation && !terminal && !hasOtp),
+            reactivate: hasActivation && ['cancelled', 'expired', 'failed'].includes(status),
+        };
+    },
+    async fetch() {
+        if (!this.url || this.fetching) return;
+        this.fetching = true;
+        try {
+            const response = await axios.get(this.url, {
+                headers: { Accept: 'application/json' },
+            });
+            this.applyPayload(response.data);
+        } catch (_) {
+            this.lastChecked = 'Gagal memperbarui, mencoba lagi otomatis…';
+        } finally {
+            this.fetching = false;
+        }
+    },
+    tick() {
+        if (!this.data.expires_at) {
+            this.countdown = this.data.provider_activation_id
+                ? 'Menunggu durasi dari provider'
+                : 'Menunggu nomor dari provider';
+            return;
+        }
+
+        const remaining = Math.max(0, Math.floor((new Date(this.data.expires_at).getTime() - Date.now()) / 1000));
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+        this.countdown = remaining > 0
+            ? `${minutes}m ${String(seconds).padStart(2, '0')}s`
+            : '00m 00s';
+    },
+    formatChecked(value) {
+        if (!value) return this.lastChecked;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return this.lastChecked;
+        return `Terakhir dicek ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    },
+    get statusLabel() {
+        return String(this.data.status || 'processing').replaceAll('_', ' ');
+    },
+    get waitingForActivation() {
+        return !this.data.provider_activation_id && ['processing', 'provider_pending'].includes(String(this.data.status || ''));
+    },
+    async copy(value) {
+        if (!value) return;
+        await navigator.clipboard.writeText(value);
+        this.copied = true;
+        window.setTimeout(() => { this.copied = false; }, 1400);
     },
 }));
 

@@ -27,12 +27,12 @@ class OtpOrderStatusService
     public function apply(OtpOrder $order, array $response): OtpOrder
     {
         $payload = $this->unwrap($response);
-        $activationStatus = $this->intValue($payload, ['statusActivation', 'activation.status', 'activationStatus']);
-        $orderStatus = $this->intValue($payload, ['statusOrder', 'order.status', 'orderStatus']);
-        $otp = $this->stringValue($payload, ['otp', 'code', 'smsCode', 'activation.otp', 'activation.code', 'sms.code']);
-        $phone = $this->stringValue($payload, ['phoneNumber', 'number', 'phone', 'activation.phoneNumber', 'activation.number']);
-        $message = $this->stringValue($payload, ['message', 'sms.message', 'activation.message']);
-        $expires = $this->dateValue($payload, ['expiredAt', 'expiresAt', 'expirationDate', 'activation.expiredAt']);
+        $activationStatus = $this->intValue($payload, ['statusActivation', 'activation.statusActivation', 'activation.status', 'activationStatus', 'activations.0.statusActivation', 'activations.0.status', '0.statusActivation']);
+        $orderStatus = $this->intValue($payload, ['statusOrder', 'order.statusOrder', 'order.status', 'orderStatus', 'activations.0.statusOrder', '0.statusOrder']);
+        $otp = $this->stringValue($payload, ['otp', 'code', 'smsCode', 'activation.otp', 'activation.code', 'sms.code', 'activations.0.otp', 'activations.0.code', '0.otp', '0.code']);
+        $phone = $this->stringValue($payload, ['phoneNumber', 'number', 'phone', 'activation.phoneNumber', 'activation.number', 'activations.0.phoneNumber', 'activations.0.number', '0.phoneNumber', '0.number']);
+        $message = $this->stringValue($payload, ['message', 'sms.message', 'activation.message', 'activations.0.message', '0.message']);
+        $expires = $this->dateValue($payload, ['expiredAt', 'expiresAt', 'expirationDate', 'activation.expiredAt', 'activation.expiresAt', 'activations.0.expiredAt', 'activations.0.expiresAt', '0.expiredAt', '0.expiresAt']);
         $providerStatus = $this->localStatus($activationStatus, $orderStatus, $otp);
 
         DB::transaction(function () use ($order, $response, $activationStatus, $orderStatus, $otp, $phone, $message, $expires, $providerStatus): void {
@@ -99,7 +99,24 @@ class OtpOrderStatusService
 
     public function action(OtpOrder $order, string $action): OtpOrder
     {
-        if (! $order->provider_activation_id) return $order;
+        $order = $order->refresh();
+
+        if (! $order->provider_activation_id) {
+            if ($action === 'cancel' && in_array($order->status, ['processing', 'provider_pending'], true)) {
+                return $this->cancelBeforeActivation($order);
+            }
+
+            throw new \RuntimeException('Nomor masih diproses oleh provider. Aksi ini tersedia setelah nomor berhasil dialokasikan.');
+        }
+
+        if ($action === 'cancel' && $order->hasOtp()) {
+            throw new \RuntimeException('Pesanan yang sudah menerima OTP tidak dapat dibatalkan. Gunakan Selesaikan setelah OTP digunakan.');
+        }
+
+        if ($action === 'reactivate' && ! in_array($order->status, ['cancelled', 'expired', 'failed'], true)) {
+            throw new \RuntimeException('Aktifkan ulang hanya tersedia untuk aktivasi yang cancelled, expired, atau gagal dan masih dapat dipulihkan provider.');
+        }
+
         $response = match ($action) {
             'ready' => $this->client->ready($order->provider_activation_id),
             'resend' => $this->client->resend($order->provider_activation_id),
@@ -108,12 +125,64 @@ class OtpOrderStatusService
             'reactivate' => $this->client->reactivate($order->provider_activation_id),
             default => throw new \InvalidArgumentException('Aksi pesanan tidak dikenali.'),
         };
+
         $updated = $this->apply($order, $response);
+
         // Refund pembatalan hanya diberikan setelah provider mengonfirmasi
         // status cancelled/refunded di apply(). Jangan kredit saldo saat masih
         // cancel_pending karena provider belum tentu mengembalikan dana.
-        if ($action === 'complete') $updated->update(['status' => 'completed', 'completed_at' => now()]);
+        if ($action === 'complete') {
+            $updated->update(['status' => 'completed', 'completed_at' => now()]);
+        }
+
         return $updated->refresh();
+    }
+
+    private function cancelBeforeActivation(OtpOrder $order): OtpOrder
+    {
+        $activationAppeared = false;
+
+        DB::transaction(function () use ($order, &$activationAppeared): void {
+            /** @var OtpOrder $locked */
+            $locked = OtpOrder::query()->with('user')->lockForUpdate()->findOrFail($order->id);
+
+            // Worker dapat selesai tepat ketika user menekan Batalkan. Dalam
+            // kondisi race ini jangan membatalkan lokal; lanjutkan cancel ke
+            // provider setelah transaksi DB dilepas.
+            if ($locked->provider_activation_id) {
+                $activationAppeared = true;
+                return;
+            }
+
+            if (! in_array($locked->status, ['processing', 'provider_pending'], true)) {
+                throw new \RuntimeException('Pesanan ini sudah tidak dapat dibatalkan sebelum aktivasi.');
+            }
+
+            $refund = $this->wallet->refundDebit(
+                $locked->user,
+                'order-debit:'.$locked->id,
+                'order-refund:'.$locked->id,
+                'Refund pesanan dibatalkan sebelum nomor tersedia '.$locked->service_name,
+                OtpOrder::class,
+                $locked->id,
+                ['reason' => 'cancelled_before_provider_activation'],
+            );
+
+            $locked->update([
+                'status' => $refund ? 'refunded' : 'cancelled',
+                'refunded_at' => $refund ? now() : $locked->refunded_at,
+                'provider_message' => 'Pesanan dibatalkan sebelum provider mengalokasikan nomor.',
+                'last_synced_at' => now(),
+            ]);
+        }, 3);
+
+        $fresh = $order->refresh();
+
+        if ($activationAppeared || $fresh->provider_activation_id) {
+            return $this->action($fresh, 'cancel');
+        }
+
+        return $fresh;
     }
 
     private function unwrap(array $response): array

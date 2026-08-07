@@ -1,0 +1,54 @@
+HOTFIX PESANAN / OTP / CSP — 08-08-2026
+========================================
+
+Tujuan patch
+------------
+1. Menghilangkan error browser CSP "unsafe-eval" tanpa melemahkan CSP Nginx.
+   Frontend berpindah dari Alpine standar ke paket resmi @alpinejs/csp.
+2. Detail pesanan melakukan sinkron status otomatis setiap 3 detik.
+3. Nomor, OTP, pesan provider, status, durasi, dan tombol aksi berubah live tanpa reload manual.
+4. Tombol tidak lagi terkunci permanen hanya karena halaman dibuka sebelum activation ID tersedia.
+5. Order processing/provider_pending yang belum mendapat activation ID akan mencoba memasukkan job placement kembali ke queue (self-healing).
+6. Parsing response provider diperluas untuk beberapa bentuk payload activation/status.
+7. Batalkan dapat digunakan ketika order masih menunggu nomor. Untuk user, wallet hanya direfund bila memang ada debit order. Untuk admin, tidak membuat kredit wallet internal.
+8. Race condition cancel vs worker placement ditangani: order lokal yang sudah dibatalkan/refund tidak dihidupkan kembali oleh worker yang terlambat.
+9. Endpoint web/API/admin memakai validasi action service yang sama.
+10. Tombol quick-amount top up dipindah ke runtime JS supaya tetap kompatibel dengan Alpine CSP build.
+
+File di ZIP
+-----------
+- package.json
+- resources/js/app.js
+- resources/views/user/order-show.blade.php
+- resources/views/user/topups.blade.php
+- resources/views/partials/ui-runtime.blade.php
+- app/Http/Controllers/OtpOrderController.php
+- app/Http/Controllers/Api/CustomerApiController.php
+- app/Http/Controllers/Admin/OrderController.php
+- app/Services/OtpOrderStatusService.php
+- app/Jobs/PlaceOtpOrder.php
+
+Tidak ada vendor, node_modules, public/build, database dump, .env, atau file project lain yang tidak terkait.
+
+Cara pasang manual
+------------------
+Ekstrak/overlay isi ZIP ke root project, lalu dari root project jalankan:
+
+    npm install
+    npm run build
+    php artisan optimize:clear
+    php artisan queue:restart
+
+Jika aplikasi memakai Docker/deploy script project, lakukan deploy seperti biasa agar asset Vite dibangun ulang dan service worker direstart. Perubahan package.json WAJIB diikuti npm install/build.
+
+Sesudah deploy
+--------------
+1. Buka halaman pesanan lalu lakukan hard refresh (Ctrl+F5) sekali agar browser memakai bundle Vite baru.
+2. Console browser seharusnya tidak lagi menampilkan EvalError unsafe-eval dari Alpine.
+3. Network browser akan terlihat GET /pesanan/{id}/status kira-kira setiap 3 detik.
+4. Kalau order lama masih berstatus processing tanpa activation ID, status polling akan mencoba queue placement lagi. Pastikan worker queue aktif.
+5. "Batalkan" tetap bisa dipakai saat nomor belum tersedia. Tombol provider lain aktif setelah activation ID tersedia, dan "Aktifkan ulang" hanya untuk status yang memang dapat dipulihkan.
+
+Catatan build
+-------------
+Syntax JavaScript (node --check) dan PHP (php -l) untuk file yang diubah sudah lolos di lingkungan revisi. Full npm install/build tidak dapat diselesaikan di sandbox revisi karena akses registry paket eksternal dibatasi/timeout; lakukan npm install && npm run build di server/deploy environment yang mempunyai akses npm registry.

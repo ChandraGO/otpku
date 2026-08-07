@@ -34,8 +34,9 @@ class OrderController extends Controller
             } elseif ($data['action'] === 'sync') {
                 $service->sync($order);
             } else {
-                abort_unless($order->provider_activation_id, 422, 'Activation ID provider belum tersedia.');
-                $service->action($order, $data['action']);
+                // Service menangani validasi status. Khusus cancel, pesanan yang
+                // belum mendapat activation ID juga boleh dibatalkan lokal.
+                $service->action($order->refresh(), $data['action']);
             }
             return back()->with('success', 'Pesanan berhasil diperbarui.');
         } catch (Throwable $e) { return back()->withErrors(['order' => $e->getMessage()]); }

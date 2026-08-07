@@ -51,16 +51,48 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
 
             $provider = $response['data'] ?? $response;
             if (! is_array($provider)) $provider = [];
-            $activationId = $this->findValue($provider, ['activationId', 'id', 'activation.id', 'order.activationId', 'data.activationId']);
+            $activationId = $this->findValue($provider, [
+                'activationId',
+                'activation.activationId',
+                'activation.id',
+                'activations.0.activationId',
+                'activations.0.id',
+                'items.0.activationId',
+                'items.0.id',
+                '0.activationId',
+                '0.id',
+                'order.activationId',
+                'order.activation.id',
+                'id',
+            ]);
             if (! $activationId) throw new RuntimeException('Provider belum mengembalikan activation ID.', 503);
 
-            $providerOrderId = $this->findValue($provider, ['orderId', 'order.id', 'invoiceNo']);
-            $expiresAt = $this->findValue($provider, ['expiredAt', 'expiresAt', 'activation.expiredAt'])
+            $providerOrderId = $this->findValue($provider, ['orderId', 'order.id', 'invoiceNo', 'order.invoiceNo', 'activations.0.orderId']);
+            $expiresAt = $this->findValue($provider, [
+                'expiredAt',
+                'expiresAt',
+                'activation.expiredAt',
+                'activation.expiresAt',
+                'activations.0.expiredAt',
+                'activations.0.expiresAt',
+                '0.expiredAt',
+                '0.expiresAt',
+            ])
                 ?: now()->addMinutes((int) $settings->get('orders.default_expiry_minutes', 20));
 
-            DB::transaction(function () use ($order, $response, $activationId, $providerOrderId, $expiresAt): void {
+            $cancelProviderActivation = false;
+
+            DB::transaction(function () use ($order, $response, $activationId, $providerOrderId, $expiresAt, &$cancelProviderActivation): void {
                 $locked = OtpOrder::query()->lockForUpdate()->findOrFail($order->id);
                 if ($locked->provider_activation_id) return;
+
+                // User dapat membatalkan ketika request ke provider masih in-flight.
+                // Jangan menghidupkan lagi order lokal yang sudah dibatalkan/refund.
+                if ($locked->refunded_at || in_array($locked->status, ['cancelled', 'refunded'], true)) {
+                    $cancelProviderActivation = true;
+                    return;
+                }
+
                 $locked->update([
                     'provider_activation_id' => (string) $activationId,
                     'provider_order_id' => $providerOrderId ? (string) $providerOrderId : null,
@@ -71,7 +103,19 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
                 ]);
             }, 3);
 
-            $statusService->apply($order->refresh(), $response);
+            if ($cancelProviderActivation) {
+                try {
+                    $client->cancel((string) $activationId);
+                } catch (Throwable $cancelError) {
+                    report($cancelError);
+                }
+                return;
+            }
+
+            $fresh = $order->refresh();
+            if ($fresh->provider_activation_id) {
+                $statusService->apply($fresh, $response);
+            }
         } catch (Throwable $e) {
             $code = (int) $e->getCode();
             if ($code >= 400 && $code < 500 && ! in_array($code, [408, 409, 425, 429], true)) {
