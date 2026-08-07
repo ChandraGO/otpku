@@ -64,22 +64,33 @@ class OtpOrderStatusService
             $locked->update($updates);
 
             $providerRefunded = $providerStatus === 'refunded';
+            $providerCancelled = $providerStatus === 'cancelled' && ! $locked->hasOtp();
             $autoRefundExpired = $providerStatus === 'expired'
                 && ! $locked->hasOtp()
                 && (bool) $this->settings->get('orders.refund_on_expired', false);
 
-            if (($providerRefunded || $autoRefundExpired) && ! $locked->refunded_at) {
-                $this->wallet->credit(
+            if (($providerRefunded || $providerCancelled || $autoRefundExpired) && ! $locked->refunded_at) {
+                $refund = $this->wallet->refundDebit(
                     $locked->user,
-                    (float) $locked->sell_price,
-                    'order_refund',
+                    'order-debit:'.$locked->id,
                     'order-refund:'.$locked->id,
                     'Refund pesanan '.$locked->service_name,
                     OtpOrder::class,
                     $locked->id,
-                    ['provider_status' => $providerStatus, 'automatic_expiry_refund' => $autoRefundExpired],
+                    [
+                        'provider_status' => $providerStatus,
+                        'automatic_expiry_refund' => $autoRefundExpired,
+                    ],
                 );
-                $locked->update(['status' => 'refunded', 'refunded_at' => now()]);
+
+                // refunded_at represents a local wallet refund. Administrator
+                // orders use provider balance directly and therefore have no
+                // wallet debit/refund to record.
+                if ($refund) {
+                    $locked->update(['status' => 'refunded', 'refunded_at' => now()]);
+                } elseif ($providerRefunded) {
+                    $locked->update(['status' => 'refunded']);
+                }
             }
         }, 3);
 
@@ -98,12 +109,9 @@ class OtpOrderStatusService
             default => throw new \InvalidArgumentException('Aksi pesanan tidak dikenali.'),
         };
         $updated = $this->apply($order, $response);
-        if ($action === 'cancel' && ! $updated->hasOtp() && ! $updated->refunded_at) {
-            try {
-                $this->wallet->credit($updated->user, (float) $updated->sell_price, 'order_refund', 'order-refund:'.$updated->id, 'Refund pembatalan '.$updated->service_name, OtpOrder::class, $updated->id);
-                $updated->update(['status' => 'cancelled', 'refunded_at' => now()]);
-            } catch (Throwable) {}
-        }
+        // Refund pembatalan hanya diberikan setelah provider mengonfirmasi
+        // status cancelled/refunded di apply(). Jangan kredit saldo saat masih
+        // cancel_pending karena provider belum tentu mengembalikan dana.
         if ($action === 'complete') $updated->update(['status' => 'completed', 'completed_at' => now()]);
         return $updated->refresh();
     }

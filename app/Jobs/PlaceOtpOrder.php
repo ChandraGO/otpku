@@ -97,10 +97,9 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
         DB::transaction(function () use ($order, $message, $wallet): void {
             $locked = OtpOrder::query()->with('user')->lockForUpdate()->findOrFail($order->id);
             if ($locked->provider_activation_id || $locked->refunded_at) return;
-            $wallet->credit(
+            $refund = $wallet->refundDebit(
                 $locked->user,
-                (float) $locked->sell_price,
-                'order_refund',
+                'order-debit:'.$locked->id,
                 'order-refund:'.$locked->id,
                 'Refund pesanan gagal '.$locked->service_name,
                 OtpOrder::class,
@@ -110,7 +109,7 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
             $locked->update([
                 'status' => 'failed',
                 'provider_message' => str($message)->limit(1000)->toString(),
-                'refunded_at' => now(),
+                'refunded_at' => $refund ? now() : null,
             ]);
         }, 3);
     }

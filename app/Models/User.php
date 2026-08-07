@@ -21,6 +21,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'telegram_id',
         'default_country_id',
         'email',
+        'github_id',
         'password',
         'role',
         'status',

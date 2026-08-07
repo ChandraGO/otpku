@@ -11,13 +11,32 @@
             <p class="mt-3 max-w-xl text-sm leading-7 text-white/80">Pilih layanan, pantau pesanan aktif, dan kelola saldo dari satu tampilan yang lebih sederhana.</p>
             <div class="mt-6 flex flex-wrap gap-3">
                 <a href="{{ route('services.index') }}" class="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-violet-700 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl">Beli OTP <x-icon name="arrow-right" size="size-4" /></a>
-                <a href="{{ route('topups.index') }}" class="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20"><x-icon name="topup" size="size-4" /> Top Up</a>
+                @if($user->isAdmin())
+                    <a href="https://sms-virtual.net" target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20"><x-icon name="topup" size="size-4" /> Top Up Provider</a>
+                @else
+                    <a href="{{ route('topups.index') }}" class="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20"><x-icon name="topup" size="size-4" /> Top Up</a>
+                @endif
             </div>
         </div>
         <div class="min-w-[240px] rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur-xl">
-            <div class="text-xs font-bold uppercase tracking-[.18em] text-white/65">Saldo tersedia</div>
-            <div class="mt-2 text-3xl font-black">Rp {{ number_format((float) $user->balance, 0, ',', '.') }}</div>
-            <div class="mt-4 flex items-center gap-2 text-xs text-white/75"><span class="size-2 rounded-full bg-emerald-300"></span> Akun aktif dan siap bertransaksi</div>
+            <div class="text-xs font-bold uppercase tracking-[.18em] text-white/65">{{ $dashboardBalanceLabel }}</div>
+            <div class="mt-2 text-3xl font-black">
+                @if($dashboardBalanceAvailable)
+                    Rp {{ number_format((float) $dashboardBalance, 0, ',', '.') }}
+                @else
+                    —
+                @endif
+            </div>
+            @if($user->isAdmin())
+                <div class="mt-4 flex items-start gap-2 text-xs text-white/75">
+                    <span class="mt-1 size-2 shrink-0 rounded-full {{ $dashboardBalanceSource === 'provider' ? 'bg-emerald-300' : 'bg-amber-300' }}"></span>
+                    <span>
+                        {{ $dashboardBalanceSource === 'provider' ? 'Saldo live dari provider.' : ($dashboardBalanceError ?: 'Saldo provider terakhir.') }}
+                    </span>
+                </div>
+            @else
+                <div class="mt-4 flex items-center gap-2 text-xs text-white/75"><span class="size-2 rounded-full bg-emerald-300"></span> Akun aktif dan siap bertransaksi</div>
+            @endif
         </div>
     </div>
 </section>
@@ -25,7 +44,9 @@
 <section class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
     @foreach([
         ['Pesanan aktif', $activeOrders->count(), 'orders', 'Sedang menunggu OTP', 'from-violet-500 to-violet-600'],
-        ['Top up pending', $pendingTopups->count(), 'topup', 'Menunggu pembayaran', 'from-cyan-500 to-cyan-600'],
+        $user->isAdmin()
+            ? ['Saldo operasional', 'Provider', 'topup', 'Dashboard admin memakai saldo provider', 'from-cyan-500 to-cyan-600']
+            : ['Top up pending', $pendingTopups->count(), 'topup', 'Menunggu pembayaran', 'from-cyan-500 to-cyan-600'],
         ['Status akun', $user->status === 'active' ? 'Aktif' : ucfirst($user->status), 'shield', 'Email telah terverifikasi', 'from-emerald-500 to-emerald-600'],
         ['API pelanggan', filled($user->api_key_hash) ? 'Siap' : 'Belum', 'api', 'Untuk bot Telegram', 'from-amber-500 to-orange-500'],
     ] as $stat)
@@ -87,6 +108,7 @@
     </section>
 </div>
 
+@unless($user->isAdmin())
 <section class="card mt-6 p-5 sm:p-6">
     <div class="flex items-center justify-between"><div><h2 class="text-lg font-black">Mutasi terbaru</h2><p class="mt-1 text-xs text-slate-500">Ringkasan perubahan saldo akun.</p></div><a href="{{ route('wallet.index') }}" class="text-sm font-bold text-violet-600 dark:text-violet-300">Lihat ledger</a></div>
     <div class="mt-5 table-wrap">
@@ -99,4 +121,5 @@
         </tbody></table>
     </div>
 </section>
+@endunless
 @endsection

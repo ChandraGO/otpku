@@ -205,7 +205,11 @@
         applyTheme(currentTheme(), false, false);
         document.querySelectorAll('[data-password-field]').forEach(refreshPasswordField);
         refreshThemeControls();
-        try { setSidebarCollapsed(localStorage.getItem('sidebar-collapsed') === '1', false); } catch (_) {}
+        if (document.querySelector('[data-force-sidebar-expanded]')) {
+            setSidebarCollapsed(false, false);
+        } else {
+            try { setSidebarCollapsed(localStorage.getItem('sidebar-collapsed') === '1', false); } catch (_) {}
+        }
 
         const counters = document.querySelectorAll('[data-count-to]');
         if ('IntersectionObserver' in window) {

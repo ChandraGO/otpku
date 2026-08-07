@@ -52,14 +52,18 @@
                     Rp {{ number_format((float) $providerBalanceIdr, 0, ',', '.') }}
                 </div>
                 <div class="mt-1 text-xs text-slate-500">
-                    Terakhir diperbarui melalui pengaturan SMS Virtual.
+                    @if(($providerBalanceSource ?? null) === 'provider')
+                        Live dari provider saat dashboard dibuka.
+                    @else
+                        {{ $providerError ?: 'Saldo terakhir yang berhasil disinkronkan.' }}
+                    @endif
                 </div>
             @else
                 <div class="mt-2 text-lg font-black text-amber-600 dark:text-amber-300">
                     Belum diperbarui
                 </div>
                 <div class="mt-1 text-xs text-slate-500">
-                    Jalankan tes saldo pada pengaturan SMS Virtual.
+                    {{ $providerError ?: 'Periksa API key dan koneksi SMS Virtual.' }}
                 </div>
             @endif
         </section>

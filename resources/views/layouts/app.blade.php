@@ -28,7 +28,8 @@
     @stack('head')
 </head>
 <body>
-<div class="min-h-screen" data-app-shell>
+@php($simpleDashboardHeader = request()->routeIs('dashboard', 'admin.dashboard'))
+<div class="min-h-screen" data-app-shell @if($simpleDashboardHeader) data-force-sidebar-expanded @endif>
     <div
         data-sidebar-overlay
         hidden
@@ -58,14 +59,16 @@
             <a href="{{ route('orders.index') }}" class="nav-link {{ request()->routeIs('orders.*') ? 'nav-link-active' : '' }}">
                 <x-icon name="orders" /><span>Order & History</span>
             </a>
-            <a href="{{ route('wallet.index') }}" class="nav-link {{ request()->routeIs('wallet.*') ? 'nav-link-active' : '' }}">
-                <x-icon name="wallet" /><span>Balance Mutation</span>
-            </a>
+            @unless(auth()->user()->isAdmin())
+                <a href="{{ route('wallet.index') }}" class="nav-link {{ request()->routeIs('wallet.*') ? 'nav-link-active' : '' }}">
+                    <x-icon name="wallet" /><span>Balance Mutation</span>
+                </a>
 
-            <div class="nav-group-label">Deposit</div>
-            <a href="{{ route('topups.index') }}" class="nav-link {{ request()->routeIs('topups.*') ? 'nav-link-active' : '' }}">
-                <x-icon name="topup" /><span>Top Up Deposit</span>
-            </a>
+                <div class="nav-group-label">Deposit</div>
+                <a href="{{ route('topups.index') }}" class="nav-link {{ request()->routeIs('topups.*') ? 'nav-link-active' : '' }}">
+                    <x-icon name="topup" /><span>Top Up Deposit</span>
+                </a>
+            @endunless
 
             <div class="nav-group-label">API</div>
             <a href="{{ route('api.docs') }}" class="nav-link {{ request()->routeIs('api.docs') ? 'nav-link-active' : '' }}">
@@ -134,28 +137,32 @@
         <header class="sticky top-0 z-30 hidden border-b border-slate-200/80 bg-slate-50/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85 lg:block">
             <div class="flex h-20 items-center justify-between px-8">
                 <div class="flex items-center gap-4">
-                    <button type="button" data-sidebar-collapse-toggle class="btn-secondary !p-3" aria-label="Sembunyikan sidebar" title="Sembunyikan sidebar">
-                        <x-icon name="menu" />
-                    </button>
+                    @unless($simpleDashboardHeader)
+                        <button type="button" data-sidebar-collapse-toggle class="btn-secondary !p-3" aria-label="Sembunyikan sidebar" title="Sembunyikan sidebar">
+                            <x-icon name="menu" />
+                        </button>
+                    @endunless
                     <div>
-                    <div class="text-xs font-semibold uppercase tracking-[.18em] text-slate-400">Hello, welcome back 👋</div>
-                    <div class="mt-1 text-lg font-black">{{ auth()->user()->name }}</div>
+                        <div class="text-xs font-semibold uppercase tracking-[.18em] text-slate-400">Hello, welcome back 👋</div>
+                        <div class="mt-1 text-lg font-black">{{ auth()->user()->name }}</div>
                     </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <div class="flex items-center gap-3 rounded-3xl border border-violet-200 bg-white px-4 py-2.5 shadow-sm dark:border-violet-400/20 dark:bg-white/5">
-                        <span class="grid size-9 place-items-center rounded-full bg-amber-400 font-black text-white">Rp</span>
-                        <div>
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ $headerBalanceLabel ?? 'Balance' }}</div>
-                            <div class="font-black">@if($headerBalanceAvailable ?? true) Rp {{ number_format((float) ($headerBalance ?? auth()->user()->balance), 0, ',', '.') }} @else — @endif</div>
+                @unless($simpleDashboardHeader)
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-3 rounded-3xl border border-violet-200 bg-white px-4 py-2.5 shadow-sm dark:border-violet-400/20 dark:bg-white/5">
+                            <span class="grid size-9 place-items-center rounded-full bg-amber-400 font-black text-white">Rp</span>
+                            <div>
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ $headerBalanceLabel ?? 'Balance' }}</div>
+                                <div class="font-black">@if($headerBalanceAvailable ?? true) Rp {{ number_format((float) ($headerBalance ?? auth()->user()->balance), 0, ',', '.') }} @else — @endif</div>
+                            </div>
                         </div>
+                        <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="btn-primary" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif><x-icon name="topup" size="size-4" /> {{ $headerTopupLabel ?? 'Top Up' }}</a>
+                        <button type="button" data-theme-toggle class="btn-secondary !p-3" aria-label="Aktifkan mode terang" aria-pressed="true" title="Aktifkan mode terang">
+                            <x-icon data-theme-icon="light" name="moon" hidden />
+                            <x-icon data-theme-icon="dark" name="sun" />
+                        </button>
                     </div>
-                    <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="btn-primary" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif><x-icon name="topup" size="size-4" /> {{ $headerTopupLabel ?? 'Top Up' }}</a>
-                    <button type="button" data-theme-toggle class="btn-secondary !p-3" aria-label="Aktifkan mode terang" aria-pressed="true" title="Aktifkan mode terang">
-                        <x-icon data-theme-icon="light" name="moon" hidden />
-                        <x-icon data-theme-icon="dark" name="sun" />
-                    </button>
-                </div>
+                @endunless
             </div>
         </header>
 
@@ -168,10 +175,12 @@
                     <div class="text-xs font-medium text-white/75">Hello, welcome back 👋</div>
                     <div class="truncate text-lg font-black">{{ auth()->user()->name }}</div>
                 </div>
-                <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="rounded-2xl border border-white/35 bg-white/12 px-3 py-2 text-right backdrop-blur" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif>
-                    <div class="text-[9px] font-bold uppercase tracking-wider text-white/70">{{ $headerBalanceLabel ?? 'Balance' }}</div>
-                    <div class="text-sm font-black">@if($headerBalanceAvailable ?? true) Rp {{ number_format((float) ($headerBalance ?? auth()->user()->balance), 0, ',', '.') }} @else — @endif</div>
-                </a>
+                @unless($simpleDashboardHeader)
+                    <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="rounded-2xl border border-white/35 bg-white/12 px-3 py-2 text-right backdrop-blur" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif>
+                        <div class="text-[9px] font-bold uppercase tracking-wider text-white/70">{{ $headerBalanceLabel ?? 'Balance' }}</div>
+                        <div class="text-sm font-black">@if($headerBalanceAvailable ?? true) Rp {{ number_format((float) ($headerBalance ?? auth()->user()->balance), 0, ',', '.') }} @else — @endif</div>
+                    </a>
+                @endunless
             </div>
         </header>
 
@@ -181,22 +190,28 @@
         </main>
     </div>
 
-    <nav class="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 px-2 pt-2 shadow-[0_-12px_35px_rgba(15,23,42,.08)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0a1020]/95 lg:hidden">
-        <div class="mx-auto flex max-w-xl gap-1">
+    <nav class="safe-bottom fixed inset-x-0 bottom-0 z-40 px-3 pb-1 lg:hidden" aria-label="Menu utama mobile">
+        <div class="mx-auto flex max-w-md items-stretch gap-1 rounded-[1.4rem] border border-slate-200/80 bg-white/95 p-1.5 shadow-[0_-10px_35px_rgba(15,23,42,.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#0a1020]/95">
             <a href="{{ route('dashboard') }}" class="mobile-nav-link {{ request()->routeIs('dashboard') ? 'mobile-nav-link-active' : '' }}">
-                <x-icon name="home" size="size-5" /><span>Home</span>
+                <span class="mobile-nav-icon"><x-icon name="home" size="size-5" /></span><span>Home</span>
             </a>
             <a href="{{ route('orders.index') }}" class="mobile-nav-link {{ request()->routeIs('orders.*') ? 'mobile-nav-link-active' : '' }}">
-                <x-icon name="orders" size="size-5" /><span>Order</span>
+                <span class="mobile-nav-icon"><x-icon name="orders" size="size-5" /></span><span>Order</span>
             </a>
-            <a href="{{ route('topups.index') }}" class="mobile-nav-link {{ request()->routeIs('topups.*') ? 'mobile-nav-link-active' : '' }}">
-                <x-icon name="topup" size="size-5" /><span>Top Up</span>
-            </a>
+            @if(auth()->user()->isAdmin())
+                <a href="{{ route('admin.dashboard') }}" class="mobile-nav-link {{ request()->routeIs('admin.*') ? 'mobile-nav-link-active' : '' }}">
+                    <span class="mobile-nav-icon"><x-icon name="chart" size="size-5" /></span><span>Admin</span>
+                </a>
+            @else
+                <a href="{{ route('topups.index') }}" class="mobile-nav-link {{ request()->routeIs('topups.*') ? 'mobile-nav-link-active' : '' }}">
+                    <span class="mobile-nav-icon"><x-icon name="topup" size="size-5" /></span><span>Top Up</span>
+                </a>
+            @endif
             <a href="{{ route('support.index') }}" class="mobile-nav-link {{ request()->routeIs('support.*') ? 'mobile-nav-link-active' : '' }}">
-                <x-icon name="ticket" size="size-5" /><span>Ticket</span>
+                <span class="mobile-nav-icon"><x-icon name="ticket" size="size-5" /></span><span>Ticket</span>
             </a>
             <a href="{{ route('profile.edit') }}" class="mobile-nav-link {{ request()->routeIs('profile.*') ? 'mobile-nav-link-active' : '' }}">
-                <x-icon name="user" size="size-5" /><span>Profile</span>
+                <span class="mobile-nav-icon"><x-icon name="user" size="size-5" /></span><span>Profile</span>
             </a>
         </div>
     </nav>

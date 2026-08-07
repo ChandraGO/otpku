@@ -54,12 +54,16 @@ class OtpOrderController extends Controller
                 'sell_price' => $sellPrice,
                 'status' => 'processing',
             ]);
-            $wallet->debit($request->user(), $sellPrice, 'otp_order', 'order-debit:'.$order->id, 'Pembelian OTP '.$order->service_name.' — '.$order->country_name, OtpOrder::class, $order->id);
+            // Administrator memakai saldo provider secara langsung. Hanya
+            // akun pelanggan yang didebit dari wallet internal aplikasi.
+            if (! $request->user()->isAdmin()) {
+                $wallet->debit($request->user(), $sellPrice, 'otp_order', 'order-debit:'.$order->id, 'Pembelian OTP '.$order->service_name.' — '.$order->country_name, OtpOrder::class, $order->id);
+            }
             return $order;
         }, 3);
 
         PlaceOtpOrder::dispatch($order->id);
-        return redirect()->route('orders.show', $order)->with('success', 'Pemesanan diterima dan sedang diproses secara aman.');
+        return redirect()->route('orders.show', $order)->with('success', $request->user()->isAdmin() ? 'Pemesanan admin diterima dan akan menggunakan saldo provider.' : 'Pemesanan diterima dan sedang diproses secara aman.');
     }
 
     public function show(Request $request, OtpOrder $order): View

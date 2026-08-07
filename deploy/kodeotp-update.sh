@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-DEPLOY_SCRIPT_VERSION="2026.08.05-auto-payment-v1"
+DEPLOY_SCRIPT_VERSION="2026.08.08-assets-compat-v2"
 
 APP_DIR="${APP_DIR:-/opt/kodeotp/app}"
 STACK_DIR="${STACK_DIR:-/opt/kodeotp}"
@@ -309,7 +309,7 @@ fix_manifest() {
 }
 
 build_assets_only() {
-  local image="kodeotp-assets:$SHORT_SHA" temp_cid
+  local image="kodeotp-assets:$SHORT_SHA" temp_cid legacy_assets
   [ -n "$RUNTIME_IMAGE" ] || {
     log 'assets build memerlukan runtime image lama untuk source pagination Laravel'
     return 1
@@ -326,10 +326,27 @@ build_assets_only() {
       -t "$image" \
       "$NEW_RELEASE_DIR"
 
+  # Keep the previous hashed files for one or more release generations. A user
+  # can load HTML just before the blue/green switch and request the old JS/CSS
+  # hash just after the switch. Deleting that hash immediately causes the
+  # intermittent /build/assets/app-*.js 404 seen during deployments.
+  legacy_assets="$(mktemp -d)"
+  if [ -d "$OLD_RELEASE_DIR/public/build/assets" ]; then
+    cp -a "$OLD_RELEASE_DIR/public/build/assets/." "$legacy_assets/" 2>/dev/null || true
+  fi
+
   temp_cid="$(docker create "$image")"
   rm -rf "$NEW_RELEASE_DIR/public/build"
   docker cp "$temp_cid:/app/public/build" "$NEW_RELEASE_DIR/public/build"
   docker rm "$temp_cid" >/dev/null
+
+  mkdir -p "$NEW_RELEASE_DIR/public/build/assets"
+  if find "$legacy_assets" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+    cp -an "$legacy_assets/." "$NEW_RELEASE_DIR/public/build/assets/" 2>/dev/null || true
+    log 'hash asset release sebelumnya dipertahankan untuk mencegah 404 saat switch'
+  fi
+  rm -rf "$legacy_assets"
+
   docker tag "$image" kodeotp-assets:cache
   fix_manifest
 }

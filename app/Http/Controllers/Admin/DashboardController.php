@@ -6,19 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\OtpOrder;
 use App\Models\Topup;
 use App\Models\User;
+use App\Services\ProviderBalanceService;
 use App\Support\Settings;
-use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Throwable;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Settings $settings): View
+    public function __invoke(Settings $settings, ProviderBalanceService $providerBalance): View
     {
-        $unitToIdr = $this->safe(fn () => max(
-            0.0001,
-            (float) $settings->get('sms_virtual.balance_unit_to_idr', 1),
-        ), 1.0);
+        $balance = $providerBalance->get(refresh: true);
+        $providerBalanceRaw = $balance['raw'];
+        $providerBalanceIdr = $balance['idr'];
+        $providerError = $balance['error'];
+        $unitToIdr = (float) $balance['unit_to_idr'];
+
         $lowBalanceThreshold = $this->safe(fn () => max(
             0,
             (float) $settings->get('sms_virtual.low_balance_threshold', 5000),
@@ -27,21 +29,6 @@ class DashboardController extends Controller
             0,
             (float) $settings->get('sms_virtual.reserve_buffer_percent', 20),
         ), 20.0);
-
-        // Database-only; tidak memanggil API atau Redis dari dashboard.
-        $providerBalanceRaw = $this->safe(
-            fn () => $settings->get('sms_virtual.last_balance_raw'),
-            null,
-        );
-        $providerBalanceRaw = is_numeric($providerBalanceRaw)
-            ? (float) $providerBalanceRaw
-            : null;
-        $providerBalanceIdr = $providerBalanceRaw === null
-            ? null
-            : $providerBalanceRaw * $unitToIdr;
-        $providerError = $providerBalanceIdr === null
-            ? 'Saldo belum diperbarui. Buka Pengaturan → SMS Virtual lalu klik Tes saldo SMS Virtual.'
-            : null;
 
         $users = (int) $this->safe(
             fn () => User::query()->where('role', 'user')->count(),
@@ -103,6 +90,8 @@ class DashboardController extends Controller
             ],
             'providerBalanceRaw' => $providerBalanceRaw,
             'providerBalanceIdr' => $providerBalanceIdr,
+            'providerBalanceSource' => $balance['source'],
+            'providerBalanceCheckedAt' => $balance['checked_at'],
             'providerError' => $providerError,
             'providerUnitToIdr' => $unitToIdr,
             'lowBalanceThreshold' => $lowBalanceThreshold,

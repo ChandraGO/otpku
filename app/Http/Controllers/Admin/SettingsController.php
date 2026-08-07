@@ -8,7 +8,7 @@ use App\Services\AuditService;
 use App\Services\CatalogSyncService;
 use App\Services\MailSettingsConfigurator;
 use App\Services\PakasirClient;
-use App\Services\SmsVirtualClient;
+use App\Services\ProviderBalanceService;
 use App\Support\Settings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -111,64 +111,25 @@ class SettingsController extends Controller
         );
     }
 
-    public function testSms(
-        SmsVirtualClient $client,
-        Settings $settings,
-    ): RedirectResponse {
-        try {
-            try {
-                Cache::forget('sms-virtual:provider-balance:v2');
-            } catch (Throwable) {
-                // Cache bersifat opsional; tes provider tetap boleh berjalan.
-            }
+    public function testSms(ProviderBalanceService $providerBalance): RedirectResponse
+    {
+        $balance = $providerBalance->get(refresh: true);
 
-            $balance = $client->balance();
-
-            try {
-                Cache::put(
-                    'sms-virtual:provider-balance:v2',
-                    $balance,
-                    now()->addSeconds(30),
-                );
-            } catch (Throwable) {
-                // Nilai utama disimpan di database di bawah.
-            }
-            $value = $balance['balance']
-                ?? data_get($balance, 'data.balance')
-                ?? $balance['data']
-                ?? null;
-            $unitToIdr = max(
-                0.0001,
-                (float) $settings->get('sms_virtual.balance_unit_to_idr', 1),
-            );
-            if (is_numeric($value)) {
-                $rawBalance = (float) $value;
-                try {
-                    Cache::put(
-                        'sms-virtual:provider-balance:value',
-                        $rawBalance,
-                        now()->addMinutes(10),
-                    );
-                } catch (Throwable) {
-                    // Cache bersifat opsional.
-                }
-                $settings->setMany([
-                    'sms_virtual.last_balance_raw' => $rawBalance,
-                    'sms_virtual.last_balance_checked_at' => now()->toIso8601String(),
-                ]);
-            }
-
-            $formatted = is_numeric($value)
-                ? 'Rp '.number_format((float) $value * $unitToIdr, 0, ',', '.')
-                : json_encode($value);
-
-            return back()->with(
-                'success',
-                'Koneksi SMS Virtual berhasil. Saldo provider setara '.$formatted.'.',
-            );
-        } catch (Throwable $e) {
-            return back()->withErrors(['settings' => $e->getMessage()]);
+        if (! $balance['available']) {
+            return back()->withErrors([
+                'settings' => $balance['error'] ?: 'Saldo provider tidak dapat dimuat.',
+            ]);
         }
+
+        $formatted = 'Rp '.number_format((float) $balance['idr'], 0, ',', '.');
+        $suffix = $balance['source'] === 'provider'
+            ? ' (live dari provider).'
+            : ' (fallback saldo terakhir; koneksi live sedang bermasalah).';
+
+        return back()->with(
+            'success',
+            'Koneksi SMS Virtual berhasil. Saldo provider '.$formatted.$suffix,
+        );
     }
 
     public function testPakasir(PakasirClient $client): RedirectResponse

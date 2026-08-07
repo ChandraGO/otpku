@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Admin\TopupController as AdminTopupController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\Auth\GitHubLoginController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -36,6 +37,8 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/register', [RegisterController::class, 'store'])->middleware('throttle:email-otp');
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:login');
+    Route::get('/auth/github', [GitHubLoginController::class, 'redirect'])->middleware('throttle:20,1')->name('login.github');
+    Route::get('/auth/github/callback', [GitHubLoginController::class, 'callback'])->middleware('throttle:20,1')->name('login.github.callback');
     Route::get('/lupa-password', [PasswordResetController::class, 'requestForm'])->name('password.request');
     Route::post('/lupa-password', [PasswordResetController::class, 'send'])->middleware('throttle:email-otp')->name('password.email');
     Route::get('/reset-password', [PasswordResetController::class, 'resetForm'])->name('password.reset.form');
