@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
@@ -56,20 +57,11 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
             $provider = $response['data'] ?? $response;
             if (! is_array($provider)) $provider = [];
 
-            // request-single-service pada SMS Virtual dapat mengembalikan objek
-            // ORDER terlebih dahulu. Pada bentuk respons itu data.id adalah
-            // UUID order, BUKAN activationId yang diterima getStatus/ready/etc.
-            // Jangan pernah memakai field id generik sebagai activation ID.
-            $activationId = $this->findValue($provider, [
-                'activationId',
-                'activation.activationId',
-                'activations.0.activationId',
-                'items.0.activationId',
-                '0.activationId',
-                'order.activationId',
-                'order.activation.activationId',
-            ]);
-
+            // SMS Virtual menggunakan beberapa identifier berbeda:
+            // - order.id / orderId  : UUID order
+            // - activationId        : ID numerik eksternal
+            // - activation record id: UUID order-detail yang WAJIB dipakai
+            //   oleh getStatus/ready/resend/cancel/complete/reactivate.
             $providerOrderId = $this->findValue($provider, [
                 'orderId',
                 'order.id',
@@ -78,24 +70,47 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
                 '0.orderId',
             ]);
 
-            // Bentuk respons yang terkonfirmasi di production:
-            // data.id=<UUID order>, data.transactionId=..., tanpa activationId.
-            if (! $providerOrderId && ! $activationId) {
+            $numericActivationId = $this->findValue($provider, [
+                'activationId',
+                'activation.activationId',
+                'activations.0.activationId',
+                'items.0.activationId',
+                '0.activationId',
+                'order.activationId',
+            ]);
+
+            // Bentuk create-order production yang sudah terkonfirmasi hanya
+            // memberi data.id=<UUID order>. Jangan perlakukan sebagai UUID
+            // action kecuali payload jelas merupakan activation record.
+            if (! $providerOrderId && ! $numericActivationId) {
                 $providerOrderId = $this->findValue($provider, ['id']);
             }
 
             $resolvedActivation = null;
-            if (! $activationId && $providerOrderId) {
-                $resolvedActivation = $this->findActivationByOrderId($client, (string) $providerOrderId);
-                $activationId = $this->findValue($resolvedActivation ?? [], ['activationId']);
+            $providerActionId = null;
+
+            // Jika response memang activation record (ada orderId + activationId),
+            // field id adalah UUID order-detail yang dicari endpoint action.
+            if ($providerOrderId && $numericActivationId) {
+                $candidate = $this->findValue($provider, ['id', 'activation.id', 'activations.0.id', 'items.0.id', '0.id']);
+                if (is_string($candidate) && Str::isUuid($candidate)) {
+                    $providerActionId = $candidate;
+                    $resolvedActivation = $provider;
+                }
             }
 
-            if (! $activationId) {
-                throw new RuntimeException('Provider sudah membuat order, tetapi activation ID belum tersedia. Akan dicoba lagi otomatis.', 503);
+            if ($providerOrderId && ! $providerActionId) {
+                $resolvedActivation = $this->findActivationByOrderId($client, (string) $providerOrderId);
+                $providerActionId = $this->findValue($resolvedActivation ?? [], ['id']);
+                $numericActivationId = $this->findValue($resolvedActivation ?? [], ['activationId']) ?: $numericActivationId;
             }
 
             if (! $providerOrderId && $resolvedActivation) {
                 $providerOrderId = $this->findValue($resolvedActivation, ['orderId', 'order.id']);
+            }
+
+            if (! is_string($providerActionId) || ! Str::isUuid($providerActionId)) {
+                throw new RuntimeException('Provider sudah membuat order, tetapi UUID activation detail belum tersedia. Akan dicoba lagi otomatis.', 503);
             }
 
             $activationPayload = $resolvedActivation ?: $provider;
@@ -124,7 +139,7 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
 
             $cancelProviderActivation = false;
 
-            DB::transaction(function () use ($order, $response, $activationId, $providerOrderId, $phoneNumber, $expiresAt, &$cancelProviderActivation): void {
+            DB::transaction(function () use ($order, $response, $providerActionId, $providerOrderId, $phoneNumber, $expiresAt, &$cancelProviderActivation): void {
                 $locked = OtpOrder::query()->lockForUpdate()->findOrFail($order->id);
                 if ($locked->provider_activation_id) return;
 
@@ -136,7 +151,7 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
                 }
 
                 $updates = [
-                    'provider_activation_id' => (string) $activationId,
+                    'provider_activation_id' => (string) $providerActionId,
                     'provider_order_id' => $providerOrderId ? (string) $providerOrderId : null,
                     'provider_payload' => $response,
                     'provider_message' => null,
@@ -149,7 +164,7 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
 
             if ($cancelProviderActivation) {
                 try {
-                    $client->cancel((string) $activationId);
+                    $client->cancel((string) $providerActionId);
                 } catch (Throwable $cancelError) {
                     report($cancelError);
                 }
@@ -160,6 +175,8 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
             if ($fresh->provider_activation_id) {
                 // Jika activation ditemukan lewat ongoing/history, gunakan record
                 // activation tersebut untuk langsung mengisi nomor/status/durasi.
+                // provider_activation_id sengaja menyimpan UUID order-detail
+                // karena itulah identifier yang diterima endpoint provider.
                 $statusService->apply(
                     $fresh,
                     $resolvedActivation ? ['data' => $resolvedActivation] : $response,
@@ -233,8 +250,8 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
                 if (! is_array($row)) continue;
 
                 $rowOrderId = $this->findValue($row, ['orderId', 'order.id']);
-                $rowActivationId = $this->findValue($row, ['activationId']);
-                if ($rowOrderId && (string) $rowOrderId === $providerOrderId && $rowActivationId) {
+                $rowDetailId = $this->findValue($row, ['id']);
+                if ($rowOrderId && (string) $rowOrderId === $providerOrderId && is_string($rowDetailId) && Str::isUuid($rowDetailId)) {
                     return $row;
                 }
 
@@ -246,7 +263,8 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
 
                 foreach ($details as $detail) {
                     if (! is_array($detail)) continue;
-                    if (! $this->findValue($detail, ['activationId'])) continue;
+                    $detailId = $this->findValue($detail, ['id']);
+                    if (! is_string($detailId) || ! Str::isUuid($detailId)) continue;
 
                     if (! isset($detail['orderId'])) $detail['orderId'] = $providerOrderId;
                     return $detail;

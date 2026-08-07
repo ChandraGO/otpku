@@ -1,0 +1,17 @@
+HOTFIX UUID ACTION PROVIDER - 08 Aug 2026
+
+Temuan production:
+- order.id = UUID order, contoh cb104878-...
+- activationId = ID numerik eksternal, contoh 700693129
+- activation record id = UUID order-detail, contoh e83c782c-...
+
+Endpoint getStatus/ready/resend/cancel/complete/reactivate provider memvalidasi parameter sebagai UUID.
+Kode final menyimpan UUID order-detail pada provider_activation_id (nama kolom lama dipertahankan agar tidak perlu migrasi baru), sementara provider_order_id tetap menyimpan UUID order.
+
+Order lama yang sempat menyimpan activationId numerik atau UUID order akan dipulihkan otomatis dari ongoing/history menggunakan provider_order_id saat polling/aksi berikutnya.
+
+Setelah deploy:
+  php artisan optimize:clear
+  php artisan queue:restart
+
+Untuk order lama, buka halaman detail dan biarkan polling berjalan. Status expired/cancelled/ready akan ikut diperbarui dari provider.
