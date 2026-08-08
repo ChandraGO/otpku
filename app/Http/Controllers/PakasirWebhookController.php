@@ -21,7 +21,7 @@ class PakasirWebhookController extends Controller
         if (! hash_equals($client->project(), (string) $data['project'])) {
             return response()->json(['ok' => false, 'message' => 'project mismatch'], 422);
         }
-        $topup = Topup::query()->where('order_id', $data['order_id'])->first();
+        $topup = Topup::query()->where('order_id', $data['order_id'])->where('gateway', 'pakasir')->first();
         if (! $topup || (int) $topup->amount !== (int) $data['amount']) {
             return response()->json(['ok' => false, 'message' => 'invoice mismatch'], 422);
         }

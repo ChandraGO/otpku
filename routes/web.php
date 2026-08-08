@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ActivityController as AdminActivityController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DuitkuWebhookController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OtpOrderController;
 use App\Http\Controllers\PakasirWebhookController;
@@ -87,6 +89,7 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
         Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
         Route::post('/orders/{order}/action', [AdminOrderController::class, 'action'])->name('orders.action');
         Route::get('/topups', [AdminTopupController::class, 'index'])->name('topups.index');
+        Route::get('/activities', [AdminActivityController::class, 'index'])->name('activities.index');
         Route::get('/topups/{topup}', [AdminTopupController::class, 'show'])->name('topups.show');
         Route::post('/topups/{topup}/verify', [AdminTopupController::class, 'verify'])->name('topups.verify');
         Route::resource('announcements', AdminAnnouncementController::class)->except('show');
@@ -94,6 +97,8 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
         Route::put('/settings', [AdminSettingsController::class, 'update'])->name('settings.update');
         Route::post('/settings/test-sms', [AdminSettingsController::class, 'testSms'])->name('settings.test-sms');
         Route::post('/settings/test-pakasir', [AdminSettingsController::class, 'testPakasir'])->name('settings.test-pakasir');
+        Route::post('/settings/test-duitku', [AdminSettingsController::class, 'testDuitku'])->name('settings.test-duitku');
+        Route::post('/settings/payment-gateway', [AdminSettingsController::class, 'switchPaymentGateway'])->name('settings.payment-gateway');
         Route::post('/settings/test-mail', [AdminSettingsController::class, 'testMail'])->name('settings.test-mail');
         Route::post('/settings/sync-catalog', [AdminSettingsController::class, 'syncCatalog'])->name('settings.sync-catalog');
         Route::get('/backups', [AdminBackupController::class, 'index'])->name('backups.index');
@@ -108,4 +113,5 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
 });
 
 Route::post('/webhooks/pakasir', PakasirWebhookController::class)->middleware('throttle:60,1')->name('webhooks.pakasir');
+Route::post('/webhooks/duitku', DuitkuWebhookController::class)->middleware('throttle:120,1')->name('webhooks.duitku');
 Route::post('/webhooks/sms-virtual/{secret}', SmsVirtualWebhookController::class)->middleware('throttle:120,1')->name('webhooks.sms-virtual');

@@ -11,6 +11,12 @@ return [
         'client_secret' => env('GITHUB_CLIENT_SECRET'),
         'redirect' => env('GITHUB_REDIRECT_URI'),
     ],
+    'duitku' => [
+        'environment' => env('DUITKU_ENVIRONMENT', 'production'),
+        'merchant_code' => env('DUITKU_MERCHANT_CODE'),
+        'api_key' => env('DUITKU_API_KEY'),
+        'payment_method' => env('DUITKU_PAYMENT_METHOD', 'NQ'),
+    ],
     'pakasir' => [
         'base_url' => env('PAKASIR_BASE_URL', 'https://app.pakasir.com'),
         'project' => env('PAKASIR_PROJECT'),

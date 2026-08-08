@@ -7,6 +7,7 @@ use App\Jobs\SyncSmsVirtualCatalog;
 use App\Models\OtpOrder;
 use App\Services\BackupService;
 use App\Services\CatalogSyncService;
+use App\Services\PaymentGatewayManager;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
@@ -28,6 +29,8 @@ Schedule::call(function (): void {
 })->everyTenSeconds()->name('sync-active-otp-orders')->withoutOverlapping();
 
 Schedule::job(new SyncPendingTopups)->everyMinute()->withoutOverlapping();
+Schedule::call(fn () => app(PaymentGatewayManager::class)->applyPendingIfSafe())
+    ->everyMinute()->name('apply-pending-payment-gateway')->withoutOverlapping();
 Schedule::job(new SyncSmsVirtualCatalog)->everyFifteenMinutes()->withoutOverlapping();
 Schedule::call(fn () => app(BackupService::class)->create())->dailyAt('03:30')->name('daily-database-backup')->withoutOverlapping();
 Schedule::command('queue:prune-failed --hours=168')->daily();

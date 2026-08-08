@@ -24,11 +24,13 @@ class Topup extends Model
         'id',
         'user_id',
         'order_id',
+        'gateway',
         'amount',
         'fee',
         'total_payment',
         'payment_method',
         'payment_number',
+        'provider_reference',
         'checkout_url',
         'status',
         'provider_payload',
@@ -134,7 +136,7 @@ class Topup extends Model
         $normalized = rawurldecode(str_replace('\\/', '/', $value));
 
         return preg_match(
-            '~https?://(?:[^/\s]+\.)?pakasir\.com/pay(?:/|\?|$)~i',
+            '~https?://(?:[^/\s]+\.)?(?:pakasir\.com/pay|duitku\.com/(?:redirect|topup|checkout)|app-sandbox\.duitku\.com)(?:/|\?|$)~i',
             $normalized,
         ) === 1;
     }

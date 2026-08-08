@@ -102,6 +102,9 @@
                 <a href="{{ route('admin.topups.index') }}" class="nav-link {{ request()->routeIs('admin.topups.*') ? 'nav-link-active' : '' }}">
                     <x-icon name="topup" /><span>Pembayaran</span>
                 </a>
+                <a href="{{ route('admin.activities.index') }}" class="nav-link {{ request()->routeIs('admin.activities.*') ? 'nav-link-active' : '' }}">
+                    <x-icon name="history" /><span>Riwayat Aktivitas</span>
+                </a>
                 <a href="{{ route('admin.announcements.index') }}" class="nav-link {{ request()->routeIs('admin.announcements.*') ? 'nav-link-active' : '' }}">
                     <x-icon name="announcement" /><span>Kelola Pengumuman</span>
                 </a>

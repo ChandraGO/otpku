@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Announcement;
+use App\Models\OtpOrder;
+use App\Models\Topup;
+use App\Observers\OtpOrderObserver;
+use App\Observers\TopupObserver;
 use App\Services\MailSettingsConfigurator;
 use App\Support\Settings;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -24,6 +28,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(Settings $settings): void
     {
         Paginator::useTailwind();
+
+        Topup::observe(TopupObserver::class);
+        OtpOrder::observe(OtpOrderObserver::class);
 
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)
             ->by(strtolower((string) $request->input('login')).'|'.$request->ip()));

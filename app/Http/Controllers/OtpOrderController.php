@@ -5,6 +5,7 @@ use App\Jobs\PlaceOtpOrder;
 use App\Models\OtpOrder;
 use App\Models\SmsServicePrice;
 use App\Services\OtpOrderStatusService;
+use App\Services\PaymentGatewayManager;
 use App\Services\PricingService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
@@ -22,8 +23,14 @@ class OtpOrderController extends Controller
         return view('user.orders', ['orders' => OtpOrder::query()->where('user_id', $request->user()->id)->latest()->paginate(20)]);
     }
 
-    public function store(Request $request, PricingService $pricing, WalletService $wallet): RedirectResponse
+    public function store(Request $request, PricingService $pricing, WalletService $wallet, PaymentGatewayManager $gateways): RedirectResponse
     {
+        if ($gateways->pendingGateway()) {
+            return back()->withErrors([
+                'order' => 'Sistem pembayaran sedang menyelesaikan transaksi aktif sebelum pergantian penyedia pembayaran. Pemesanan baru dibuka kembali otomatis setelah proses selesai.',
+            ]);
+        }
+
         $data = $request->validate([
             'price_id' => ['required', 'integer', Rule::exists('sms_service_prices', 'id')->where('is_active', true)],
             'idempotency_key' => ['required', 'uuid'],
@@ -40,27 +47,35 @@ class OtpOrderController extends Controller
         $sellPrice = $pricing->sellingPrice($price->provider_price);
         $price->update(['sell_price' => $sellPrice]);
 
-        $order = DB::transaction(function () use ($request, $data, $price, $sellPrice, $pricing, $wallet): OtpOrder {
-            $order = OtpOrder::query()->create([
-                'user_id' => $request->user()->id,
-                'sms_service_price_id' => $price->id,
-                'idempotency_key' => $data['idempotency_key'],
-                'provider_price_id' => $price->provider_price_id,
-                'provider_operator_id' => $price->provider_operator_id,
-                'service_name' => $price->service->name,
-                'country_name' => $price->country->name,
-                'operator_name' => $price->operator_name,
-                'provider_cost' => $pricing->providerCostIdr($price->provider_price),
-                'sell_price' => $sellPrice,
-                'status' => 'processing',
-            ]);
-            // Administrator memakai saldo provider secara langsung. Hanya
-            // akun pelanggan yang didebit dari wallet internal aplikasi.
-            if (! $request->user()->isAdmin()) {
-                $wallet->debit($request->user(), $sellPrice, 'otp_order', 'order-debit:'.$order->id, 'Pembelian OTP '.$order->service_name.' — '.$order->country_name, OtpOrder::class, $order->id);
+        $order = $gateways->withSwitchLock(function () use ($request, $data, $price, $sellPrice, $pricing, $wallet, $gateways): OtpOrder {
+            if ($gateways->pendingGateway()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'order' => 'Pergantian penyedia pembayaran sedang diproses. Pemesanan baru ditahan sementara sampai pergantian selesai.',
+                ]);
             }
-            return $order;
-        }, 3);
+
+            return DB::transaction(function () use ($request, $data, $price, $sellPrice, $pricing, $wallet): OtpOrder {
+                $order = OtpOrder::query()->create([
+                    'user_id' => $request->user()->id,
+                    'sms_service_price_id' => $price->id,
+                    'idempotency_key' => $data['idempotency_key'],
+                    'provider_price_id' => $price->provider_price_id,
+                    'provider_operator_id' => $price->provider_operator_id,
+                    'service_name' => $price->service->name,
+                    'country_name' => $price->country->name,
+                    'operator_name' => $price->operator_name,
+                    'provider_cost' => $pricing->providerCostIdr($price->provider_price),
+                    'sell_price' => $sellPrice,
+                    'status' => 'processing',
+                ]);
+                // Administrator memakai saldo provider secara langsung. Hanya
+                // akun pelanggan yang didebit dari wallet internal aplikasi.
+                if (! $request->user()->isAdmin()) {
+                    $wallet->debit($request->user(), $sellPrice, 'otp_order', 'order-debit:'.$order->id, 'Pembelian OTP '.$order->service_name.' — '.$order->country_name, OtpOrder::class, $order->id);
+                }
+                return $order;
+            }, 3);
+        });
 
         $this->queuePlacement($order);
         return redirect()->route('orders.show', $order)->with('success', $request->user()->isAdmin() ? 'Pemesanan admin diterima dan akan menggunakan saldo provider.' : 'Pemesanan diterima dan sedang diproses secara aman.');

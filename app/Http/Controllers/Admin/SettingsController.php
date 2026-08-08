@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Notifications\EmailOtpNotification;
 use App\Services\AuditService;
 use App\Services\CatalogSyncService;
+use App\Services\DuitkuClient;
 use App\Services\MailSettingsConfigurator;
 use App\Services\PakasirClient;
+use App\Services\PaymentGatewayManager;
 use App\Services\ProviderBalanceService;
 use App\Support\Settings;
 use Illuminate\Http\RedirectResponse;
@@ -20,7 +22,7 @@ use Throwable;
 
 class SettingsController extends Controller
 {
-    public function index(Request $request, Settings $settings): View
+    public function index(Request $request, Settings $settings, PaymentGatewayManager $gateways): View
     {
         $tab = $request->string('tab', 'site')->toString();
         $tabs = [
@@ -29,8 +31,10 @@ class SettingsController extends Controller
             'orders',
             'pricing',
             'topup',
+            'payments',
             'sms_virtual',
             'pakasir',
+            'duitku',
             'mail',
             'security',
         ];
@@ -42,6 +46,10 @@ class SettingsController extends Controller
         return view('admin.settings.index', [
             'tab' => $tab,
             'values' => $settings->group($tab),
+            'activeGateway' => $gateways->activeGateway(),
+            'pendingGateway' => $gateways->pendingGateway(),
+            'gatewayBlockers' => $gateways->blockingCounts(),
+            'duitkuMethods' => $gateways->duitkuMethodOptions(),
         ]);
     }
 
@@ -62,6 +70,7 @@ class SettingsController extends Controller
                     'topup',
                     'sms_virtual',
                     'pakasir',
+                    'duitku',
                     'mail',
                     'security',
                 ]),
@@ -146,6 +155,73 @@ class SettingsController extends Controller
         }
     }
 
+    public function testDuitku(DuitkuClient $client, Settings $settings): RedirectResponse
+    {
+        try {
+            $configuration = $client->assertConfigured();
+            $amount = max(10000, (int) $settings->get('topup.minimum', 10000));
+            $methods = $client->paymentMethods($amount);
+            $configured = strtoupper((string) $configuration['payment_method']);
+            $active = collect($methods)->contains(fn ($item) => is_array($item)
+                && strtoupper((string) ($item['paymentMethod'] ?? '')) === $configured);
+
+            return back()->with(
+                'success',
+                'Koneksi Duitku berhasil ('.$configuration['environment'].'). Metode aktif terdeteksi: '.count($methods).'. Metode bawaan '.$configured.($active ? ' tersedia.' : ' belum aktif pada proyek merchant.'),
+            );
+        } catch (Throwable $e) {
+            return back()->withErrors(['settings' => $e->getMessage()]);
+        }
+    }
+
+    public function switchPaymentGateway(
+        Request $request,
+        PaymentGatewayManager $gateways,
+        PakasirClient $pakasir,
+        DuitkuClient $duitku,
+        AuditService $audit,
+        Settings $settings,
+    ): RedirectResponse {
+        $target = $request->validate([
+            'active_gateway' => ['required', Rule::in(['pakasir', 'duitku'])],
+        ])['active_gateway'];
+
+        try {
+            if ($target === 'duitku') {
+                $configuration = $duitku->assertConfigured();
+                $amount = max(10000, (int) $settings->get('topup.minimum', 10000));
+                $methods = $duitku->paymentMethods($amount);
+                $configuredMethod = strtoupper((string) $configuration['payment_method']);
+                $methodActive = collect($methods)->contains(fn ($item) => is_array($item)
+                    && strtoupper((string) ($item['paymentMethod'] ?? '')) === $configuredMethod);
+
+                if (! $methodActive) {
+                    throw new \RuntimeException('Metode Duitku '.$configuredMethod.' belum aktif pada proyek merchant. Pilih channel yang aktif lalu coba lagi.');
+                }
+            } else {
+                $pakasir->assertConfigured();
+            }
+
+            $result = $gateways->requestSwitch($target, $request->user());
+            $audit->record('payment_gateway.switch', 'payment_gateway', [], $result);
+
+            if ($result['state'] === 'scheduled') {
+                return back()->with(
+                    'success',
+                    'Peralihan ke '.$gateways->label($target).' dijadwalkan. Gateway lama tetap aktif sampai '.(int) $result['blockers']['topups'].' isi saldo dan '.(int) $result['blockers']['orders'].' pesanan aktif selesai.',
+                );
+            }
+
+            if ($result['state'] === 'unchanged') {
+                return back()->with('success', $gateways->label($target).' tetap menjadi penyedia pembayaran aktif. Jadwal peralihan sebelumnya dibatalkan.');
+            }
+
+            return back()->with('success', 'Penyedia pembayaran aktif sekarang: '.$gateways->label($target).'.');
+        } catch (Throwable $e) {
+            return back()->withErrors(['settings' => $e->getMessage()]);
+        }
+    }
+
     public function testMail(
         Request $request,
         MailSettingsConfigurator $mailConfigurator,
@@ -215,8 +291,7 @@ class SettingsController extends Controller
             ],
             'topup' => [
                 'minimum' => ['required', 'integer', 'min:1000'],
-                'maximum' => ['required', 'integer', 'gt:minimum'],
-                'payment_method' => ['required', 'string', 'max:40'],
+                'maximum' => ['required', 'integer', 'min:10000', 'gt:minimum'],
             ],
             'sms_virtual' => [
                 'base_url' => ['required', 'url'],
@@ -230,6 +305,13 @@ class SettingsController extends Controller
                 'project' => ['required', 'string', 'max:100'],
                 'api_key' => ['nullable', 'string', 'max:500'],
                 'payment_method' => ['required', 'string', 'max:40'],
+            ],
+            'duitku' => [
+                'environment' => ['required', Rule::in(['sandbox', 'production'])],
+                'merchant_code' => ['required', 'string', 'max:100'],
+                'api_key' => ['nullable', 'string', 'max:500'],
+                'payment_method' => ['required', Rule::in(array_keys(app(PaymentGatewayManager::class)->duitkuMethodOptions()))],
+                'expiry_minutes' => ['required', 'integer', 'min:5', 'max:1440'],
             ],
             'mail' => [
                 'mailer' => ['required', Rule::in(['smtp', 'log'])],
