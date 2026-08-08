@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-DEPLOY_SCRIPT_VERSION="2026.08.09-auto-maintenance-v4"
+DEPLOY_SCRIPT_VERSION="2026.08.09-auto-maintenance-v5"
 
 APP_DIR="${APP_DIR:-/opt/kodeotp/app}"
 STACK_DIR="${STACK_DIR:-/opt/kodeotp}"
@@ -26,6 +26,7 @@ NEEDS_WORKERS=0
 NEEDS_MIGRATE=0
 NEEDS_INFRA=0
 NEEDS_FULL_BUILD=0
+NEEDS_RUNTIME_OVERLAY=0
 RUNTIME_IMAGE=""
 CURRENT_COLOR="none"
 CURRENT_SERVICE=""
@@ -177,12 +178,21 @@ classify_changes() {
     NEEDS_WORKERS=1
   fi
 
-  # Hanya perubahan dependency PHP atau runtime container yang memerlukan
-  # image penuh. Blade, controller, route, CSS, dan JS tidak masuk kategori ini.
-  grep -Eq '^(Dockerfile$|composer\.json$|composer\.lock$|deploy/docker/)' "$CHANGED_FILE" \
+  # File konfigurasi runtime (entrypoint/nginx/php/supervisor) cukup
+  # dilapiskan di atas image aktif. Tidak perlu compile ulang PHP extensions.
+  grep -Eq '^deploy/docker/' "$CHANGED_FILE" \
+    && NEEDS_RUNTIME_OVERLAY=1 || true
+
+  # Full build hanya untuk perubahan yang benar-benar mengubah dependency/runtime
+  # dasar. Ini mencegah deploy entrypoint sederhana menghabiskan >8 menit.
+  grep -Eq '^(Dockerfile$|composer\.json$|composer\.lock$)' "$CHANGED_FILE" \
     && NEEDS_FULL_BUILD=1 || true
 
   [ "$NEEDS_ASSETS" -eq 1 ] && NEEDS_RESTART=1
+  if [ "$NEEDS_RUNTIME_OVERLAY" -eq 1 ]; then
+    NEEDS_RESTART=1
+    NEEDS_WORKERS=1
+  fi
   if [ "$NEEDS_FULL_BUILD" -eq 1 ]; then
     NEEDS_RESTART=1
     NEEDS_WORKERS=1
@@ -195,7 +205,8 @@ if [ "$FIRST_INCREMENTAL" -eq 0 ] \
   && [ "$NEEDS_RESTART" -eq 0 ] \
   && [ "$NEEDS_MIGRATE" -eq 0 ] \
   && [ "$NEEDS_INFRA" -eq 0 ] \
-  && [ "$NEEDS_FULL_BUILD" -eq 0 ]; then
+  && [ "$NEEDS_FULL_BUILD" -eq 0 ] \
+  && [ "$NEEDS_RUNTIME_OVERLAY" -eq 0 ]; then
   log 'commit sudah terdeploy; tidak ada pekerjaan'
   printf '%s\n' "$NEW_SHA" > "$DEPLOYED_SHA_FILE"
   git reset --hard "$NEW_SHA"
@@ -203,7 +214,7 @@ if [ "$FIRST_INCREMENTAL" -eq 0 ] \
   exit 0
 fi
 
-log "mode: assets=$NEEDS_ASSETS restart=$NEEDS_RESTART workers=$NEEDS_WORKERS migrate=$NEEDS_MIGRATE infra=$NEEDS_INFRA full_build=$NEEDS_FULL_BUILD"
+log "mode: assets=$NEEDS_ASSETS restart=$NEEDS_RESTART workers=$NEEDS_WORKERS migrate=$NEEDS_MIGRATE infra=$NEEDS_INFRA overlay=$NEEDS_RUNTIME_OVERLAY full_build=$NEEDS_FULL_BUILD"
 
 create_release() {
   rm -rf "$NEW_RELEASE_DIR"
@@ -369,15 +380,64 @@ else
   fix_manifest
 fi
 
+build_runtime_overlay() {
+  local image="kodeotp-app:$SHORT_SHA" overlay_dir
+  [ -n "$RUNTIME_IMAGE" ] || return 1
+
+  log 'runtime config berubah; membuat overlay image cepat tanpa compile ulang PHP'
+  overlay_dir="$(mktemp -d)"
+  cp "$NEW_RELEASE_DIR/deploy/docker/nginx.conf" "$overlay_dir/nginx.conf"
+  cp "$NEW_RELEASE_DIR/deploy/docker/supervisord.conf" "$overlay_dir/supervisord.conf"
+  cp "$NEW_RELEASE_DIR/deploy/docker/php.ini" "$overlay_dir/php.ini"
+  cp "$NEW_RELEASE_DIR/deploy/docker/entrypoint.sh" "$overlay_dir/entrypoint.sh"
+
+  cat > "$overlay_dir/Dockerfile" <<'EOF'
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+COPY nginx.conf /etc/nginx/http.d/default.conf
+COPY supervisord.conf /etc/supervisord.conf
+COPY php.ini /usr/local/etc/php/conf.d/99-kodeotp.ini
+COPY entrypoint.sh /usr/local/bin/kodeotp-entrypoint
+RUN sed -i 's/\r$//' /usr/local/bin/kodeotp-entrypoint \
+    && chmod +x /usr/local/bin/kodeotp-entrypoint
+EOF
+
+  DOCKER_BUILDKIT=1 timeout "${RUNTIME_OVERLAY_TIMEOUT_SECONDS:-300}" \
+    nice -n 10 docker build \
+      --progress=plain \
+      --build-arg "BASE_IMAGE=$RUNTIME_IMAGE" \
+      -t "$image" \
+      "$overlay_dir"
+  rm -rf "$overlay_dir"
+
+  docker tag "$image" kodeotp-runtime-base:current
+  RUNTIME_IMAGE=kodeotp-runtime-base:current
+}
+
+if [ "$NEEDS_RUNTIME_OVERLAY" -eq 1 ] && [ -n "$RUNTIME_IMAGE" ]; then
+  build_runtime_overlay
+fi
+
 build_full_image() {
   local image="kodeotp-app:$SHORT_SHA"
   log 'perubahan runtime/dependency PHP terdeteksi; menjalankan full build langka'
   log 'website lama tetap aktif selama full build'
+  local cache_args=()
+  if docker image inspect kodeotp-app:latest >/dev/null 2>&1; then
+    cache_args=(--cache-from kodeotp-app:latest)
+  elif [ -n "$RUNTIME_IMAGE" ] && docker image inspect "$RUNTIME_IMAGE" >/dev/null 2>&1; then
+    cache_args=(--cache-from "$RUNTIME_IMAGE")
+  fi
+
+  if [ ! -f "$NEW_RELEASE_DIR/composer.lock" ]; then
+    log 'PERINGATAN: composer.lock tidak ada; dependency full-build tidak terkunci versinya.'
+  fi
+
   DOCKER_BUILDKIT=1 timeout "${FULL_BUILD_TIMEOUT_SECONDS:-3300}" \
     nice -n 15 docker build \
       --progress=plain \
       --build-arg BUILDKIT_INLINE_CACHE=1 \
-      --cache-from kodeotp-app:latest \
+      "${cache_args[@]}" \
       --build-arg "PHP_BUILD_JOBS=${KODEOTP_PHP_BUILD_JOBS:-2}" \
       -t "$image" \
       "$NEW_RELEASE_DIR"
@@ -523,7 +583,7 @@ elif [ "$NEEDS_INFRA" -eq 1 ]; then
   reload_caddy || true
 fi
 
-if [ "$NEEDS_FULL_BUILD" -eq 1 ]; then
+if [ "$NEEDS_FULL_BUILD" -eq 1 ] || [ "$NEEDS_RUNTIME_OVERLAY" -eq 1 ]; then
   docker tag "$RUNTIME_IMAGE" kodeotp-app:latest || true
 fi
 
