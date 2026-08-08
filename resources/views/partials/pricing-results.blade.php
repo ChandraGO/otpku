@@ -30,7 +30,7 @@
                 <td>{{ number_format((int) $service->total_stock) }} pcs</td>
                 <td class="text-right">
                     @auth<a href="{{ route('services.show', $service) }}" class="btn-secondary !px-3 !py-2">Pilih</a>
-                    @else<a href="{{ route('login') }}" class="btn-secondary !px-3 !py-2">Login</a>@endauth
+                    @else<a href="{{ route('login') }}" class="btn-secondary !px-3 !py-2">Masuk</a>@endauth
                 </td>
             </tr>
         @empty

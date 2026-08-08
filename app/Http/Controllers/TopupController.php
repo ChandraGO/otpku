@@ -31,7 +31,7 @@ class TopupController extends Controller
         ]);
         try {
             $topup = $service->create($request->user(), (int) $data['amount'], $data['payment_method']);
-            return redirect()->route('topups.show', $topup)->with('success', 'Invoice top up berhasil dibuat.');
+            return redirect()->route('topups.show', $topup)->with('success', 'Invoice isi saldo berhasil dibuat.');
         } catch (Throwable $e) {
             report($e);
 

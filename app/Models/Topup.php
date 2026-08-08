@@ -18,6 +18,8 @@ class Topup extends Model
 
     protected $keyType = 'string';
 
+    protected $hidden = ['checkout_url', 'provider_payload'];
+
     protected $fillable = [
         'id',
         'user_id',
@@ -55,7 +57,13 @@ class Topup extends Model
     protected function paymentNumber(): Attribute
     {
         return Attribute::make(
-            get: fn (?string $value): ?string => $this->decryptLegacyString($value),
+            get: function (?string $value): ?string {
+                $plain = $this->decryptLegacyString($value);
+
+                return is_string($plain) && $this->containsPakasirCheckoutUrl($plain)
+                    ? null
+                    : $plain;
+            },
             set: fn (mixed $value): ?string => blank($value)
                 ? null
                 : Crypt::encryptString((string) $value),
@@ -119,6 +127,16 @@ class Topup extends Model
 
             return $value;
         }
+    }
+
+    private function containsPakasirCheckoutUrl(string $value): bool
+    {
+        $normalized = rawurldecode(str_replace('\\/', '/', $value));
+
+        return preg_match(
+            '~https?://(?:[^/\s]+\.)?pakasir\.com/pay(?:/|\?|$)~i',
+            $normalized,
+        ) === 1;
     }
 
     private function looksLikeLaravelCiphertext(string $value): bool

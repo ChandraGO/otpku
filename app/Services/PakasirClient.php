@@ -55,25 +55,6 @@ class PakasirClient
         ]);
     }
 
-    public function checkoutUrl(
-        string $orderId,
-        int $amount,
-        ?string $redirect = null,
-        ?string $method = null,
-    ): string {
-        $query = ['order_id' => $orderId];
-
-        if (filled($redirect)) {
-            $query['redirect'] = $redirect;
-        }
-
-        if (($method ?? '') === 'qris') {
-            $query['qris_only'] = 1;
-        }
-
-        return $this->baseUrl().'/pay/'.rawurlencode($this->project()).'/'.$amount.'?'.http_build_query($query);
-    }
-
     public function project(): string
     {
         $project = trim((string) $this->settings->get(
@@ -82,7 +63,7 @@ class PakasirClient
         ));
 
         if ($project === '') {
-            throw new RuntimeException('Project slug Pakasir belum dikonfigurasi.');
+            throw new RuntimeException('Slug proyek Pakasir belum dikonfigurasi.');
         }
 
         return $project;
@@ -119,20 +100,19 @@ class PakasirClient
         ));
 
         if ($base === '') {
-            throw new RuntimeException('Base URL Pakasir belum dikonfigurasi.');
+            throw new RuntimeException('URL dasar Pakasir belum dikonfigurasi.');
         }
 
         $base = rtrim($base, '/');
 
-        // Admin sometimes pastes the API endpoint instead of the host. The
-        // checkout URL and API client both require the host without /api.
+        // Admin kadang menempel endpoint API. Klien backend membutuhkan host tanpa /api.
         if (str_ends_with(strtolower($base), '/api')) {
             $base = substr($base, 0, -4);
         }
 
         $parts = parse_url($base);
         if (! is_array($parts) || ! in_array($parts['scheme'] ?? null, ['http', 'https'], true) || empty($parts['host'])) {
-            throw new RuntimeException('Base URL Pakasir tidak valid. Gunakan https://app.pakasir.com.');
+            throw new RuntimeException('URL dasar Pakasir tidak valid. Gunakan https://app.pakasir.com.');
         }
 
         // Canonical host from Pakasir integration documentation.

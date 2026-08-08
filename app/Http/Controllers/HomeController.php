@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Announcement;
 use App\Models\SmsCountry;
 use App\Models\SmsService;
 use App\Support\CatalogSummary;
@@ -29,15 +28,6 @@ class HomeController extends Controller
         );
 
         return view('home', [
-            'announcements' => Cache::remember(
-                'announcements:home:v2',
-                now()->addMinute(),
-                fn () => Announcement::visible()
-                    ->where('is_pinned', true)
-                    ->latest()
-                    ->limit(3)
-                    ->get(),
-            ),
             'featuredServices' => CatalogSummary::query()
                 ->orderByDesc('catalog_price_stats.total_stock')
                 ->limit(8)

@@ -22,6 +22,18 @@
         ],
     ];
     $initialPayloadEncoded = base64_encode(json_encode($initialPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}');
+    $initialStatusLabel = match ($order->status) {
+        'processing' => 'Diproses',
+        'provider_pending' => 'Menunggu penyedia',
+        'pending' => 'Menunggu',
+        'ready' => 'Siap',
+        'completed' => 'Selesai',
+        'cancelled' => 'Dibatalkan',
+        'expired' => 'Kedaluwarsa',
+        'refunded' => 'Dikembalikan',
+        'failed' => 'Gagal',
+        default => ucfirst(str_replace('_', ' ', $order->status)),
+    };
 @endphp
 
 @section('content')
@@ -36,9 +48,7 @@
             <h1 class="mt-2 text-3xl font-black tracking-tight">{{ $order->service_name }}</h1>
             <p class="mt-2 text-sm text-slate-500">{{ $order->country_name }} · {{ $order->operator_name ?: 'Semua operator' }}</p>
         </div>
-        <span class="badge bg-sky-500/10 capitalize text-sky-600 dark:text-sky-300" x-text="statusLabel">
-            {{ ucfirst(str_replace('_', ' ', $order->status)) }}
-        </span>
+        <span class="badge bg-sky-500/10 text-sky-600 dark:text-sky-300" x-text="statusLabel">{{ $initialStatusLabel }}</span>
     </div>
 
     <div class="mt-6 grid gap-6 lg:grid-cols-3">
@@ -62,13 +72,13 @@
 
             <div class="mt-6 rounded-xl border border-slate-200 p-4 dark:border-white/10">
                 <div class="text-xs uppercase tracking-wider text-slate-500">Pesan status</div>
-                <p class="mt-2 whitespace-pre-line text-sm" x-text="data.message || 'Menunggu pembaruan status dari provider...'">
-                    {{ $order->provider_message ?: 'Menunggu pembaruan status dari provider...' }}
+                <p class="mt-2 whitespace-pre-line text-sm" x-text="data.message || 'Menunggu pembaruan status dari penyedia...'">
+                    {{ $order->provider_message ?: 'Menunggu pembaruan status dari penyedia...' }}
                 </p>
             </div>
 
             <div class="mt-5 flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-                <div>Sisa waktu: <strong class="text-slate-900 dark:text-white" x-text="countdown">Menunggu nomor dari provider</strong></div>
+                <div>Sisa waktu: <strong class="text-slate-900 dark:text-white" x-text="countdown">Menunggu nomor dari penyedia</strong></div>
                 <div class="flex items-center gap-2">
                     <span class="inline-block size-2 animate-pulse rounded-full bg-emerald-400"></span>
                     <span x-text="lastChecked">Sinkron otomatis</span>
@@ -76,7 +86,7 @@
             </div>
 
             <div x-show="waitingForActivation" class="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-300">
-                Nomor sedang dialokasikan oleh provider. Halaman mengecek status otomatis setiap 3 detik. Jika tidak ingin menunggu, tombol <strong>Batalkan</strong> tetap dapat digunakan sebelum nomor tersedia.
+                Nomor sedang dialokasikan oleh penyedia. Halaman mengecek status otomatis setiap 3 detik. Jika tidak ingin menunggu, tombol <strong>Batalkan</strong> tetap dapat digunakan sebelum nomor tersedia.
             </div>
         </section>
 
@@ -85,7 +95,7 @@
             <dl class="mt-4 space-y-3 text-sm">
                 <div class="flex justify-between gap-3">
                     <dt class="text-slate-500">Status</dt>
-                    <dd class="font-semibold capitalize" x-text="statusLabel">{{ str_replace('_', ' ', $order->status) }}</dd>
+                    <dd class="font-semibold" x-text="statusLabel">{{ $initialStatusLabel }}</dd>
                 </div>
                 <div class="flex justify-between gap-3">
                     <dt class="text-slate-500">Harga</dt>
@@ -126,13 +136,13 @@
             </div>
 
             <p class="mt-4 text-xs leading-5 text-slate-500">
-                Tombol aksi akan aktif otomatis sesuai status provider. Pembatalan dinonaktifkan setelah OTP diterima karena provider tidak mengizinkan cancel setelah kode masuk.
+                Tombol aksi akan aktif otomatis sesuai status penyedia. Pembatalan dinonaktifkan setelah OTP diterima karena penyedia tidak mengizinkan pembatalan setelah kode masuk.
             </p>
         </section>
     </div>
 
     <p x-show="copied" x-transition class="fixed bottom-5 right-5 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-xl">
-        Disalin ke clipboard
+        Disalin ke papan klip
     </p>
 </div>
 @endsection

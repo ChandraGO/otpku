@@ -19,7 +19,7 @@ class GitHubLoginController extends Controller
         $clientId = trim((string) config('services.github.client_id'));
         if ($clientId === '') {
             return redirect()->route('login')->withErrors([
-                'github' => 'Login GitHub belum dikonfigurasi oleh administrator.',
+                'github' => 'Masuk dengan GitHub belum dikonfigurasi oleh administrator.',
             ]);
         }
 
@@ -43,7 +43,7 @@ class GitHubLoginController extends Controller
             $request->session()->forget('oauth.github.state');
 
             return redirect()->route('login')->withErrors([
-                'github' => 'Login GitHub dibatalkan atau ditolak. Silakan coba lagi.',
+                'github' => 'Masuk dengan GitHub dibatalkan atau ditolak. Silakan coba lagi.',
             ]);
         }
 
@@ -72,18 +72,22 @@ class GitHubLoginController extends Controller
             Auth::login($user, true);
             $request->session()->regenerate();
 
+            $isFirstLogin = blank($user->last_login_at);
             $user->ensureApiKey();
             $user->forceFill(['last_login_at' => now()])->save();
+            if ($isFirstLogin) {
+                $request->session()->put('show_login_announcement', true);
+            }
 
             return redirect()->route('dashboard')->with(
                 'success',
-                'Login GitHub berhasil. Selamat datang kembali, '.$user->name.'.',
+                'Masuk dengan GitHub berhasil. Selamat datang kembali, '.$user->name.'.',
             );
         } catch (Throwable $e) {
             report($e);
 
             return redirect()->route('login')->withErrors([
-                'github' => 'Login GitHub gagal: '.$e->getMessage(),
+                'github' => 'Masuk dengan GitHub gagal: '.$e->getMessage(),
             ]);
         }
     }
@@ -114,7 +118,7 @@ class GitHubLoginController extends Controller
 
         $token = trim((string) $tokenResponse->json('access_token'));
         if ($token === '') {
-            throw new RuntimeException((string) ($tokenResponse->json('error_description') ?: 'Access token GitHub tidak diterima.'));
+            throw new RuntimeException((string) ($tokenResponse->json('error_description') ?: 'Token akses GitHub tidak diterima.'));
         }
 
         $http = Http::withToken($token)
@@ -154,7 +158,7 @@ class GitHubLoginController extends Controller
         return [
             'id' => (string) $github['id'],
             'login' => trim((string) ($github['login'] ?? 'github-user')),
-            'name' => trim((string) ($github['name'] ?? $github['login'] ?? 'GitHub User')),
+            'name' => trim((string) ($github['name'] ?? $github['login'] ?? 'Pengguna GitHub')),
             'email' => strtolower(trim((string) $email)),
         ];
     }

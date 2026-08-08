@@ -79,17 +79,15 @@ class ProfileController extends Controller
 
         $request->user()->update(['password' => $data['password']]);
 
-        return back()->with('success', 'Password berhasil diperbarui. Semua login berikutnya harus memakai password baru.');
+        return back()->with('success', 'Kata sandi berhasil diperbarui. Semua proses masuk berikutnya harus memakai kata sandi baru.');
     }
 
     public function rotateApiKey(Request $request): RedirectResponse
     {
         $request->validate(['password' => ['required', 'current_password']]);
-        $plain = $request->user()->rotateApiKey();
+        $request->user()->rotateApiKey();
 
-        return back()
-            ->with('success', 'API key baru berhasil dibuat. Integrasi yang masih memakai key lama akan menerima respons 401.')
-            ->with('new_api_key', $plain);
+        return back()->with('success', 'API key baru berhasil dibuat. Integrasi yang masih memakai key lama akan menerima respons 401.');
     }
 
     public function requestDeletion(Request $request): RedirectResponse

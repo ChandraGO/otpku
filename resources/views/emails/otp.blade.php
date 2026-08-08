@@ -32,7 +32,7 @@
                         </p>
                         <p style="margin:0 0 22px;color:#475569;font-size:15px;line-height:1.75;">
                             @if($isPasswordReset)
-                                Gunakan kode berikut untuk membuat password baru pada akun Anda.
+                                Gunakan kode berikut untuk membuat kata sandi baru pada akun Anda.
                             @else
                                 Gunakan kode berikut untuk memverifikasi alamat email dan mengaktifkan akun Anda.
                             @endif

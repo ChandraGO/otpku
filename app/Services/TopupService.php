@@ -52,6 +52,14 @@ class TopupService
                 );
             }
 
+            // Jika penyedia mengembalikan URL checkout sebagai nomor pembayaran,
+            // jangan pernah teruskan nilai tersebut ke browser.
+            if (is_string($paymentNumber) && $this->containsPakasirCheckoutUrl($paymentNumber)) {
+                $paymentNumber = null;
+            }
+
+            $safeResponse = $this->redactPakasirCheckoutUrls($response);
+
             $topup->update([
                 'fee' => (float) ($payment['fee'] ?? 0),
                 'total_payment' => (float) (
@@ -62,18 +70,15 @@ class TopupService
                 'payment_number' => filled($paymentNumber)
                     ? (string) $paymentNumber
                     : null,
-                'checkout_url' => $this->pakasir->checkoutUrl(
-                    $orderId,
-                    $amount,
-                    route('topups.show', $topup),
-                    $method,
-                ),
+                // Jangan simpan atau kirim URL checkout provider ke browser.
+                // Pembayaran ditampilkan dari payment_number/QRIS pada situs utama.
+                'checkout_url' => null,
                 'expires_at' => $this->parseExpiry(
                     $payment['expired_at']
                     ?? $payment['expiredAt']
                     ?? null,
                 ),
-                'provider_payload' => $response,
+                'provider_payload' => $safeResponse,
                 'status' => 'pending',
             ]);
 
@@ -82,7 +87,7 @@ class TopupService
             try {
                 $topup->update([
                     'status' => 'failed',
-                    'provider_payload' => ['error' => $exception->getMessage()],
+                    'provider_payload' => ['error' => (string) $this->redactPakasirCheckoutUrls($exception->getMessage())],
                 ]);
             } catch (Throwable $loggingException) {
                 report($loggingException);
@@ -108,15 +113,19 @@ class TopupService
             throw new RuntimeException('Respons detail transaksi Pakasir tidak valid.');
         }
 
+        $safeResponse = $this->redactPakasirCheckoutUrls($response);
+
         $status = strtolower((string) ($tx['status'] ?? 'pending'));
         $project = (string) ($tx['project'] ?? '');
         $orderId = (string) ($tx['order_id'] ?? $tx['orderId'] ?? '');
         $amount = (int) ($tx['amount'] ?? 0);
+        $totalPayment = $tx['total_payment'] ?? $tx['totalPayment'] ?? null;
 
         if (
             $project !== $this->pakasir->project()
             || $orderId !== $topup->order_id
             || $amount !== (int) $topup->amount
+            || (filled($totalPayment) && (int) $totalPayment !== (int) $topup->total_payment)
         ) {
             throw new RuntimeException('Detail transaksi Pakasir tidak cocok dengan invoice lokal.');
         }
@@ -125,14 +134,14 @@ class TopupService
             if (in_array($status, ['expired', 'cancelled', 'failed'], true)) {
                 $topup->update([
                     'status' => $status,
-                    'provider_payload' => $response,
+                    'provider_payload' => $safeResponse,
                 ]);
             }
 
             return $topup->refresh();
         }
 
-        DB::transaction(function () use ($topup, $response, $tx): void {
+        DB::transaction(function () use ($topup, $safeResponse, $tx): void {
             $locked = Topup::query()->with('user')->lockForUpdate()->findOrFail($topup->id);
 
             if ($locked->credited_at) {
@@ -154,11 +163,40 @@ class TopupService
                 'status' => 'completed',
                 'paid_at' => Arr::get($tx, 'completed_at', now()),
                 'credited_at' => now(),
-                'provider_payload' => $response,
+                'provider_payload' => $safeResponse,
             ]);
         }, 3);
 
         return $topup->refresh();
+    }
+
+    private function containsPakasirCheckoutUrl(string $value): bool
+    {
+        $normalized = rawurldecode(str_replace('\\/', '/', $value));
+
+        return preg_match(
+            '~https?://(?:[^/\s]+\.)?pakasir\.com/pay(?:/|\?|$)~i',
+            $normalized,
+        ) === 1;
+    }
+
+    private function redactPakasirCheckoutUrls(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            $safe = [];
+
+            foreach ($value as $key => $item) {
+                $safe[$key] = $this->redactPakasirCheckoutUrls($item);
+            }
+
+            return $safe;
+        }
+
+        if (is_string($value) && $this->containsPakasirCheckoutUrl($value)) {
+            return '[tautan pembayaran Pakasir disembunyikan]';
+        }
+
+        return $value;
     }
 
     private function parseExpiry(mixed $value): CarbonImmutable

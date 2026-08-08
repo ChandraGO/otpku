@@ -71,7 +71,7 @@
         field.querySelectorAll('[data-password-icon]').forEach((icon) => {
             icon.hidden = icon.dataset.passwordIcon === (visible ? 'show' : 'hide');
         });
-        const label = visible ? 'Sembunyikan password' : 'Tampilkan password';
+        const label = visible ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi';
         button.setAttribute('aria-label', label);
         button.setAttribute('title', label);
         button.setAttribute('aria-pressed', visible ? 'true' : 'false');

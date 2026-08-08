@@ -4,9 +4,8 @@
 <section class="page-grid min-h-[75vh] py-16">
     <div class="mx-auto max-w-7xl px-4 sm:px-6">
         <div class="max-w-3xl">
-            <span class="badge bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Transparent Pricing</span>
+            <span class="badge bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Harga Transparan</span>
             <h1 class="text-balance mt-5 text-4xl font-black tracking-tight sm:text-5xl">Harga layanan OTP terbaru</h1>
-            <p class="mt-4 text-lg leading-8 text-slate-500 dark:text-slate-400">Bandingkan harga dan ketersediaan layanan dalam Rupiah sebelum melakukan pemesanan.</p>
         </div>
 
         <form
@@ -39,8 +38,6 @@
                 <span>Cari</span>
             </button>
         </form>
-
-        <p class="mt-3 text-xs text-slate-500">Hasil otomatis diperbarui saat Anda mengetik. Tombol Cari tetap dapat digunakan kapan saja.</p>
 
         <div data-service-results class="transition-opacity" aria-live="polite">
             @include('partials.pricing-results', ['services' => $services])

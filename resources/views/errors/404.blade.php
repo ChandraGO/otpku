@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="robots" content="noindex,nofollow">
     <meta http-equiv="refresh" content="7;url={{ route('dashboard') }}">
-    <title>Error 404 (not found)</title>
+    <title>Galat 404 (tidak ditemukan)</title>
     <style>
         :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         * { box-sizing: border-box; }
@@ -24,10 +24,10 @@
 <body>
 <div class="glow"></div>
 <main class="card" role="main">
-    <span class="code">ERROR 404</span>
-    <h1>Error 404 <span style="color:#94a3b8">(not found)</span></h1>
-    <p>Mohon maaf, sepertinya kamu tersesat di halaman ini nih. Kami akan mengalihkan kamu kembali ke dashboard awal.</p>
-    <div class="timer">Kembali ke dashboard dalam <strong id="countdown">7</strong> detik. <a href="{{ route('dashboard') }}">Kembali sekarang</a></div>
+    <span class="code">GALAT 404</span>
+    <h1>Galat 404 <span style="color:#94a3b8">(tidak ditemukan)</span></h1>
+    <p>Mohon maaf, sepertinya kamu tersesat di halaman ini nih. Kami akan mengalihkan kamu kembali ke dasbor awal.</p>
+    <div class="timer">Kembali ke dasbor dalam <strong id="countdown">7</strong> detik. <a href="{{ route('dashboard') }}">Kembali sekarang</a></div>
     <div class="by">by Manajemen Jagpro<strong>Chandra Dwi Hafiluddin</strong></div>
 </main>
 <script>

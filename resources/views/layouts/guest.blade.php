@@ -38,7 +38,7 @@
 
         <nav class="hidden items-center gap-2 md:flex" aria-label="Navigasi utama">
             @auth
-                <a class="btn-primary" href="{{ route('dashboard') }}">Dashboard <x-icon name="arrow-right" size="size-4" /></a>
+                <a class="btn-primary" href="{{ route('dashboard') }}">Dasbor <x-icon name="arrow-right" size="size-4" /></a>
             @endauth
         </nav>
 
@@ -75,7 +75,7 @@
     >
         <nav class="mx-auto grid max-w-7xl gap-2" aria-label="Navigasi mobile">
             @auth
-                <a data-mobile-menu-close class="nav-link nav-link-active" href="{{ route('dashboard') }}"><x-icon name="home" /><span>Dashboard</span></a>
+                <a data-mobile-menu-close class="nav-link nav-link-active" href="{{ route('dashboard') }}"><x-icon name="home" /><span>Dasbor</span></a>
             @endauth
         </nav>
     </div>

@@ -176,7 +176,7 @@ Alpine.data('orderStatus', () => ({
         cancel: true,
         reactivate: false,
     },
-    countdown: 'Menunggu nomor dari provider',
+    countdown: 'Menunggu nomor dari penyedia',
     copied: false,
     timer: null,
     fetching: false,
@@ -244,8 +244,8 @@ Alpine.data('orderStatus', () => ({
     tick() {
         if (!this.data.expires_at) {
             this.countdown = this.data.provider_activation_id
-                ? 'Menunggu durasi dari provider'
-                : 'Menunggu nomor dari provider';
+                ? 'Menunggu durasi dari penyedia'
+                : 'Menunggu nomor dari penyedia';
             return;
         }
 
@@ -263,7 +263,24 @@ Alpine.data('orderStatus', () => ({
         return `Terakhir dicek ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
     },
     get statusLabel() {
-        return String(this.data.status || 'processing').replaceAll('_', ' ');
+        const status = String(this.data.status || 'processing');
+        const labels = {
+            completed: 'Selesai',
+            success: 'Berhasil',
+            paid: 'Dibayar',
+            active: 'Aktif',
+            ready: 'Siap',
+            pending: 'Menunggu',
+            processing: 'Diproses',
+            provider_pending: 'Menunggu penyedia',
+            creating: 'Membuat transaksi',
+            waiting: 'Menunggu',
+            expired: 'Kedaluwarsa',
+            cancelled: 'Dibatalkan',
+            failed: 'Gagal',
+            refunded: 'Dikembalikan',
+        };
+        return labels[status] || status.replaceAll('_', ' ');
     },
     get waitingForActivation() {
         return !this.data.provider_activation_id && ['processing', 'provider_pending'].includes(String(this.data.status || ''));
@@ -275,6 +292,20 @@ Alpine.data('orderStatus', () => ({
         window.setTimeout(() => { this.copied = false; }, 1400);
     },
 }));
+
+document.addEventListener('change', (event) => {
+    const field = event.target;
+    if (!(field instanceof HTMLSelectElement || field instanceof HTMLInputElement)) return;
+
+    const form = field.closest('form[data-auto-filter]');
+    if (!form) return;
+
+    const isFilterField = field instanceof HTMLSelectElement
+        || ['checkbox', 'radio'].includes(field.type);
+    if (!isFilterField) return;
+
+    form.requestSubmit();
+});
 
 window.addEventListener('storage', (event) => {
     if (event.key === 'theme' && ['dark', 'light'].includes(event.newValue)) {

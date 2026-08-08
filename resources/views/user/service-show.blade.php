@@ -6,19 +6,16 @@
     <div class="mt-5 flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
         <div class="flex items-center gap-4">
             <x-service-icon :service="$service" size="lg" />
-            <div>
-                <h1 class="section-title">{{ trim($service->name) }}</h1>
-                <p class="mt-2 text-sm text-slate-500">Pilih negara dan harga yang paling sesuai.</p>
-            </div>
+            <h1 class="section-title">{{ trim($service->name) }}</h1>
         </div>
         <div class="grid grid-cols-3 gap-2 sm:min-w-[400px]">
-            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Lowest</div><div class="mt-1 text-sm font-black text-violet-700 dark:text-violet-300">Rp {{ number_format((float) ($summary->lowest_price ?? 0), 0, ',', '.') }}</div></div>
-            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Highest</div><div class="mt-1 text-sm font-black">Rp {{ number_format((float) ($summary->highest_price ?? 0), 0, ',', '.') }}</div></div>
-            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Stock</div><div class="mt-1 text-sm font-black text-emerald-600 dark:text-emerald-300">{{ number_format((int) ($summary->total_stock ?? 0)) }}</div></div>
+            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Termurah</div><div class="mt-1 text-sm font-black text-violet-700 dark:text-violet-300">Rp {{ number_format((float) ($summary->lowest_price ?? 0), 0, ',', '.') }}</div></div>
+            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Tertinggi</div><div class="mt-1 text-sm font-black">Rp {{ number_format((float) ($summary->highest_price ?? 0), 0, ',', '.') }}</div></div>
+            <div class="card-soft p-3 text-center"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Stok</div><div class="mt-1 text-sm font-black text-emerald-600 dark:text-emerald-300">{{ number_format((int) ($summary->total_stock ?? 0)) }}</div></div>
         </div>
     </div>
 
-    <form method="get" class="card mt-7 grid gap-4 p-5 sm:grid-cols-3">
+    <form method="get" class="card mt-7 grid gap-4 p-5 sm:grid-cols-3" data-auto-filter>
         <div>
             <label class="label">Negara</label>
             <select class="input" name="country"><option value="">Semua negara</option>@foreach($countries as $country)<option value="{{ $country->id }}" @selected((string) request('country') === (string) $country->id)>{{ $country->name }}</option>@endforeach</select>
@@ -27,10 +24,9 @@
             <label class="label">Urutkan</label>
             <select class="input" name="sort"><option value="price_asc" @selected(request('sort', 'price_asc') === 'price_asc')>Harga termurah</option><option value="price_desc" @selected(request('sort') === 'price_desc')>Harga tertinggi</option><option value="stock" @selected(request('sort') === 'stock')>Stok terbanyak</option><option value="country" @selected(request('sort') === 'country')>Nama negara</option></select>
         </div>
-        <div class="flex items-end gap-2">
+        <div class="flex items-end">
             <input type="hidden" name="stock" value="1">
-            <button class="btn-primary flex-1">Terapkan</button>
-            <a href="{{ route('services.show', $service) }}" class="btn-secondary">Reset</a>
+            <a href="{{ route('services.show', $service) }}" class="btn-secondary w-full">Atur ulang</a>
         </div>
     </form>
 

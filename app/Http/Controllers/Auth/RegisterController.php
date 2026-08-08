@@ -43,7 +43,9 @@ class RegisterController extends Controller
         }
 
         Auth::login($user);
+        $user->forceFill(['last_login_at' => now()])->save();
         $request->session()->regenerate();
+        $request->session()->put('show_login_announcement', true);
         return redirect()->route('verification.notice')->with('success', 'Akun berhasil dibuat. Kode verifikasi telah dikirim ke email Anda.');
     }
 }

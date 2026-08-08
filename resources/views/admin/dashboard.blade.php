@@ -4,15 +4,9 @@
 <div data-kodeotp-safe-admin="v16">
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-            <p class="text-sm font-bold text-violet-600 dark:text-violet-300">
-                Administrator
-            </p>
             <h1 class="mt-1 text-3xl font-black tracking-tight">
                 Ringkasan operasional
             </h1>
-            <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                Pantau saldo layanan, saldo pengguna, transaksi, dan pesanan.
-            </p>
         </div>
 
         <a
@@ -53,7 +47,7 @@
                 </div>
                 <div class="mt-1 text-xs text-slate-500">
                     @if(($providerBalanceSource ?? null) === 'provider')
-                        Live dari provider saat dashboard dibuka.
+                        Langsung dari penyedia saat dasbor dibuka.
                     @else
                         {{ $providerError ?: 'Saldo terakhir yang berhasil disinkronkan.' }}
                     @endif
@@ -70,7 +64,7 @@
 
         <section class="stat-card">
             <div class="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Top up berhasil
+                Isi saldo berhasil
             </div>
             <div class="mt-2 text-2xl font-black">
                 Rp {{ number_format((float) ($stats['completed_topups'] ?? 0), 0, ',', '.') }}
@@ -125,9 +119,7 @@
                             </div>
                         </div>
 
-                        <span class="badge bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                            {{ strtoupper((string) ($order->status ?? '-')) }}
-                        </span>
+                        <x-status :value="$order->status" />
                     </a>
                 @empty
                     <div class="rounded-2xl border border-dashed border-slate-200 p-5 text-sm text-slate-500 dark:border-white/10">
@@ -139,7 +131,7 @@
 
         <section class="card p-5">
             <div class="flex items-center justify-between gap-3">
-                <h2 class="font-black">Top up terbaru</h2>
+                <h2 class="font-black">Isi saldo terbaru</h2>
                 <a
                     class="text-sm font-bold text-violet-600 dark:text-violet-300"
                     href="{{ route('admin.topups.index') }}"
@@ -165,13 +157,11 @@
                             </div>
                         </div>
 
-                        <span class="badge bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                            {{ strtoupper((string) ($topup->status ?? '-')) }}
-                        </span>
+                        <x-status :value="$topup->status" />
                     </a>
                 @empty
                     <div class="rounded-2xl border border-dashed border-slate-200 p-5 text-sm text-slate-500 dark:border-white/10">
-                        Belum ada top up.
+                        Belum ada isi saldo.
                     </div>
                 @endforelse
             </div>

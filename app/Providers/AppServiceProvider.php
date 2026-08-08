@@ -66,17 +66,17 @@ class AppServiceProvider extends ServiceProvider
 
             $user = request()->user();
             $data = [
-                'headerBalanceLabel' => 'Balance',
+                'headerBalanceLabel' => 'Saldo',
                 'headerBalance' => (float) ($user?->balance ?? 0),
                 'headerBalanceAvailable' => true,
-                'headerTopupLabel' => 'Top Up',
+                'headerTopupLabel' => 'Isi Saldo',
                 'headerTopupUrl' => route('topups.index'),
                 'headerTopupExternal' => false,
             ];
 
             if ($user?->isAdmin()) {
                 $data['headerBalanceLabel'] = 'Saldo provider';
-                $data['headerTopupLabel'] = 'Top Up Provider';
+                $data['headerTopupLabel'] = 'Isi Saldo Penyedia';
                 $data['headerTopupUrl'] = 'https://sms-virtual.net';
                 $data['headerTopupExternal'] = true;
                 $data['headerBalanceAvailable'] = false;

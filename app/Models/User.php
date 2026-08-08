@@ -74,14 +74,6 @@ class User extends Authenticatable implements MustVerifyEmail
         }
     }
 
-    public function apiKeyMasked(): ?string
-    {
-        if (! filled($this->api_key)) return null;
-
-        $key = (string) $this->api_key;
-        return Str::substr($key, 0, 10).'••••••••••••••••••••••••'.Str::substr($key, -4);
-    }
-
     public function otpOrders(): HasMany { return $this->hasMany(OtpOrder::class); }
     public function topups(): HasMany { return $this->hasMany(Topup::class); }
     public function walletTransactions(): HasMany { return $this->hasMany(WalletTransaction::class); }

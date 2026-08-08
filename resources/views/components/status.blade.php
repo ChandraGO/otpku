@@ -8,5 +8,29 @@
         'suspended', 'warning', 'refunded' => 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
         default => 'bg-slate-500/10 text-slate-600 dark:text-slate-300',
     };
+    $label = match ($key) {
+        'completed' => 'Selesai',
+        'success' => 'Berhasil',
+        'paid' => 'Dibayar',
+        'active' => 'Aktif',
+        'ready' => 'Siap',
+        'pending' => 'Menunggu',
+        'processing' => 'Diproses',
+        'provider_pending' => 'Menunggu penyedia',
+        'creating' => 'Membuat transaksi',
+        'waiting' => 'Menunggu',
+        'info' => 'Informasi',
+        'expired' => 'Kedaluwarsa',
+        'cancelled' => 'Dibatalkan',
+        'failed' => 'Gagal',
+        'banned' => 'Diblokir',
+        'danger' => 'Bahaya',
+        'suspended' => 'Ditangguhkan',
+        'warning' => 'Peringatan',
+        'refunded' => 'Dikembalikan',
+        'credit' => 'Masuk',
+        'debit' => 'Keluar',
+        default => ucfirst(str_replace('_', ' ', $key)),
+    };
 @endphp
-<span {{ $attributes->merge(['class' => 'badge '.$style]) }}>{{ ucfirst(str_replace('_', ' ', $key)) }}</span>
+<span {{ $attributes->merge(['class' => 'badge '.$style]) }}>{{ $label }}</span>
