@@ -7,6 +7,9 @@
     <meta name="robots" content="noindex,nofollow">
     <title>{{ $title ?? 'Dasbor' }} — {{ $siteName }}</title>
     <link rel="icon" href="{{ filled($siteLogoUrl ?? null) ? $siteLogoUrl : '/favicon.svg' }}">
+    @if(filled($siteLogoUrl ?? null))
+        <link rel="preload" as="image" href="{{ $siteLogoUrl }}" fetchpriority="high">
+    @endif
     <script>
         (() => {
             try {
@@ -28,6 +31,7 @@
     @stack('head')
 </head>
 <body>
+@include('partials.ui-runtime')
 @php($simpleDashboardHeader = request()->routeIs('dashboard', 'admin.dashboard'))
 <div class="min-h-screen" data-app-shell @if($simpleDashboardHeader) data-force-sidebar-expanded @endif>
     <div
@@ -233,7 +237,6 @@
         </div>
     </nav>
 </div>
-@include('partials.ui-runtime')
 @stack('scripts')
 </body>
 </html>

@@ -170,11 +170,22 @@
                         <div>
                             <label class="label">Pilih file logo</label>
                             <input class="input" type="file" name="logo_image" accept="image/jpeg,image/png,image/webp">
-                            <p class="mt-1 text-xs text-slate-500">JPG/PNG/WebP maksimal 4 MB. Jika URL dan file diisi bersamaan, file lokal yang dipakai.</p>
+                            <p class="mt-1 text-xs text-slate-500">JPG/PNG/WebP maksimal 4 MB. Untuk tampil paling cepat di HP, upload file lokal lebih disarankan daripada URL eksternal.</p>
                         </div>
                     </div>
+                    <div class="mt-4 max-w-sm">
+                        <label class="label">Perbesaran logo (%)</label>
+                        <input class="input" type="number" name="logo_zoom" min="100" max="400" step="10" value="{{ $v('logo_zoom',240) }}">
+                        <p class="mt-1 text-xs text-slate-500">Default 240%. Naikkan jika file logo memiliki ruang kosong/transparan yang besar; turunkan jika logo terpotong.</p>
+                    </div>
                     @if(filled($activeLogoUrl))
-                        <div class="mt-3 flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-white/10"><img src="{{ $activeLogoUrl }}" alt="Pratinjau logo" class="size-14 rounded-xl bg-white object-contain p-1"><div><div class="text-xs font-black">Pratinjau logo & favicon aktif</div><span class="text-xs text-slate-500">Sumber dapat berupa URL eksternal atau file lokal yang di-upload.</span></div></div>
+                        <div class="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 dark:border-white/10">
+                            <div class="relative h-20 w-full max-w-xs overflow-hidden rounded-xl bg-slate-50 dark:bg-slate-900/40">
+                                <img src="{{ $activeLogoUrl }}" alt="Pratinjau logo" class="absolute inset-0 h-full w-full object-contain" style="transform:scale({{ max(100,min(400,(int)$v('logo_zoom',240))) / 100 }});transform-origin:center;" loading="eager" fetchpriority="high">
+                            </div>
+                            <div class="mt-2 text-xs font-black">Pratinjau logo aktif</div>
+                            <span class="text-xs text-slate-500">Logo yang sama juga digunakan sebagai favicon. Tampilan header/sidebar mengikuti nilai perbesaran di atas.</span>
+                        </div>
                     @endif
                 </div>
 

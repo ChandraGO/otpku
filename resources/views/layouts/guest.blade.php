@@ -33,6 +33,9 @@
     <meta name="twitter:title" content="{{ $metaTitle }}">
     <meta name="twitter:description" content="{{ $metaDescription }}">
     <link rel="icon" href="{{ filled($siteLogoUrl ?? null) ? $siteLogoUrl : '/favicon.svg' }}">
+    @if(filled($siteLogoUrl ?? null))
+        <link rel="preload" as="image" href="{{ $siteLogoUrl }}" fetchpriority="high">
+    @endif
     <script>
         (() => {
             try {
@@ -52,10 +55,11 @@
     @stack('head')
 </head>
 <body>
+@include('partials.ui-runtime')
 <header class="fixed inset-x-0 top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85">
     <div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <a href="{{ route('home') }}" aria-label="Beranda" class="min-w-0 shrink">
-            <span class="sm:hidden"><x-app-logo compact /></span>
+        <a href="{{ route('home') }}" aria-label="Beranda" class="min-w-0 flex-1 overflow-hidden sm:flex-none">
+            <span class="block sm:hidden"><x-app-logo compact /></span>
             <span class="hidden sm:inline-flex"><x-app-logo /></span>
         </a>
 
@@ -103,8 +107,13 @@
         class="border-t border-slate-200/70 bg-white/95 px-4 py-4 shadow-xl backdrop-blur-2xl dark:border-white/10 dark:bg-[#0a1020]/95 md:hidden"
     >
         <nav class="mx-auto grid max-w-7xl gap-2" aria-label="Navigasi mobile">
+            <a data-mobile-menu-close class="nav-link {{ request()->routeIs('home') ? 'nav-link-active' : '' }}" href="{{ route('home') }}"><x-icon name="home" /><span>Beranda</span></a>
+            <a data-mobile-menu-close class="nav-link {{ request()->routeIs('pricing') ? 'nav-link-active' : '' }}" href="{{ route('pricing') }}"><x-icon name="chart" /><span>Harga</span></a>
             @auth
                 <a data-mobile-menu-close class="nav-link nav-link-active" href="{{ route('dashboard') }}"><x-icon name="home" /><span>Dasbor</span></a>
+            @else
+                <a data-mobile-menu-close class="nav-link" href="{{ route('login') }}"><x-icon name="user" /><span>Masuk</span></a>
+                <a data-mobile-menu-close class="btn-primary mt-1" href="{{ route('register') }}">Daftar</a>
             @endauth
         </nav>
     </div>
@@ -116,7 +125,6 @@
         <div>© {{ date('Y') }} {{ $siteName }} · <a class="hover:text-violet-500" href="{{ route('terms') }}">Syarat</a> · <a class="hover:text-violet-500" href="{{ route('privacy') }}">Privasi</a></div>
     </div>
 </footer>
-@include('partials.ui-runtime')
 @stack('scripts')
 </body>
 </html>

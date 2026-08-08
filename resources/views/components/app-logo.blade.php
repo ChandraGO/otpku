@@ -1,25 +1,45 @@
 @props(['compact' => false, 'inverse' => false, 'variant' => 'default'])
 @php
     $isSidebar = $variant === 'sidebar';
+    $zoomPercent = max(100, min(400, (int) ($siteLogoZoom ?? 240)));
+    $zoomScale = $zoomPercent / 100;
+
     $wrapperClass = $isSidebar
         ? 'flex w-full min-w-0 items-center'
         : 'inline-flex min-w-0 items-center';
+
+    $logoFrameStyle = $isSidebar
+        ? 'width:100%;max-width:252px;height:104px;'
+        : ($compact
+            ? 'width:min(58vw,210px);height:58px;'
+            : 'width:min(72vw,300px);height:72px;');
 @endphp
 <span {{ $attributes->merge(['class' => $wrapperClass]) }}>
     @if(filled($siteLogoUrl ?? null))
-        {{-- Logo bisnis kustom memakai area brand penuh. Khusus sidebar dibuat jauh lebih besar agar wordmark terbaca. --}}
-        <img
-            src="{{ $siteLogoUrl }}"
-            alt="Logo {{ $siteName }}"
-            class="block object-contain"
-            style="{{ $isSidebar
-                ? 'display:block;width:100%;height:96px;max-width:248px;object-fit:contain;object-position:left center;'
-                : ($compact
-                    ? 'height:42px;width:auto;max-width:min(62vw,190px);object-position:left center;'
-                    : 'height:64px;width:auto;max-width:280px;object-position:left center;') }}"
-            referrerpolicy="no-referrer"
-            loading="eager"
+        {{--
+            Banyak logo hasil ekspor memiliki canvas/ruang transparan yang lebar.
+            Frame + zoom membuat wordmark tetap terbaca besar tanpa mengubah file asli.
+            Nilai zoom dapat diatur dari Admin > Situs & SEO.
+        --}}
+        <span
+            class="relative block min-w-0 overflow-hidden"
+            style="{{ $logoFrameStyle }}"
+            aria-hidden="true"
         >
+            <img
+                src="{{ $siteLogoUrl }}"
+                alt=""
+                width="300"
+                height="104"
+                class="absolute inset-0 block h-full w-full object-contain"
+                style="object-position:center center;transform:scale({{ number_format($zoomScale, 2, '.', '') }});transform-origin:center center;"
+                referrerpolicy="no-referrer"
+                loading="eager"
+                fetchpriority="high"
+                decoding="async"
+            >
+        </span>
+        <span class="sr-only">Logo {{ $siteName }}</span>
     @else
         <span class="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/20">
             <svg class="size-7" viewBox="0 0 32 32" fill="none" aria-hidden="true">

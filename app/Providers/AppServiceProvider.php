@@ -51,6 +51,7 @@ class AppServiceProvider extends ServiceProvider
                 $view->with('siteDescription', $settings->get('site.description'));
                 $view->with('siteSupportWhatsapp', $settings->get('site.support_whatsapp', ''));
                 $view->with('siteLogoUrl', $settings->get('site.logo_url', ''));
+                $view->with('siteLogoZoom', max(100, min(400, (int) $settings->get('site.logo_zoom', 240))));
                 $view->with('siteSeoTitle', $settings->get('site.seo_title', ''));
                 $view->with('siteSeoDescription', $settings->get('site.seo_description', ''));
                 $view->with('siteSeoKeywords', $settings->get('site.seo_keywords', ''));
@@ -61,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
                 $view->with('siteDescription', null);
                 $view->with('siteSupportWhatsapp', '');
                 $view->with('siteLogoUrl', '');
+                $view->with('siteLogoZoom', 240);
                 $view->with('siteSeoTitle', '');
                 $view->with('siteSeoDescription', '');
                 $view->with('siteSeoKeywords', '');

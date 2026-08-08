@@ -417,6 +417,7 @@ class SettingsController extends Controller
                 'support_whatsapp' => ['nullable', 'string', 'max:30'],
                 'logo_url' => ['nullable', 'url', 'max:2048'],
                 'logo_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+                'logo_zoom' => ['nullable', 'integer', 'min:100', 'max:400'],
                 'seo_title' => ['nullable', 'string', 'max:70'],
                 'seo_description' => ['nullable', 'string', 'max:180'],
                 'seo_keywords' => ['nullable', 'string', 'max:500'],
