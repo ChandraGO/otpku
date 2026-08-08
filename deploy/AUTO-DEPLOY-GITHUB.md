@@ -48,6 +48,20 @@ git push origin master
 
 Tab **Actions** akan menampilkan workflow **Deploy KodeOTP ke VPS**. Deploy memakai lock agar dua push yang berdekatan tidak menjalankan update secara bersamaan, menjalankan migration bila diperlukan, membangun asset hanya ketika CSS/JS berubah, dan mempertahankan `.env` yang berada di VPS.
 
+
+## Maintenance otomatis setelah push
+
+Mulai versi deployer `2026.08.09-auto-maintenance-v4`, deploy production tidak lagi membutuhkan command maintenance Laravel manual di VPS untuk perubahan normal. Saat commit aplikasi masuk ke `main`/`master`, deployer akan:
+
+- membuat release dari commit terbaru dan mengaktifkannya dengan pola blue/green;
+- menjalankan `php artisan migrate --force` otomatis untuk setiap perubahan aplikasi (migration yang sudah pernah jalan otomatis dilewati Laravel);
+- membersihkan cache Laravel ketika container web baru mulai, lalu membangun ulang config/route/view cache;
+- me-recreate worker dan scheduler ketika kode backend yang relevan berubah;
+- membangun Vite hanya bila CSS/JS/dependency frontend berubah;
+- melakukan health check sebelum trafik dialihkan ke release baru.
+
+Karena itu, sesudah push GitHub normal Anda tidak perlu lagi SSH ke VPS hanya untuk menjalankan `migrate --force`, `optimize:clear`, `config:cache`, `route:cache`, `view:cache`, atau restart web container. Jika migration atau health check gagal, workflow akan gagal dan trafik lama tetap dipertahankan.
+
 ## Data yang tidak ditimpa
 
 Deployment tidak mengirim atau mengganti:

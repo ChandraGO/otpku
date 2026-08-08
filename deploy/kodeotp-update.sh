@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-DEPLOY_SCRIPT_VERSION="2026.08.08-final-v3"
+DEPLOY_SCRIPT_VERSION="2026.08.09-auto-maintenance-v4"
 
 APP_DIR="${APP_DIR:-/opt/kodeotp/app}"
 STACK_DIR="${STACK_DIR:-/opt/kodeotp}"
@@ -157,8 +157,17 @@ classify_changes() {
   grep -Eq '^(app/(Jobs|Models|Notifications|Providers|Services|Support)/|bootstrap/|config/|database/|routes/console\.php$|composer\.json$|composer\.lock$)' "$CHANGED_FILE" \
     && NEEDS_WORKERS=1 || true
 
-  grep -Eq '^database/migrations/' "$CHANGED_FILE" \
-    && NEEDS_MIGRATE=1 || true
+  # Setiap perubahan aplikasi menjalankan `migrate --force`. Perintah Laravel
+  # ini aman dijalankan berulang karena migration yang sudah tercatat akan
+  # dilewati. Dengan begitu migration tidak perlu lagi dijalankan manual di VPS,
+  # termasuk ketika satu commit berisi file baru/overwrite bersama perubahan lain.
+  if grep -Ev '^(deploy/|\.github/|.*\.(md|txt)$|README($|\.)|LICENSE($|\.))' "$CHANGED_FILE" \
+      | grep -q .; then
+    NEEDS_MIGRATE=1
+    # Fallback penting: file aplikasi baru yang belum tercantum di regex lama
+    # tetap membuat release baru aktif, bukan hanya ditarik oleh Git.
+    NEEDS_RESTART=1
+  fi
 
   grep -Eq '^(deploy/|\.github/workflows/deploy\.yml$|\.dockerignore$)' "$CHANGED_FILE" \
     && NEEDS_INFRA=1 || true
@@ -422,7 +431,7 @@ wait_healthy postgres 60
 wait_healthy redis 40
 
 if [ "$NEEDS_MIGRATE" -eq 1 ]; then
-  log 'menjalankan hanya migration yang belum pernah dijalankan'
+  log 'auto maintenance: menjalankan migration pending (php artisan migrate --force)'
   "${COMPOSE[@]}" run --rm --no-deps app_blue php artisan migrate --force
 fi
 
