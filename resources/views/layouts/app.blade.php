@@ -42,12 +42,14 @@
         data-open="false"
         class="fixed inset-y-0 left-0 z-50 flex w-[280px] -translate-x-full flex-col border-r border-slate-200/80 bg-white px-4 py-5 shadow-2xl transition-transform duration-300 dark:border-white/10 dark:bg-[#0a1020] lg:translate-x-0 lg:shadow-none"
     >
-        <div class="flex items-center justify-between px-2">
-            <a href="{{ route('dashboard') }}"><x-app-logo /></a>
+        <div class="flex min-h-[104px] items-center justify-between gap-2 px-2">
+            <a href="{{ route('dashboard') }}" class="flex min-w-0 flex-1 items-center overflow-hidden" aria-label="{{ $siteName }}">
+                <x-app-logo variant="sidebar" />
+            </a>
             <button type="button" data-sidebar-close class="btn-secondary !p-2 lg:hidden" aria-label="Tutup menu">×</button>
         </div>
 
-        <nav class="scrollbar-thin mt-7 flex-1 overflow-y-auto pr-1">
+        <nav class="scrollbar-thin mt-4 flex-1 overflow-y-auto pr-1">
             <div class="nav-group-label">Beranda</div>
             <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'nav-link-active' : '' }}">
                 <x-icon name="home" /><span>Dasbor</span>

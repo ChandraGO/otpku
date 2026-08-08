@@ -1,19 +1,27 @@
-@props(['compact' => false, 'inverse' => false])
-<span {{ $attributes->merge(['class' => 'inline-flex min-w-0 items-center']) }}>
+@props(['compact' => false, 'inverse' => false, 'variant' => 'default'])
+@php
+    $isSidebar = $variant === 'sidebar';
+    $wrapperClass = $isSidebar
+        ? 'flex w-full min-w-0 items-center'
+        : 'inline-flex min-w-0 items-center';
+@endphp
+<span {{ $attributes->merge(['class' => $wrapperClass]) }}>
     @if(filled($siteLogoUrl ?? null))
-        {{-- Logo bisnis kustom memakai seluruh area brand, bukan lagi dibatasi kotak ikon kecil. --}}
+        {{-- Logo bisnis kustom memakai area brand penuh. Khusus sidebar dibuat jauh lebih besar agar wordmark terbaca. --}}
         <img
             src="{{ $siteLogoUrl }}"
             alt="Logo {{ $siteName }}"
-            class="block shrink-0 object-contain"
-            style="{{ $compact
-                ? 'height:40px;width:auto;max-width:min(58vw,180px);object-position:left center;'
-                : 'height:56px;width:auto;max-width:240px;object-position:left center;' }}"
+            class="block object-contain"
+            style="{{ $isSidebar
+                ? 'display:block;width:100%;height:96px;max-width:248px;object-fit:contain;object-position:left center;'
+                : ($compact
+                    ? 'height:42px;width:auto;max-width:min(62vw,190px);object-position:left center;'
+                    : 'height:64px;width:auto;max-width:280px;object-position:left center;') }}"
             referrerpolicy="no-referrer"
             loading="eager"
         >
     @else
-        <span class="grid size-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/20">
+        <span class="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/20">
             <svg class="size-7" viewBox="0 0 32 32" fill="none" aria-hidden="true">
                 <rect x="7" y="4.5" width="18" height="23" rx="4" stroke="currentColor" stroke-width="2.2"/>
                 <path d="M11 10.5h10M11 15h6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
