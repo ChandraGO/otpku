@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@php($title = 'Pengaturan')
 @php
+    $title = 'Pengaturan';
     $tabs = [
         'site' => ['Situs & SEO', 'globe', 'Identitas bisnis, favicon, thumbnail berbagi, dan metadata mesin pencarian.'],
         'auth' => ['Verifikasi', 'shield', 'Atur masa berlaku OTP email dan jeda kirim ulang.'],
