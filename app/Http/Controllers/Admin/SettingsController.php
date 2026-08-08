@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\SiteMedia;
 use App\Notifications\EmailOtpNotification;
 use App\Services\AuditService;
 use App\Services\CatalogSyncService;
@@ -24,7 +25,13 @@ class SettingsController extends Controller
 {
     public function index(Request $request, Settings $settings, PaymentGatewayManager $gateways): View
     {
-        $tab = $request->string('tab', 'site')->toString();
+        $tab = trim($request->string('tab')->toString());
+
+        // URL lama tetap diarahkan ke satu halaman penyedia pembayaran.
+        if (in_array($tab, ['pakasir', 'duitku'], true)) {
+            $tab = 'payments';
+        }
+
         $tabs = [
             'site',
             'auth',
@@ -33,19 +40,19 @@ class SettingsController extends Controller
             'topup',
             'payments',
             'sms_virtual',
-            'pakasir',
-            'duitku',
             'mail',
             'security',
         ];
 
-        if (! in_array($tab, $tabs, true)) {
-            $tab = 'site';
+        if ($tab !== '' && ! in_array($tab, $tabs, true)) {
+            $tab = '';
         }
 
         return view('admin.settings.index', [
             'tab' => $tab,
-            'values' => $settings->group($tab),
+            'values' => $tab !== '' && $tab !== 'payments' ? $settings->group($tab) : [],
+            'pakasirValues' => $settings->group('pakasir'),
+            'duitkuValues' => $settings->group('duitku'),
             'activeGateway' => $gateways->activeGateway(),
             'pendingGateway' => $gateways->pendingGateway(),
             'gatewayBlockers' => $gateways->blockingCounts(),
@@ -83,6 +90,44 @@ class SettingsController extends Controller
             $data['refund_on_expired'] = $request->boolean('refund_on_expired');
         }
 
+        $logoUrl = null;
+        $seoImageUrl = null;
+        $logoUrlInput = null;
+        $seoImageUrlInput = null;
+
+        if ($group === 'site') {
+            $logoUrlInput = trim((string) ($data['logo_url'] ?? ''));
+            $seoImageUrlInput = trim((string) ($data['seo_image_url'] ?? ''));
+
+            if ($request->hasFile('logo_image')) {
+                $logoUrl = $this->storeSiteImage(
+                    $request,
+                    'logo_image',
+                    'business_logo',
+                    '/media/business-logo',
+                );
+            }
+
+            if ($request->hasFile('seo_image')) {
+                $seoImageUrl = $this->storeSiteImage(
+                    $request,
+                    'seo_image',
+                    'meta_seo',
+                    '/meta/seo-image',
+                );
+            }
+
+            // URL aktif ditangani terpisah supaya input kosong tidak
+            // menghapus file lokal yang sudah aktif. Jika file dan URL
+            // dikirim bersamaan, file lokal diprioritaskan.
+            unset(
+                $data['logo_url'],
+                $data['logo_image'],
+                $data['seo_image_url'],
+                $data['seo_image'],
+            );
+        }
+
         $mapped = [];
 
         foreach ($data as $key => $value) {
@@ -92,6 +137,20 @@ class SettingsController extends Controller
             }
 
             $mapped[$group.'.'.$key] = $value;
+        }
+
+        if ($group === 'site') {
+            if ($logoUrl !== null) {
+                $mapped['site.logo_url'] = $logoUrl;
+            } elseif ($logoUrlInput !== '') {
+                $mapped['site.logo_url'] = $logoUrlInput;
+            }
+
+            if ($seoImageUrl !== null) {
+                $mapped['site.seo_image_url'] = $seoImageUrl;
+            } elseif ($seoImageUrlInput !== '') {
+                $mapped['site.seo_image_url'] = $seoImageUrlInput;
+            }
         }
 
         $settings->setMany($mapped);
@@ -174,6 +233,11 @@ class SettingsController extends Controller
         }
     }
 
+    /**
+     * Satu form untuk memilih provider sekaligus menyimpan konfigurasi provider
+     * yang dipilih. Provider yang menyala setelah penyimpanan adalah provider
+     * yang dipakai untuk invoice baru (kecuali sedang menunggu drain transaksi).
+     */
     public function switchPaymentGateway(
         Request $request,
         PaymentGatewayManager $gateways,
@@ -185,8 +249,21 @@ class SettingsController extends Controller
         $target = $request->validate([
             'active_gateway' => ['required', Rule::in(['pakasir', 'duitku'])],
         ])['active_gateway'];
+        $providerData = $request->validate($this->paymentRules($target));
 
         try {
+            $config = $providerData[$target] ?? [];
+            $mapped = [];
+
+            foreach ($config as $key => $value) {
+                if ($key === 'api_key' && ($value === null || $value === '')) {
+                    continue;
+                }
+                $mapped[$target.'.'.$key] = $value;
+            }
+
+            $settings->setMany($mapped);
+
             if ($target === 'duitku') {
                 $configuration = $duitku->assertConfigured();
                 $amount = max(10000, (int) $settings->get('topup.minimum', 10000));
@@ -203,22 +280,26 @@ class SettingsController extends Controller
             }
 
             $result = $gateways->requestSwitch($target, $request->user());
-            $audit->record('payment_gateway.switch', 'payment_gateway', [], $result);
+            $audit->record('payment_gateway.settings_update', 'payment_gateway', [], [
+                'gateway' => $target,
+                'keys' => array_keys($mapped),
+                'switch' => $result,
+            ]);
 
             if ($result['state'] === 'scheduled') {
                 return back()->with(
                     'success',
-                    'Peralihan ke '.$gateways->label($target).' dijadwalkan. Gateway lama tetap aktif sampai '.(int) $result['blockers']['topups'].' isi saldo dan '.(int) $result['blockers']['orders'].' pesanan aktif selesai.',
+                    'Konfigurasi '.$gateways->label($target).' tersimpan. Peralihan dijadwalkan setelah '.(int) $result['blockers']['topups'].' isi saldo dan '.(int) $result['blockers']['orders'].' pesanan aktif selesai.',
                 );
             }
 
             if ($result['state'] === 'unchanged') {
-                return back()->with('success', $gateways->label($target).' tetap menjadi penyedia pembayaran aktif. Jadwal peralihan sebelumnya dibatalkan.');
+                return back()->with('success', 'Konfigurasi '.$gateways->label($target).' tersimpan dan provider tersebut tetap aktif.');
             }
 
-            return back()->with('success', 'Penyedia pembayaran aktif sekarang: '.$gateways->label($target).'.');
+            return back()->with('success', 'Konfigurasi tersimpan. Penyedia pembayaran aktif sekarang: '.$gateways->label($target).'.');
         } catch (Throwable $e) {
-            return back()->withErrors(['settings' => $e->getMessage()]);
+            return back()->withErrors(['settings' => $e->getMessage()])->withInput();
         }
     }
 
@@ -275,6 +356,13 @@ class SettingsController extends Controller
                 'description' => ['required', 'string', 'max:500'],
                 'support_whatsapp' => ['nullable', 'string', 'max:30'],
                 'logo_url' => ['nullable', 'url', 'max:2048'],
+                'logo_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+                'seo_title' => ['nullable', 'string', 'max:70'],
+                'seo_description' => ['nullable', 'string', 'max:180'],
+                'seo_keywords' => ['nullable', 'string', 'max:500'],
+                'seo_hashtags' => ['nullable', 'string', 'max:500'],
+                'seo_image_url' => ['nullable', 'url', 'max:2048'],
+                'seo_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             ],
             'auth' => [
                 'email_otp_expiry_minutes' => ['required', 'integer', 'min:3', 'max:60'],
@@ -327,5 +415,55 @@ class SettingsController extends Controller
                 'provider_webhook_secret' => ['nullable', 'string', 'min:24'],
             ],
         };
+    }
+
+    private function paymentRules(string $gateway): array
+    {
+        if ($gateway === 'duitku') {
+            return [
+                'duitku.environment' => ['required', Rule::in(['sandbox', 'production'])],
+                'duitku.merchant_code' => ['required', 'string', 'max:100'],
+                'duitku.api_key' => ['nullable', 'string', 'max:500'],
+                'duitku.payment_method' => ['required', Rule::in(array_keys(app(PaymentGatewayManager::class)->duitkuMethodOptions()))],
+                'duitku.expiry_minutes' => ['required', 'integer', 'min:5', 'max:1440'],
+            ];
+        }
+
+        return [
+            'pakasir.base_url' => ['required', 'url'],
+            'pakasir.project' => ['required', 'string', 'max:100'],
+            'pakasir.api_key' => ['nullable', 'string', 'max:500'],
+            'pakasir.payment_method' => ['required', 'string', 'max:40'],
+        ];
+    }
+
+    private function storeSiteImage(
+        Request $request,
+        string $field,
+        string $key,
+        string $publicPath,
+    ): string {
+        $file = $request->file($field);
+        if (! $file) {
+            throw new \RuntimeException('File gambar tidak ditemukan.');
+        }
+
+        $binary = file_get_contents($file->getRealPath());
+        if ($binary === false || $binary === '') {
+            throw new \RuntimeException('File gambar tidak dapat dibaca.');
+        }
+
+        SiteMedia::query()->updateOrCreate(
+            ['key' => $key],
+            [
+                'mime_type' => $file->getMimeType() ?: 'image/png',
+                'data_base64' => base64_encode($binary),
+            ],
+        );
+
+        // Media lokal disajikan lewat route publik sehingga tidak memerlukan
+        // symbolic-link storage dan tetap aman untuk deployment read-only.
+        // Versi query memaksa browser/crawler mengambil file terbaru.
+        return $publicPath.'?v='.now()->timestamp;
     }
 }

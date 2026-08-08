@@ -12,6 +12,14 @@ use Throwable;
 
 class Topup extends Model
 {
+    public const CANCELLATION_REASONS = [
+        'change_amount' => 'Ingin mengubah nominal',
+        'wrong_service' => 'Salah pilih layanan/metode pembayaran',
+        'not_ready' => 'Belum siap melakukan pembayaran',
+        'payment_issue' => 'Mengalami kendala pada pembayaran',
+        'other' => 'Lainnya',
+    ];
+
     use HasUuids;
 
     public $incrementing = false;
@@ -37,6 +45,9 @@ class Topup extends Model
         'expires_at',
         'paid_at',
         'credited_at',
+        'cancel_reason',
+        'cancel_note',
+        'cancelled_at',
     ];
 
     protected function casts(): array
@@ -48,6 +59,7 @@ class Topup extends Model
             'expires_at' => 'datetime',
             'paid_at' => 'datetime',
             'credited_at' => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
     }
 
@@ -108,6 +120,15 @@ class Topup extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function cancellationReasonLabel(): ?string
+    {
+        if (! filled($this->cancel_reason)) {
+            return null;
+        }
+
+        return self::CANCELLATION_REASONS[$this->cancel_reason] ?? ucfirst(str_replace('_', ' ', (string) $this->cancel_reason));
     }
 
     private function decryptLegacyString(?string $value): ?string

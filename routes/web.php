@@ -22,6 +22,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OtpOrderController;
 use App\Http\Controllers\PakasirWebhookController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SeoImageController;
 use App\Http\Controllers\SmsVirtualWebhookController;
 use App\Http\Controllers\TopupController;
 use App\Http\Controllers\WalletController;
@@ -31,6 +32,8 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/harga', [HomeController::class, 'pricing'])->name('pricing');
 Route::get('/sitemap.xml', [HomeController::class, 'sitemap'])->name('sitemap');
 Route::get('/healthz', [HomeController::class, 'health'])->name('healthz');
+Route::get('/meta/seo-image', SeoImageController::class)->name('meta.seo-image');
+Route::get('/media/business-logo', [SeoImageController::class, 'logo'])->name('media.business-logo');
 Route::view('/syarat-ketentuan', 'terms')->name('terms');
 Route::view('/kebijakan-privasi', 'privacy')->name('privacy');
 
@@ -66,6 +69,7 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
     Route::get('/top-up', [TopupController::class, 'index'])->name('topups.index');
     Route::post('/top-up', [TopupController::class, 'store'])->middleware('throttle:topups')->name('topups.store');
     Route::get('/top-up/{topup}', [TopupController::class, 'show'])->name('topups.show');
+    Route::post('/top-up/{topup}/cancel', [TopupController::class, 'cancel'])->middleware('throttle:topups')->name('topups.cancel');
     Route::get('/top-up/{topup}/status', [TopupController::class, 'status'])->middleware('throttle:30,1')->name('topups.status');
     Route::get('/mutasi', [WalletController::class, 'index'])->name('wallet.index');
     Route::get('/pengumuman', [AnnouncementController::class, 'index'])->name('announcements.index');

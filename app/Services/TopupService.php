@@ -72,13 +72,135 @@ class TopupService
 
     public function verify(Topup $topup, bool $force = false): Topup
     {
+        $topup = $this->normalizeStatus($topup);
+
         if ($topup->credited_at) {
+            return $topup;
+        }
+
+        if (! $force && in_array($topup->status, ['completed', 'expired', 'cancelled', 'failed'], true)) {
             return $topup;
         }
 
         return ($topup->gateway ?: PaymentGatewayManager::PAKASIR) === PaymentGatewayManager::DUITKU
             ? $this->verifyDuitku($topup, $force)
             : $this->verifyPakasir($topup);
+    }
+
+    /**
+     * Menutup invoice yang sudah tidak dapat dibayar supaya status tidak terus
+     * terlihat Menunggu di halaman pengguna maupun laporan admin.
+     */
+    public function normalizeStatus(Topup $topup): Topup
+    {
+        $topup = $topup->refresh();
+
+        if (! in_array($topup->status, ['creating', 'pending'], true)) {
+            return $topup;
+        }
+
+        $expiredByTime = $topup->expires_at?->isPast() ?? false;
+        $stuckCreating = $topup->status === 'creating'
+            && $topup->created_at?->lte(now()->subMinutes(5));
+        $noPaymentProcess = $topup->status === 'pending' && blank($topup->payment_number);
+
+        if ($expiredByTime || $stuckCreating || $noPaymentProcess) {
+            $topup->update(['status' => 'expired']);
+            return $topup->refresh();
+        }
+
+        return $topup;
+    }
+
+    public function expireStale(): int
+    {
+        $count = 0;
+
+        Topup::query()
+            ->whereIn('status', ['creating', 'pending'])
+            ->where(function ($query): void {
+                $query->where(fn ($q) => $q->whereNotNull('expires_at')->where('expires_at', '<=', now()))
+                    ->orWhere(fn ($q) => $q->where('status', 'creating')->where('created_at', '<=', now()->subMinutes(5)))
+                    ->orWhere(fn ($q) => $q->where('status', 'pending')->whereNull('payment_number'));
+            })
+            ->orderBy('created_at')
+            ->limit(500)
+            ->get()
+            ->each(function (Topup $topup) use (&$count): void {
+                if ($this->normalizeStatus($topup)->status === 'expired') {
+                    $count++;
+                }
+            });
+
+        return $count;
+    }
+
+    public function cancel(Topup $topup, string $reason, ?string $note = null): Topup
+    {
+        $topup = $this->normalizeStatus($topup);
+
+        if ($topup->status === 'cancelled') {
+            return $topup;
+        }
+
+        if (! in_array($topup->status, ['creating', 'pending'], true) || $topup->credited_at) {
+            throw new RuntimeException('Invoice ini sudah ditutup atau sudah diproses sehingga tidak dapat dibatalkan.');
+        }
+
+        // Pakasir menyediakan endpoint pembatalan. Kegagalan endpoint tidak
+        // membuat UI menggantung; status provider tetap dapat dipulihkan oleh
+        // webhook/verifikasi paksa bila ternyata pembayaran sudah terjadi.
+        if (($topup->gateway ?: PaymentGatewayManager::PAKASIR) === PaymentGatewayManager::PAKASIR
+            && $topup->status === 'pending') {
+            try {
+                $this->pakasir->cancel($topup->order_id, (int) $topup->amount);
+            } catch (Throwable $exception) {
+                report($exception);
+                try {
+                    $checked = $this->verify($topup, force: true);
+                    if ($checked->credited_at || $checked->status === 'completed') {
+                        throw new RuntimeException('Pembayaran sudah terkonfirmasi dan tidak dapat dibatalkan.');
+                    }
+                } catch (RuntimeException $verificationException) {
+                    if (str_contains($verificationException->getMessage(), 'sudah terkonfirmasi')) {
+                        throw $verificationException;
+                    }
+                } catch (Throwable $verificationException) {
+                    report($verificationException);
+                }
+            }
+        }
+
+        return DB::transaction(function () use ($topup, $reason, $note): Topup {
+            $locked = Topup::query()->lockForUpdate()->findOrFail($topup->id);
+
+            if ($locked->credited_at || $locked->status === 'completed') {
+                throw new RuntimeException('Pembayaran sudah terkonfirmasi dan tidak dapat dibatalkan.');
+            }
+
+            if ($locked->status === 'cancelled') {
+                $locked->update([
+                    'cancel_reason' => $reason,
+                    'cancel_note' => filled($note) ? trim((string) $note) : null,
+                    'cancelled_at' => $locked->cancelled_at ?: now(),
+                ]);
+
+                return $locked->refresh();
+            }
+
+            if (! in_array($locked->status, ['creating', 'pending'], true)) {
+                return $locked;
+            }
+
+            $locked->update([
+                'status' => 'cancelled',
+                'cancel_reason' => $reason,
+                'cancel_note' => filled($note) ? trim((string) $note) : null,
+                'cancelled_at' => now(),
+            ]);
+
+            return $locked->refresh();
+        }, 3);
     }
 
     private function createPakasir(Topup $topup, int $amount, string $method): Topup

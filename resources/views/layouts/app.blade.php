@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="robots" content="noindex,nofollow">
     <title>{{ $title ?? 'Dasbor' }} — {{ $siteName }}</title>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="{{ filled($siteLogoUrl ?? null) ? $siteLogoUrl : '/favicon.svg' }}">
     <script>
         (() => {
             try {

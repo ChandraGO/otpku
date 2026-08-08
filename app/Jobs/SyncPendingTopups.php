@@ -15,6 +15,8 @@ class SyncPendingTopups implements ShouldQueue, ShouldBeUnique
     public int $uniqueFor = 55;
     public function handle(TopupService $service): void
     {
+        $service->expireStale();
+
         Topup::query()->where('status', 'pending')
             // Pakasir tetap memakai sinkronisasi berkala. Duitku mengandalkan callback
             // dan cek status ter-throttle dari halaman/admin sesuai panduan Duitku.

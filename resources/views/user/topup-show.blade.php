@@ -21,6 +21,19 @@
         </div>
     @endif
 
+
+    @if($topup->status === 'cancelled')
+        <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-white/[.03] dark:text-slate-300">
+            <div class="font-black">Invoice sudah dibatalkan</div>
+            <p class="mt-1 leading-6">Alasan: {{ $topup->cancellationReasonLabel() ?: '—' }}@if(filled($topup->cancel_note)) · {{ $topup->cancel_note }}@endif</p>
+        </div>
+    @elseif($topup->status === 'expired')
+        <div class="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+            <div class="font-black">Invoice sudah kedaluwarsa dan ditutup</div>
+            <p class="mt-1 leading-6">Invoice yang melewati batas waktu atau tidak memiliki proses pembayaran yang dapat digunakan tidak dibiarkan berstatus Menunggu.</p>
+        </div>
+    @endif
+
     <div class="mt-6 grid gap-6 lg:grid-cols-2">
         <section class="card p-6 text-center">
             @if($isQris && filled($paymentNumber))
@@ -80,6 +93,43 @@
             <div class="mt-6 rounded-xl bg-amber-500/10 p-4 text-sm leading-6 text-amber-700 dark:text-amber-300">
                 Bayar sesuai total yang tertera. Saldo hanya ditambahkan setelah server memverifikasi invoice lokal dan status transaksi langsung ke {{ $gatewayLabel }}. Data callback atau URL kembali tidak pernah dipakai sendirian untuk mengkredit saldo.
             </div>
+
+            @if(in_array($topup->status, ['creating', 'pending'], true))
+                <div class="mt-5" x-data="{ cancelOpen: false, reason: '' }">
+                    <button type="button" class="btn-secondary w-full !border-rose-300 !text-rose-600 dark:!border-rose-500/30 dark:!text-rose-300" @click="cancelOpen = true">
+                        Batalkan isi saldo
+                    </button>
+
+                    <div x-show="cancelOpen" x-cloak class="fixed inset-0 z-[90] grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm" @keydown.escape.window="cancelOpen = false">
+                        <div class="card w-full max-w-lg p-6" @click.outside="cancelOpen = false">
+                            <div class="flex items-start justify-between gap-4">
+                                <div><h3 class="text-xl font-black">Batalkan isi saldo?</h3><p class="mt-2 text-sm leading-6 text-slate-500">Pilih alasan pembatalan. Informasi ini juga akan terlihat pada laporan admin.</p></div>
+                                <button type="button" class="btn-secondary !px-3 !py-2" @click="cancelOpen = false" aria-label="Tutup">×</button>
+                            </div>
+
+                            <form method="post" action="{{ route('topups.cancel', $topup) }}" class="mt-5 space-y-3">
+                                @csrf
+                                @foreach(\App\Models\Topup::CANCELLATION_REASONS as $key => $label)
+                                    <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 p-4 text-sm font-semibold transition hover:border-violet-400 dark:border-white/10">
+                                        <input type="radio" class="mt-0.5 size-4 accent-violet-600" name="reason" value="{{ $key }}" x-model="reason" required>
+                                        <span>{{ $label }}</span>
+                                    </label>
+                                @endforeach
+
+                                <div x-show="reason === 'other'" x-cloak>
+                                    <label class="label">Keterangan lainnya <span class="font-normal text-slate-400">(opsional)</span></label>
+                                    <textarea class="input min-h-24" name="note" maxlength="500" placeholder="Tulis alasan tambahan bila diperlukan."></textarea>
+                                </div>
+
+                                <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+                                    <button type="button" class="btn-secondary" @click="cancelOpen = false">Kembali</button>
+                                    <button class="btn-primary !bg-rose-600 hover:!bg-rose-500" :disabled="!reason">Batalkan & tutup invoice</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            @endif
         </section>
     </div>
 </div>

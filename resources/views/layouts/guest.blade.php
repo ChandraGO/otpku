@@ -4,15 +4,35 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ?? $siteName }} — {{ $siteName }}</title>
-    <meta name="description" content="{{ $description ?? $siteDescription }}">
+    @php
+        $metaTitle = request()->routeIs('home') && filled($siteSeoTitle ?? null) ? $siteSeoTitle : ($title ?? $siteName);
+        $metaDescription = $description ?? (filled($siteSeoDescription ?? null) ? $siteSeoDescription : $siteDescription);
+        $metaImage = $siteSeoImageUrl ?? '';
+        if (filled($metaImage) && !\Illuminate\Support\Str::startsWith($metaImage, ['http://', 'https://'])) {
+            $metaImage = url($metaImage);
+        }
+        $metaKeywords = trim(implode(', ', array_filter([$siteSeoKeywords ?? '', $siteSeoHashtags ?? ''])));
+    @endphp
+    <title>{{ $metaTitle }}@unless(request()->routeIs('home')) — {{ $siteName }}@endunless</title>
+    <meta name="description" content="{{ $metaDescription }}">
+    @if(filled($metaKeywords))<meta name="keywords" content="{{ $metaKeywords }}">@endif
     <meta name="robots" content="{{ $robots ?? 'index,follow' }}">
     <link rel="canonical" href="{{ url()->current() }}">
-    <meta property="og:title" content="{{ $title ?? $siteName }}">
-    <meta property="og:description" content="{{ $description ?? $siteDescription }}">
+    <meta property="og:title" content="{{ $metaTitle }}">
+    <meta property="og:description" content="{{ $metaDescription }}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ url()->current() }}">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    @if(filled($metaImage))
+        <meta property="og:image" content="{{ $metaImage }}">
+        <meta property="og:image:alt" content="{{ $siteName }}">
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:image" content="{{ $metaImage }}">
+    @else
+        <meta name="twitter:card" content="summary">
+    @endif
+    <meta name="twitter:title" content="{{ $metaTitle }}">
+    <meta name="twitter:description" content="{{ $metaDescription }}">
+    <link rel="icon" href="{{ filled($siteLogoUrl ?? null) ? $siteLogoUrl : '/favicon.svg' }}">
     <script>
         (() => {
             try {

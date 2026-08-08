@@ -38,7 +38,38 @@
                         </div>
                         <span class="grid size-12 place-items-center rounded-2xl bg-white/10"><x-icon name="shield" size="size-7" /></span>
                     </div>
-                    <img src="/illustrations/otp-hero.svg" alt="Ilustrasi verifikasi OTP" class="mt-4 w-full" loading="eager">
+                    <div class="otp-flow mt-6" aria-label="Animasi alur User ke Web lalu menerima SMS OTP">
+                        <div class="otp-flow-line" aria-hidden="true"></div>
+                        <span class="otp-flow-pulse otp-flow-pulse-a" aria-hidden="true"></span>
+                        <span class="otp-flow-pulse otp-flow-pulse-b" aria-hidden="true"></span>
+
+                        <div class="relative z-10 grid grid-cols-3 items-center gap-3 sm:gap-5">
+                            <div class="otp-flow-node otp-flow-user">
+                                <span class="otp-flow-icon"><x-icon name="user" size="size-7" /></span>
+                                <span class="otp-flow-label">User</span>
+                                <span class="otp-flow-state">Minta OTP</span>
+                            </div>
+                            <div class="otp-flow-node otp-flow-web">
+                                <span class="otp-flow-icon"><x-icon name="globe" size="size-7" /></span>
+                                <span class="otp-flow-label">Web</span>
+                                <span class="otp-flow-state">Verifikasi</span>
+                            </div>
+                            <div class="otp-flow-node otp-flow-sms">
+                                <span class="otp-flow-icon"><x-icon name="mail" size="size-7" /></span>
+                                <span class="otp-flow-label">SMS</span>
+                                <span class="otp-flow-state">OTP masuk</span>
+                            </div>
+                        </div>
+
+                        <div class="otp-sms-card">
+                            <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-cyan-300/15 text-cyan-200"><x-icon name="check" size="size-5" /></span>
+                            <div class="min-w-0 flex-1">
+                                <div class="text-[10px] font-black uppercase tracking-[.16em] text-cyan-300">SMS diterima</div>
+                                <div class="mt-1 font-mono text-lg font-black tracking-[.22em] text-white">842 193</div>
+                            </div>
+                            <span class="otp-live-dot" aria-hidden="true"></span>
+                        </div>
+                    </div>
                 </div>
                 <div class="mt-4 grid grid-cols-3 gap-3">
                     <div class="card-soft p-3 text-center"><div data-count-to="{{ (int) $serviceCount }}" data-count-suffix="+" class="text-lg font-black text-violet-600 dark:text-violet-300">0+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Layanan</div></div>
@@ -147,4 +178,29 @@
         </div>
     </div>
 </section>
+@push('head')
+<style>
+    .otp-flow { position: relative; min-height: 280px; overflow: hidden; border-radius: 1.4rem; padding: 2.25rem 1rem 1.2rem; background: radial-gradient(circle at 50% 20%, rgba(99,102,241,.26), transparent 42%), linear-gradient(180deg, rgba(15,23,42,.20), rgba(2,6,23,.38)); border: 1px solid rgba(255,255,255,.08); }
+    .otp-flow-line { position: absolute; left: 17%; right: 17%; top: 83px; height: 3px; border-radius: 999px; background: linear-gradient(90deg, rgba(103,232,249,.2), rgba(129,140,248,.75), rgba(103,232,249,.2)); box-shadow: 0 0 20px rgba(103,232,249,.22); }
+    .otp-flow-line::after { content: ''; position: absolute; inset: -5px 0; background: repeating-linear-gradient(90deg, transparent 0 18px, rgba(255,255,255,.18) 18px 21px); mask: linear-gradient(#000, #000); opacity: .45; }
+    .otp-flow-node { display: flex; min-width: 0; flex-direction: column; align-items: center; text-align: center; opacity: .56; transform: translateY(4px) scale(.96); animation: otpNode 6s ease-in-out infinite; }
+    .otp-flow-web { animation-delay: 1.7s; }
+    .otp-flow-sms { animation-delay: 3.4s; }
+    .otp-flow-icon { display: grid; width: 70px; height: 70px; place-items: center; border-radius: 22px; color: #cffafe; background: linear-gradient(145deg, rgba(99,102,241,.72), rgba(6,182,212,.35)); border: 1px solid rgba(165,243,252,.30); box-shadow: inset 0 1px rgba(255,255,255,.12), 0 12px 30px rgba(15,23,42,.28); }
+    .otp-flow-label { margin-top: .75rem; font-size: .82rem; font-weight: 900; color: white; }
+    .otp-flow-state { margin-top: .2rem; font-size: .62rem; font-weight: 700; color: rgba(207,250,254,.62); }
+    .otp-flow-pulse { position: absolute; top: 76px; z-index: 20; width: 17px; height: 17px; border-radius: 999px; background: #67e8f9; border: 4px solid rgba(255,255,255,.35); box-shadow: 0 0 0 7px rgba(103,232,249,.10), 0 0 22px rgba(103,232,249,.8); opacity: 0; }
+    .otp-flow-pulse-a { left: 17%; animation: otpTravelA 6s ease-in-out infinite; }
+    .otp-flow-pulse-b { left: 49%; animation: otpTravelB 6s ease-in-out infinite; }
+    .otp-sms-card { margin: 1.45rem auto 0; display: flex; width: min(100%, 330px); align-items: center; gap: .8rem; border-radius: 1rem; padding: .8rem .95rem; background: rgba(15,23,42,.62); border: 1px solid rgba(103,232,249,.20); box-shadow: 0 12px 30px rgba(2,6,23,.2); opacity: .35; transform: translateY(8px); animation: otpSmsCard 6s ease-in-out infinite; }
+    .otp-live-dot { width: 9px; height: 9px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 6px rgba(52,211,153,.12); animation: otpLive 1.15s ease-in-out infinite; }
+    @keyframes otpNode { 0%, 18%, 100% { opacity: .56; transform: translateY(4px) scale(.96); } 24%, 42% { opacity: 1; transform: translateY(0) scale(1.04); } 48%, 94% { opacity: .7; transform: translateY(0) scale(1); } }
+    @keyframes otpTravelA { 0%, 17% { left: 17%; opacity: 0; } 22% { opacity: 1; } 40% { left: 49%; opacity: 1; } 45%, 100% { left: 49%; opacity: 0; } }
+    @keyframes otpTravelB { 0%, 45% { left: 49%; opacity: 0; } 50% { opacity: 1; } 68% { left: 81%; opacity: 1; } 73%, 100% { left: 81%; opacity: 0; } }
+    @keyframes otpSmsCard { 0%, 61%, 100% { opacity: .35; transform: translateY(8px); } 70%, 92% { opacity: 1; transform: translateY(0); box-shadow: 0 14px 38px rgba(34,211,238,.12); } }
+    @keyframes otpLive { 50% { transform: scale(.72); opacity: .55; } }
+    @media (max-width: 420px) { .otp-flow { min-height: 260px; padding-inline: .7rem; } .otp-flow-icon { width: 58px; height: 58px; border-radius: 18px; } .otp-flow-line { top: 77px; } .otp-flow-pulse { top: 70px; } .otp-flow-state { font-size: .55rem; } }
+    @media (prefers-reduced-motion: reduce) { .otp-flow-node, .otp-flow-pulse, .otp-sms-card, .otp-live-dot { animation: none !important; } .otp-flow-node, .otp-sms-card { opacity: 1; transform: none; } .otp-flow-pulse { display: none; } }
+</style>
+@endpush
 @endsection

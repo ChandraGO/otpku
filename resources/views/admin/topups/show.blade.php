@@ -16,7 +16,10 @@
                 'Nomor pembayaran'=>$topup->payment_number,
                 'Dibayar'=>$topup->paid_at?->format('d M Y H:i'),
                 'Dikreditkan'=>$topup->credited_at?->format('d M Y H:i'),
-                'Kedaluwarsa'=>$topup->expires_at?->format('d M Y H:i')
+                'Kedaluwarsa'=>$topup->expires_at?->format('d M Y H:i'),
+                'Dibatalkan'=>$topup->cancelled_at?->format('d M Y H:i'),
+                'Alasan pembatalan'=>$topup->cancellationReasonLabel(),
+                'Catatan pembatalan'=>$topup->cancel_note
             ] as $label=>$value)
                 <div class="flex justify-between gap-4"><dt class="text-slate-500">{{ $label }}</dt><dd class="max-w-xs break-all text-right font-semibold">{{ $value ?: '—' }}</dd></div>
             @endforeach

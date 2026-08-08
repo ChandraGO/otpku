@@ -26,7 +26,7 @@ class PakasirWebhookController extends Controller
             return response()->json(['ok' => false, 'message' => 'invoice mismatch'], 422);
         }
         try {
-            $verified = $service->verify($topup);
+            $verified = $service->verify($topup, force: true);
             return response()->json(['ok' => true, 'status' => $verified->status]);
         } catch (Throwable $e) {
             report($e);

@@ -15,8 +15,9 @@ use Throwable;
 
 class TopupController extends Controller
 {
-    public function index(Request $request, Settings $settings, PaymentGatewayManager $gateways): View
+    public function index(Request $request, Settings $settings, PaymentGatewayManager $gateways, TopupService $service): View
     {
+        $service->expireStale();
         $gateway = $gateways->activeGateway();
         $minimum = (int) $settings->get('topup.minimum', 10000);
         if ($gateway === PaymentGatewayManager::DUITKU) {
@@ -73,6 +74,14 @@ class TopupController extends Controller
 
         try {
             $topup = $service->create($request->user(), (int) $data['amount'], $data['payment_method'], $gateway);
+            $topup = $service->normalizeStatus($topup);
+
+            if ($topup->status === 'expired') {
+                return redirect()->route('topups.show', $topup)->withErrors([
+                    'topup' => 'Penyedia tidak mengembalikan proses pembayaran yang dapat digunakan. Invoice langsung ditutup sebagai Kedaluwarsa.',
+                ]);
+            }
+
             return redirect()->route('topups.show', $topup)->with('success', 'Invoice isi saldo berhasil dibuat.');
         } catch (Throwable $e) {
             report($e);
@@ -81,9 +90,10 @@ class TopupController extends Controller
         }
     }
 
-    public function show(Request $request, Topup $topup, PaymentGatewayManager $gateways): View
+    public function show(Request $request, Topup $topup, PaymentGatewayManager $gateways, TopupService $service): View
     {
         $this->owner($request, $topup);
+        $topup = $service->normalizeStatus($topup);
         $gateway = $topup->gateway ?: PaymentGatewayManager::PAKASIR;
 
         return view('user.topup-show', [
@@ -98,6 +108,7 @@ class TopupController extends Controller
     public function status(Request $request, Topup $topup, TopupService $service): JsonResponse
     {
         $this->owner($request, $topup);
+        $topup = $service->normalizeStatus($topup);
         if ($topup->status === 'pending') {
             try {
                 $topup = $service->verify($topup);
@@ -111,6 +122,25 @@ class TopupController extends Controller
             'credited_at' => $topup->credited_at?->toIso8601String(),
             'expires_at' => $topup->expires_at?->toIso8601String(),
         ]);
+    }
+
+    public function cancel(Request $request, Topup $topup, TopupService $service): RedirectResponse
+    {
+        $this->owner($request, $topup);
+
+        $data = $request->validate([
+            'reason' => ['required', Rule::in(array_keys(Topup::CANCELLATION_REASONS))],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $note = $data['reason'] === 'other' ? ($data['note'] ?? null) : null;
+            $service->cancel($topup, $data['reason'], $note);
+
+            return redirect()->route('topups.show', $topup)->with('success', 'Invoice berhasil dibatalkan dan ditutup.');
+        } catch (Throwable $e) {
+            return back()->withErrors(['topup' => $e->getMessage()]);
+        }
     }
 
     private function owner(Request $request, Topup $topup): void
