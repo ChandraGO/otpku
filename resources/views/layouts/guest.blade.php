@@ -54,7 +54,10 @@
 <body>
 <header class="fixed inset-x-0 top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85">
     <div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <a href="{{ route('home') }}" aria-label="Beranda"><x-app-logo /></a>
+        <a href="{{ route('home') }}" aria-label="Beranda" class="min-w-0 shrink">
+            <span class="sm:hidden"><x-app-logo compact /></span>
+            <span class="hidden sm:inline-flex"><x-app-logo /></span>
+        </a>
 
         <nav class="hidden items-center gap-2 md:flex" aria-label="Navigasi utama">
             @auth
@@ -80,9 +83,15 @@
                 aria-expanded="false"
                 aria-controls="mobile-menu"
                 class="btn-secondary !p-2.5 md:hidden"
+                style="min-width: 44px; min-height: 44px;"
                 aria-label="Buka menu"
+                title="Buka menu"
             >
-                <x-icon name="menu" />
+                <span aria-hidden="true" style="display:flex;width:20px;flex-direction:column;gap:5px;">
+                    <span style="display:block;height:2px;width:100%;border-radius:999px;background:currentColor;"></span>
+                    <span style="display:block;height:2px;width:100%;border-radius:999px;background:currentColor;"></span>
+                    <span style="display:block;height:2px;width:100%;border-radius:999px;background:currentColor;"></span>
+                </span>
             </button>
         </div>
     </div>

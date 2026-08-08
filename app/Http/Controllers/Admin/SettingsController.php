@@ -23,9 +23,9 @@ use Throwable;
 
 class SettingsController extends Controller
 {
-    public function index(Request $request, Settings $settings, PaymentGatewayManager $gateways): View
+    public function index(Request $request, Settings $settings): View
     {
-        $tab = trim($request->string('tab')->toString());
+        $tab = trim((string) $request->query('tab', ''));
 
         // URL lama tetap diarahkan ke satu halaman penyedia pembayaran.
         if (in_array($tab, ['pakasir', 'duitku'], true)) {
@@ -48,16 +48,76 @@ class SettingsController extends Controller
             $tab = '';
         }
 
-        return view('admin.settings.index', [
-            'tab' => $tab,
-            'values' => $tab !== '' && $tab !== 'payments' ? $settings->group($tab) : [],
-            'pakasirValues' => $settings->group('pakasir'),
-            'duitkuValues' => $settings->group('duitku'),
-            'activeGateway' => $gateways->activeGateway(),
-            'pendingGateway' => $gateways->pendingGateway(),
-            'gatewayBlockers' => $gateways->blockingCounts(),
-            'duitkuMethods' => $gateways->duitkuMethodOptions(),
-        ]);
+        // Halaman /admin/settings hanya menampilkan perpustakaan kategori.
+        // Jangan melakukan query transaksi/gateway pada halaman indeks supaya
+        // satu masalah pada provider atau tabel transaksi tidak membuat seluruh
+        // halaman Pengaturan Sistem berakhir 500. Data provider baru dibaca
+        // ketika kategori Penyedia Pembayaran benar-benar dibuka.
+        $values = [];
+        $pakasirValues = [];
+        $duitkuValues = [];
+        $activeGateway = 'pakasir';
+        $pendingGateway = null;
+        $gatewayBlockers = ['topups' => 0, 'orders' => 0];
+        $duitkuMethods = [];
+
+        if ($tab !== '' && $tab !== 'payments') {
+            $values = $settings->group($tab);
+        }
+
+        if ($tab === 'payments') {
+            $pakasirValues = $settings->group('pakasir');
+            $duitkuValues = $settings->group('duitku');
+
+            try {
+                $gateways = app(PaymentGatewayManager::class);
+                $activeGateway = $gateways->activeGateway();
+                $pendingGateway = $gateways->pendingGateway();
+                $gatewayBlockers = $gateways->blockingCounts();
+                $duitkuMethods = $gateways->duitkuMethodOptions();
+            } catch (Throwable $e) {
+                report($e);
+
+                // Tetap render form agar admin masih bisa memperbaiki konfigurasi.
+                $activeGateway = strtolower((string) $settings->get('payments.active_gateway', 'pakasir'));
+                if (! in_array($activeGateway, ['pakasir', 'duitku'], true)) {
+                    $activeGateway = 'pakasir';
+                }
+
+                $pending = strtolower(trim((string) $settings->get('payments.pending_gateway', '')));
+                $pendingGateway = in_array($pending, ['pakasir', 'duitku'], true) ? $pending : null;
+                $duitkuMethods = [
+                    'NQ' => 'QRIS Nobu',
+                    'GQ' => 'QRIS Gudang Voucher',
+                    'SQ' => 'QRIS Nusapay',
+                    'SP' => 'QRIS ShopeePay',
+                    'BC' => 'BCA Virtual Account',
+                    'M2' => 'Mandiri Virtual Account',
+                    'VA' => 'Maybank Virtual Account',
+                    'I1' => 'BNI Virtual Account',
+                    'B1' => 'CIMB Niaga Virtual Account',
+                    'BT' => 'Permata Virtual Account',
+                    'A1' => 'ATM Bersama',
+                    'AG' => 'Bank Artha Graha',
+                    'NC' => 'Bank Neo Commerce / BNC',
+                    'BR' => 'BRIVA',
+                    'S1' => 'Bank Sahabat Sampoerna',
+                    'DM' => 'Danamon Virtual Account',
+                    'BV' => 'BSI Virtual Account',
+                ];
+            }
+        }
+
+        return view('admin.settings.index', compact(
+            'tab',
+            'values',
+            'pakasirValues',
+            'duitkuValues',
+            'activeGateway',
+            'pendingGateway',
+            'gatewayBlockers',
+            'duitkuMethods',
+        ));
     }
 
     public function update(

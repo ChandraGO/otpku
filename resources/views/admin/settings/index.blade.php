@@ -44,7 +44,17 @@
                 <a href="{{ route('admin.settings.index',['tab'=>$key]) }}" class="group card-soft p-5 transition hover:-translate-y-0.5 hover:border-violet-400/70 hover:shadow-lg hover:shadow-violet-500/10">
                     <div class="flex items-start justify-between gap-4">
                         <span class="grid size-12 place-items-center rounded-2xl bg-violet-100 text-violet-700 transition group-hover:bg-violet-600 group-hover:text-white dark:bg-violet-500/15 dark:text-violet-300">
-                            <x-icon :name="$item[1]" size="size-6" />
+                            @switch($key)
+                                @case('site') <x-icon name="globe" size="size-6" /> @break
+                                @case('auth') <x-icon name="shield" size="size-6" /> @break
+                                @case('orders') <x-icon name="orders" size="size-6" /> @break
+                                @case('pricing') <x-icon name="chart" size="size-6" /> @break
+                                @case('topup') <x-icon name="wallet" size="size-6" /> @break
+                                @case('payments') <x-icon name="topup" size="size-6" /> @break
+                                @case('sms_virtual') <x-icon name="bolt" size="size-6" /> @break
+                                @case('mail') <x-icon name="mail" size="size-6" /> @break
+                                @default <x-icon name="settings" size="size-6" />
+                            @endswitch
                         </span>
                         <x-icon name="arrow-right" class="mt-2 text-slate-400 transition group-hover:translate-x-1 group-hover:text-violet-500" />
                     </div>

@@ -37,6 +37,7 @@
     ></div>
 
     <aside
+        id="app-sidebar"
         data-sidebar-panel
         data-open="false"
         class="fixed inset-y-0 left-0 z-50 flex w-[280px] -translate-x-full flex-col border-r border-slate-200/80 bg-white px-4 py-5 shadow-2xl transition-transform duration-300 dark:border-white/10 dark:bg-[#0a1020] lg:translate-x-0 lg:shadow-none"
@@ -168,10 +169,23 @@
             </div>
         </header>
 
-        <header class="sticky top-0 z-30 border-b border-white/20 bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/10 lg:hidden">
+        <header class="sticky top-0 z-40 border-b border-white/20 bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/10 lg:hidden">
             <div class="flex min-h-20 items-center gap-3 px-4 py-3">
-                <button type="button" data-sidebar-open class="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/15 backdrop-blur" aria-label="Buka menu">
-                    <x-icon name="menu" size="size-6" />
+                <button
+                    type="button"
+                    data-sidebar-open
+                    aria-controls="app-sidebar"
+                    aria-expanded="false"
+                    class="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/15 text-white backdrop-blur"
+                    style="border: 1px solid rgba(255,255,255,.35); background-color: rgba(15,23,42,.22); color: #fff;"
+                    aria-label="Buka menu"
+                    title="Buka menu"
+                >
+                    <span aria-hidden="true" style="display:flex;width:22px;flex-direction:column;gap:5px;">
+                        <span style="display:block;height:2px;width:100%;border-radius:999px;background:currentColor;"></span>
+                        <span style="display:block;height:2px;width:100%;border-radius:999px;background:currentColor;"></span>
+                        <span style="display:block;height:2px;width:100%;border-radius:999px;background:currentColor;"></span>
+                    </span>
                 </button>
                 <div class="min-w-0 flex-1">
                     <div class="truncate text-lg font-black">{{ auth()->user()->name }}</div>
