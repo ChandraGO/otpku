@@ -214,7 +214,11 @@ class TopupService
                 (string) $value,
             );
 
-            return CarbonImmutable::parse($normalized);
+            // Pakasir mengirim expired_at dalam UTC (akhiran Z).
+            // Normalisasikan ke timezone aplikasi sebelum disimpan ke kolom DATETIME/TIMESTAMP
+            // agar offset tidak hilang ketika model dibaca kembali.
+            return CarbonImmutable::parse($normalized)
+                ->setTimezone((string) config('app.timezone', 'Asia/Makassar'));
         } catch (Throwable) {
             return now()->toImmutable()->addMinutes(30);
         }
