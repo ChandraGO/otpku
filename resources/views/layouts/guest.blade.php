@@ -109,6 +109,7 @@
         <nav class="mx-auto grid max-w-7xl gap-2" aria-label="Navigasi mobile">
             <a data-mobile-menu-close class="nav-link {{ request()->routeIs('home') ? 'nav-link-active' : '' }}" href="{{ route('home') }}"><x-icon name="home" /><span>Beranda</span></a>
             <a data-mobile-menu-close class="nav-link {{ request()->routeIs('pricing') ? 'nav-link-active' : '' }}" href="{{ route('pricing') }}"><x-icon name="chart" /><span>Harga</span></a>
+            <a data-mobile-menu-close class="nav-link {{ request()->routeIs('ratings.*') ? 'nav-link-active' : '' }}" href="{{ route('ratings.index') }}"><x-icon name="users" /><span>Rating</span></a>
             @auth
                 <a data-mobile-menu-close class="nav-link nav-link-active" href="{{ route('dashboard') }}"><x-icon name="home" /><span>Dasbor</span></a>
             @else
@@ -122,7 +123,7 @@
 <footer class="border-t border-slate-200 bg-white py-10 text-sm text-slate-500 dark:border-white/10 dark:bg-[#090f1d] dark:text-slate-400">
     <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 px-4 text-center sm:flex-row sm:text-left">
         <x-app-logo />
-        <div>© {{ date('Y') }} {{ $siteName }} · <a class="hover:text-violet-500" href="{{ route('terms') }}">Syarat</a> · <a class="hover:text-violet-500" href="{{ route('privacy') }}">Privasi</a></div>
+        <div>© {{ date('Y') }} {{ $siteName }} · <a class="hover:text-violet-500" href="{{ route('ratings.index') }}">Rating</a> · <a class="hover:text-violet-500" href="{{ route('terms') }}">Syarat</a> · <a class="hover:text-violet-500" href="{{ route('privacy') }}">Privasi</a></div>
     </div>
 </footer>
 @stack('scripts')

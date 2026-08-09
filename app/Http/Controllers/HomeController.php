@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SmsCountry;
 use App\Models\SmsService;
+use App\Models\Rating;
 use App\Models\User;
 use App\Support\CatalogSummary;
 use Illuminate\Http\Request;
@@ -85,6 +86,20 @@ class HomeController extends Controller
             },
         );
 
+        $homeRatings = Rating::query()
+            ->with('user:id,name,username,email,github_id')
+            ->orderByDesc('updated_at')
+            ->limit(5)
+            ->get();
+
+        $ratingStats = Rating::query()
+            ->selectRaw('COUNT(*) as aggregate_count, AVG(rating) as aggregate_average')
+            ->first();
+        $ratingCount = (int) ($ratingStats?->aggregate_count ?? 0);
+        $ratingAverage = $ratingCount > 0
+            ? round((float) ($ratingStats?->aggregate_average ?? 0), 1)
+            : 0.0;
+
         return view('home', [
             'featuredServices' => CatalogSummary::query()
                 ->orderByDesc('catalog_price_stats.total_stock')
@@ -94,6 +109,9 @@ class HomeController extends Controller
             'countryCount' => $publicCounts['countries'],
             'userCount' => $publicCounts['users'],
             'otpPreviewServices' => $otpPreviewServices,
+            'homeRatings' => $homeRatings,
+            'ratingCount' => $ratingCount,
+            'ratingAverage' => $ratingAverage,
         ]);
     }
 

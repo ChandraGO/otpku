@@ -26,7 +26,7 @@
     <div class="mx-auto grid min-h-[720px] max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:py-24">
         <div class="relative z-10">
             <span class="badge bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
-                <span class="size-2 rounded-full bg-emerald-400"></span>
+                <span class="hero-live-dot size-2 rounded-full bg-emerald-400" aria-hidden="true"></span>
                 Kode OTP Cepat & Aman
             </span>
             <h1 class="text-balance mt-7 max-w-3xl text-4xl font-black leading-[1.08] tracking-tight text-slate-950 dark:text-white sm:text-6xl lg:text-7xl">
@@ -37,9 +37,9 @@
             </p>
             <div class="mt-9 flex flex-wrap gap-3">
                 @auth
-                    <a href="{{ route('services.index') }}" class="btn-primary">Pilih layanan <x-icon name="arrow-right" size="size-4" /></a>
+                    <a href="{{ route('services.index') }}" class="btn-primary hero-float-cta">Pilih layanan <x-icon name="arrow-right" size="size-4" /></a>
                 @else
-                    <a href="{{ route('register') }}" class="btn-primary">Mulai sekarang <x-icon name="arrow-right" size="size-4" /></a>
+                    <a href="{{ route('register') }}" class="btn-primary hero-float-cta">Mulai sekarang <x-icon name="arrow-right" size="size-4" /></a>
                     <a href="{{ route('login') }}" class="btn-secondary">Masuk</a>
                 @endauth
                 <a href="{{ route('pricing') }}" class="btn-secondary">Lihat harga</a>
@@ -154,18 +154,18 @@
         <h2 class="section-title mt-5">Dirancang untuk transaksi OTP yang sederhana dan transparan</h2>
     </div>
     <div class="mt-10 grid gap-5 md:grid-cols-3">
-        <article class="card p-7">
-            <span class="grid size-12 place-items-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><x-icon name="wallet" size="size-6" /></span>
+        <article class="card p-7 text-center">
+            <span class="mx-auto grid size-12 place-items-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><x-icon name="wallet" size="size-6" /></span>
             <h3 class="mt-5 text-xl font-black">Harga Transparan</h3>
             <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">Harga ditampilkan jelas dalam Rupiah sebelum pesanan dibuat.</p>
         </article>
-        <article class="card p-7">
-            <span class="grid size-12 place-items-center rounded-2xl bg-cyan-100 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300"><x-icon name="bolt" size="size-6" /></span>
+        <article class="card p-7 text-center">
+            <span class="mx-auto grid size-12 place-items-center rounded-2xl bg-cyan-100 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300"><x-icon name="bolt" size="size-6" /></span>
             <h3 class="mt-5 text-xl font-black">Pengiriman Cepat</h3>
             <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">Nomor, status, isi SMS, kode OTP, dan masa berlaku ditampilkan langsung pada halaman pesanan.</p>
         </article>
-        <article class="card p-7">
-            <span class="grid size-12 place-items-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"><x-icon name="shield" size="size-6" /></span>
+        <article class="card p-7 text-center">
+            <span class="mx-auto grid size-12 place-items-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"><x-icon name="shield" size="size-6" /></span>
             <h3 class="mt-5 text-xl font-black">Aman Sejak Awal</h3>
             <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">Akun dan transaksi dilindungi dengan proses keamanan yang terintegrasi.</p>
         </article>
@@ -200,23 +200,103 @@
 </section>
 
 <section class="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-    <div class="mb-8">
-        <h2 class="section-title">Cara kerja pemesanan OTP</h2>
-    </div>
-    <div class="grid gap-8 lg:grid-cols-3">
-        @foreach([
-            ['1', 'Pilih layanan', 'Pilih aplikasi yang ingin diverifikasi, tentukan negara atau operator, lalu pilih harga dengan stok yang masih tersedia.'],
-            ['2', 'Bayar dari saldo', 'Harga pesanan dipotong langsung dari saldo Rupiah akun setelah Anda menekan tombol Pesan. Jika saldo kurang, isi saldo terlebih dahulu.'],
-            ['3', 'Terima OTP', 'Setelah nomor virtual aktif, gunakan nomor tersebut pada layanan tujuan. SMS dan kode OTP yang masuk akan tampil pada halaman detail pesanan beserta status dan waktu kedaluwarsa.'],
-        ] as $step)
-            <article class="card p-7">
-                <span class="grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-400 text-lg font-black text-white">{{ $step[0] }}</span>
-                <h3 class="mt-5 text-xl font-black">{{ $step[1] }}</h3>
-                <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ $step[2] }}</p>
-            </article>
-        @endforeach
+    <div class="mx-auto max-w-3xl text-center">
+        <span class="badge bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">3 langkah sederhana</span>
+        <h2 class="section-title mt-5">Cara kerja pemesanan OTP</h2>
+        <p class="mt-4 text-sm leading-7 text-slate-500 dark:text-slate-400 sm:text-base">Mulai dari memilih layanan hingga menerima kode OTP, seluruh proses dapat dipantau dari satu alur yang jelas.</p>
     </div>
 
+    <div class="relative mt-12">
+        <div class="absolute left-[16.66%] right-[16.66%] top-10 hidden border-t-2 border-dashed border-slate-200 dark:border-white/10 lg:block" aria-hidden="true"></div>
+        <div class="relative grid gap-5 lg:grid-cols-3">
+            @foreach([
+                ['1', 'services', 'Pilih layanan', 'Pilih aplikasi yang ingin diverifikasi, tentukan negara atau operator, lalu pilih harga dengan stok yang masih tersedia.', 'violet'],
+                ['2', 'wallet', 'Bayar dari saldo', 'Harga pesanan dipotong langsung dari saldo Rupiah akun setelah Anda menekan tombol Pesan. Jika saldo kurang, isi saldo terlebih dahulu.', 'cyan'],
+                ['3', 'mail', 'Terima OTP', 'Setelah nomor virtual aktif, gunakan nomor tersebut pada layanan tujuan. SMS dan kode OTP yang masuk akan tampil pada halaman detail pesanan beserta status dan waktu kedaluwarsa.', 'emerald'],
+            ] as $step)
+                @php
+                    $stepTone = match($step[4]) {
+                        'cyan' => 'bg-cyan-100 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300',
+                        'emerald' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300',
+                        default => 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+                    };
+                @endphp
+                <article class="card group relative overflow-hidden p-7 transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+                    <div class="flex items-center justify-between gap-4">
+                        <span class="grid size-12 place-items-center rounded-2xl {{ $stepTone }}"><x-icon :name="$step[1]" size="size-6" /></span>
+                        <span class="grid size-9 place-items-center rounded-full border border-slate-200 bg-white text-sm font-black text-slate-500 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-slate-300">{{ $step[0] }}</span>
+                    </div>
+                    <div class="mt-7 text-[10px] font-black uppercase tracking-[.18em] text-slate-400">Langkah {{ $step[0] }}</div>
+                    <h3 class="mt-2 text-xl font-black">{{ $step[2] }}</h3>
+                    <p class="mt-3 text-sm leading-7 text-slate-500 dark:text-slate-400">{{ $step[3] }}</p>
+                    @if($step[0] !== '3')
+                        <span class="absolute -right-3 top-8 hidden size-7 place-items-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm dark:border-white/10 dark:bg-[#111a2d] lg:grid" aria-hidden="true"><x-icon name="chevron-right" size="size-4" /></span>
+                    @endif
+                </article>
+            @endforeach
+        </div>
+    </div>
+</section>
+
+<section class="border-y border-slate-200 bg-white py-20 dark:border-white/10 dark:bg-[#0a1020]" aria-labelledby="rating-home-title">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6">
+        <div class="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+            <div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="badge bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">Rating pengguna</span>
+                    @if(($ratingCount ?? 0) > 0)
+                        <span class="inline-flex items-center gap-1.5 text-sm font-black text-slate-700 dark:text-slate-200"><span class="text-amber-400">★</span> {{ number_format((float) $ratingAverage, 1, ',', '.') }} <span class="font-semibold text-slate-400">· {{ number_format((int) $ratingCount) }} review</span></span>
+                    @endif
+                </div>
+                <h2 id="rating-home-title" class="section-title mt-4">Pengalaman pelanggan setelah transaksi</h2>
+                <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400">Review berasal dari akun yang sudah memiliki minimal satu transaksi OTP berstatus selesai.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                @if(($homeRatings ?? collect())->count() > 1)
+                    <button type="button" class="btn-secondary !p-2.5" data-rating-prev aria-label="Rating sebelumnya"><x-icon name="chevron-right" class="rotate-180" size="size-4" /></button>
+                    <button type="button" class="btn-secondary !p-2.5" data-rating-next aria-label="Rating berikutnya"><x-icon name="chevron-right" size="size-4" /></button>
+                @endif
+                <a href="{{ route('ratings.index') }}" class="btn-secondary">Lihat semua rating <x-icon name="arrow-right" size="size-4" /></a>
+            </div>
+        </div>
+
+        @if(($homeRatings ?? collect())->isNotEmpty())
+            <div class="rating-home-track mt-9 flex gap-4 overflow-x-auto pb-2" data-rating-track>
+                @foreach($homeRatings as $rating)
+                    @php($avatarUrl = $rating->user?->emailAvatarUrl(96))
+                    <article class="card rating-home-card flex min-w-[86%] snap-start flex-col p-6 sm:min-w-[380px] lg:min-w-[390px]">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex min-w-0 items-center gap-3">
+                                @if(filled($avatarUrl))
+                                    <span class="size-11 shrink-0 overflow-hidden rounded-2xl bg-slate-100 dark:bg-white/5" data-rating-avatar>
+                                        <img src="{{ $avatarUrl }}" alt="Foto {{ $rating->user?->name ?: 'pengguna' }}" class="h-full w-full object-cover" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('[data-rating-avatar]')?.remove()">
+                                    </span>
+                                @endif
+                                <div class="min-w-0">
+                                    <div class="truncate font-black text-slate-950 dark:text-white">{{ $rating->user?->name ?: $rating->user?->username ?: 'Pengguna' }}</div>
+                                    <div class="mt-1 text-[11px] font-semibold text-slate-400">{{ $rating->updated_at?->translatedFormat('d M Y · H:i') }}</div>
+                                </div>
+                            </div>
+                            <span class="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">Terverifikasi</span>
+                        </div>
+                        <div class="mt-5 flex items-center gap-1" aria-label="{{ $rating->rating }} dari 5 bintang">
+                            @for($star = 1; $star <= 5; $star++)
+                                <span class="text-lg {{ $star <= $rating->rating ? 'text-amber-400' : 'text-slate-200 dark:text-slate-700' }}">★</span>
+                            @endfor
+                        </div>
+                        <p class="mt-4 line-clamp-4 whitespace-pre-line text-sm leading-7 text-slate-600 dark:text-slate-300">{{ $rating->review }}</p>
+                    </article>
+                @endforeach
+            </div>
+        @else
+            <div class="card mt-9 flex flex-col items-center p-9 text-center">
+                <div class="grid size-14 place-items-center rounded-2xl bg-amber-100 text-2xl text-amber-600 dark:bg-amber-400/10 dark:text-amber-300">★</div>
+                <h3 class="mt-4 text-xl font-black">Belum ada review pelanggan</h3>
+                <p class="mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">Review pertama dapat diberikan oleh pengguna setelah menyelesaikan minimal satu transaksi OTP.</p>
+                <a href="{{ route('ratings.index') }}" class="btn-secondary mt-5">Buka halaman rating</a>
+            </div>
+        @endif
+    </div>
 </section>
 
 <section id="faq" class="border-t border-slate-200 bg-white py-20 dark:border-white/10 dark:bg-[#0a1020]">
@@ -247,6 +327,13 @@
 </section>
 @push('head')
 <style>
+    .hero-float-cta { animation: heroFloatCta 3.2s ease-in-out infinite; will-change: transform; }
+    .hero-float-cta:hover { animation-play-state: paused; transform: translateY(-3px); }
+    .hero-live-dot { position: relative; flex: 0 0 auto; box-shadow: 0 0 0 0 rgba(52,211,153,.45); animation: heroLiveDot 1.35s ease-out infinite; }
+    .hero-live-dot::after { content: ''; position: absolute; inset: -4px; border: 1px solid rgba(52,211,153,.30); border-radius: 999px; opacity: 0; animation: heroLiveRing 1.35s ease-out infinite; }
+    @keyframes heroFloatCta { 0%,100% { transform: translateY(0); box-shadow: 0 10px 28px rgba(124,58,237,.16); } 50% { transform: translateY(-5px); box-shadow: 0 16px 34px rgba(124,58,237,.24); } }
+    @keyframes heroLiveDot { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.38); } 70%,100% { box-shadow: 0 0 0 8px rgba(52,211,153,0); } }
+    @keyframes heroLiveRing { 0% { transform: scale(.72); opacity:.75; } 70%,100% { transform: scale(1.65); opacity:0; } }
     .otp-stage { overflow: hidden; border: 1px solid rgba(148,163,184,.13); border-radius: 1.25rem; background: linear-gradient(180deg, rgba(15,23,42,.42), rgba(2,6,23,.25)); padding: .85rem; }
     .otp-flow-clean { display: grid; grid-template-columns: minmax(0,1fr) 38px minmax(0,1fr) 38px minmax(0,1fr); align-items: center; gap: .45rem; padding: .2rem .1rem .85rem; }
     .otp-step { position: relative; min-width: 0; border: 1px solid rgba(148,163,184,.12); border-radius: 1rem; background: rgba(30,41,59,.38); padding: .72rem .45rem .68rem; text-align: center; box-shadow: inset 0 1px 0 rgba(255,255,255,.025); opacity: .62; animation: otpCleanStep 6.6s ease-in-out infinite; }
@@ -284,8 +371,11 @@
         .otp-step-copy { font-size:.48rem; }
         .otp-step-number { display:none; }
     }
+    .rating-home-track { scroll-snap-type:x mandatory; scrollbar-width:none; -ms-overflow-style:none; scroll-behavior:smooth; }
+    .rating-home-track::-webkit-scrollbar { display:none; }
+    .rating-home-card { scroll-snap-align:start; }
     @media (prefers-reduced-motion: reduce) {
-        .otp-step, .otp-connector::after, .otp-message, .otp-live-pill span { animation:none !important; }
+        .hero-float-cta, .hero-live-dot, .hero-live-dot::after, .otp-step, .otp-connector::after, .otp-message, .otp-live-pill span { animation:none !important; }
         .otp-step, .otp-message { opacity:1; transform:none; }
         .otp-connector::after { width:100%; opacity:.65; }
     }
@@ -324,6 +414,19 @@
             root.classList.remove('otp-message-switching');
         }, 170);
     }, 6600);
+})();
+
+(() => {
+    const track = document.querySelector('[data-rating-track]');
+    if (!track) return;
+    const prev = document.querySelector('[data-rating-prev]');
+    const next = document.querySelector('[data-rating-next]');
+    const amount = () => {
+        const card = track.querySelector('.rating-home-card');
+        return card ? card.getBoundingClientRect().width + 16 : Math.max(280, track.clientWidth * .88);
+    };
+    prev?.addEventListener('click', () => track.scrollBy({ left: -amount(), behavior: 'smooth' }));
+    next?.addEventListener('click', () => track.scrollBy({ left: amount(), behavior: 'smooth' }));
 })();
 </script>
 @endpush

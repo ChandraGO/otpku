@@ -22,6 +22,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OtpOrderController;
 use App\Http\Controllers\PakasirWebhookController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RatingController;
 use App\Http\Controllers\SeoImageController;
 use App\Http\Controllers\SmsVirtualWebhookController;
 use App\Http\Controllers\TopupController;
@@ -36,6 +37,7 @@ Route::get('/meta/seo-image', SeoImageController::class)->name('meta.seo-image')
 Route::get('/media/business-logo', [SeoImageController::class, 'logo'])->name('media.business-logo');
 Route::view('/syarat-ketentuan', 'terms')->name('terms');
 Route::view('/kebijakan-privasi', 'privacy')->name('privacy');
+Route::get('/rating', [RatingController::class, 'index'])->name('ratings.index');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/register', [RegisterController::class, 'create'])->name('register');
@@ -59,6 +61,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 
 Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::post('/rating', [RatingController::class, 'store'])->middleware('throttle:10,1')->name('ratings.store');
     Route::get('/layanan', [CatalogController::class, 'index'])->name('services.index');
     Route::get('/layanan/{service}', [CatalogController::class, 'show'])->name('services.show');
     Route::get('/pesanan', [OtpOrderController::class, 'index'])->name('orders.index');
