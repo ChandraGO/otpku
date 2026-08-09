@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 
 class Announcement extends Model
 {
@@ -37,10 +36,22 @@ class Announcement extends Model
             ->where(fn (Builder $q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()));
     }
 
+    /**
+     * Serve announcement images through Laravel instead of /storage directly.
+     *
+     * The upload is stored in the persistent shared public disk. Serving it through
+     * a controller avoids depending on a public/storage symlink or nested static
+     * bind mount, which was the source of the production 404 after a successful upload.
+     */
     public function imageUrl(): ?string
     {
-        return filled($this->image_path)
-            ? Storage::disk('public')->url($this->image_path)
-            : null;
+        if (! filled($this->image_path) || ! $this->exists) {
+            return null;
+        }
+
+        return route('media.announcements.show', [
+            'announcement' => $this->getKey(),
+            'v' => $this->updated_at?->timestamp ?? $this->created_at?->timestamp ?? 1,
+        ]);
     }
 }
