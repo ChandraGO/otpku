@@ -8,7 +8,7 @@
     <div class="card max-h-[90vh] w-full max-w-2xl overflow-y-auto" @click.outside="open = false">
         @if($loginAnnouncement->imageUrl())
             <div class="px-4 pt-4 sm:px-5 sm:pt-5">
-                <img src="{{ $loginAnnouncement->imageUrl() }}" alt="Gambar {{ $loginAnnouncement->title }}" class="aspect-video w-full rounded-[1.35rem] border border-slate-200 object-cover shadow-sm dark:border-white/10">
+                <img src="{{ $loginAnnouncement->imageUrl() }}" alt="Gambar {{ $loginAnnouncement->title }}" class="mx-auto block h-auto max-h-[68vh] w-auto max-w-full rounded-[1.35rem] border border-slate-200 object-contain shadow-sm dark:border-white/10">
             </div>
         @endif
         <div class="p-6 sm:p-7">
@@ -162,7 +162,7 @@
                 </div>
                 <h3 class="mt-2 font-black">{{ $item->title }}</h3>
                 @if($item->imageUrl())
-                    <img src="{{ $item->imageUrl() }}" alt="Gambar {{ $item->title }}" class="mt-3 aspect-video w-full max-w-2xl rounded-[1.15rem] border border-slate-200 object-cover shadow-sm dark:border-white/10" loading="lazy" decoding="async">
+                    <img src="{{ $item->imageUrl() }}" alt="Gambar {{ $item->title }}" class="mt-3 block h-auto max-h-[34rem] w-auto max-w-full rounded-[1.15rem] border border-slate-200 object-contain shadow-sm dark:border-white/10" loading="lazy" decoding="async">
                 @endif
                 <p class="mt-2 line-clamp-3 whitespace-pre-line text-sm leading-6 text-slate-500">{{ $item->body }}</p>
             </article>

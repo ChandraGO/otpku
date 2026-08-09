@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-DEPLOY_SCRIPT_VERSION="2026.08.09-auto-maintenance-v5"
+DEPLOY_SCRIPT_VERSION="2026.08.09-auto-maintenance-v15"
 
 APP_DIR="${APP_DIR:-/opt/kodeotp/app}"
 STACK_DIR="${STACK_DIR:-/opt/kodeotp}"
@@ -144,9 +144,11 @@ classify_changes() {
     return 0
   fi
 
-  # Blade/PHP-only changes use existing compiled assets. Rebuild Vite only
-  # when CSS, JavaScript, Vite config, or Node dependencies change.
-  grep -Eq '^(resources/css/|resources/js/|vite\.config\.js$|package\.json$|package-lock\.json$)' "$CHANGED_FILE" \
+  # Tailwind v4 memindai resources/views/**/*.blade.php saat Vite build.
+  # Karena itu perubahan Blade dapat memperkenalkan utility class baru dan WAJIB
+  # membangun ulang CSS. Tanpa ini markup baru bisa tampil tanpa style lengkap
+  # (contoh: modal crop terlihat inline/terpotong atau tema dark tidak terpakai).
+  grep -Eq '^(resources/css/|resources/js/|resources/views/|vite\.config\.js$|package\.json$|package-lock\.json$)' "$CHANGED_FILE" \
     && NEEDS_ASSETS=1 || true
 
   grep -Eq '^(app/|bootstrap/|config/|database/|public/|resources/|routes/|artisan$)' "$CHANGED_FILE" \

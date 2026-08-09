@@ -32,7 +32,7 @@
                 </div>
                 <h2 class="mt-3 text-lg font-black">{{ $item->title }}</h2>
                 @if($item->imageUrl())
-                    <img src="{{ $item->imageUrl() }}" alt="Gambar {{ $item->title }}" class="mt-4 aspect-video w-full max-w-3xl rounded-[1.35rem] border border-slate-200 object-cover shadow-sm dark:border-white/10" loading="lazy" decoding="async">
+                    <img src="{{ $item->imageUrl() }}" alt="Gambar {{ $item->title }}" class="mt-4 block h-auto max-h-[42rem] w-auto max-w-full rounded-[1.35rem] border border-slate-200 object-contain shadow-sm dark:border-white/10" loading="lazy" decoding="async">
                 @endif
                 <p class="mt-3 max-w-5xl whitespace-pre-line text-sm leading-7 text-slate-600 dark:text-slate-300">{{ $item->body }}</p>
             </article>

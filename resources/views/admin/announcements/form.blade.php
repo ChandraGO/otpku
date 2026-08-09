@@ -41,7 +41,7 @@
         <div class="flex flex-wrap items-end justify-between gap-3">
             <div>
                 <label class="label">Gambar pengumuman</label>
-                <p class="mt-1 text-xs leading-5 text-slate-500">Pilih foto apa pun, lalu atur posisi dan crop ke frame 16:9 sebelum diterapkan. Hasil akhir otomatis 1280×720 px.</p>
+                <p class="mt-1 text-xs leading-5 text-slate-500">Pilih foto apa pun, lalu tentukan format gambar. Tersedia banner, landscape, persegi, portrait, story, dan ukuran custom. Setelah itu geser/zoom gambar sampai pas di frame.</p>
             </div>
             <label class="btn-secondary cursor-pointer">
                 <span>{{ $announcement->imageUrl() ? 'Ganti gambar' : 'Pilih gambar' }}</span>
@@ -59,12 +59,12 @@
                 <img
                     src="{{ $announcement->imageUrl() ?: '' }}"
                     alt="Pratinjau gambar pengumuman"
-                    class="aspect-video w-full object-cover"
+                    class="block h-auto max-h-[34rem] w-auto max-w-full object-contain"
                     data-announcement-preview
                 >
             </div>
             <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                <span>Pratinjau frame 16:9. Sudut gambar akan tampil rounded di halaman pengguna.</span>
+                <span data-announcement-preview-meta>Pratinjau gambar. Sudut gambar akan tampil rounded di halaman pengguna.</span>
                 <button type="button" class="font-black text-violet-600 dark:text-violet-300" data-announcement-recrop @if(! $announcement->imageUrl()) hidden @endif>Atur crop lagi</button>
             </div>
         </div>
@@ -106,39 +106,76 @@
     <button class="btn-primary">Simpan pengumuman</button>
 </form>
 
-<div class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:p-6" data-announcement-crop-modal aria-hidden="true">
-    <div class="w-full max-w-4xl overflow-hidden rounded-[1.75rem] border border-white/10 bg-white shadow-2xl dark:bg-[#0b1220]">
-        <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-white/10 sm:px-6">
-            <div>
+<div class="announcement-crop-backdrop" data-announcement-crop-modal aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="announcement-crop-title">
+    <div class="announcement-crop-dialog" data-announcement-crop-dialog>
+        <div class="announcement-crop-header">
+            <div class="min-w-0">
                 <div class="text-xs font-black uppercase tracking-[.16em] text-violet-600 dark:text-violet-300">Atur gambar</div>
-                <h2 class="mt-1 text-xl font-black">Crop gambar pengumuman</h2>
-                <p class="mt-1 text-xs leading-5 text-slate-500">Geser gambar di dalam frame dan gunakan zoom. Area yang terlihat inilah yang akan disimpan.</p>
+                <h2 id="announcement-crop-title" class="mt-1 text-lg font-black sm:text-xl">Crop gambar pengumuman</h2>
+                <p class="mt-1 max-w-2xl text-xs leading-5 text-slate-500 dark:text-slate-400">Pilih rasio/resolusi, geser gambar di dalam frame, gunakan zoom bila perlu, lalu terapkan hasilnya.</p>
             </div>
-            <button type="button" class="btn-secondary !size-10 !p-0 text-xl" data-announcement-crop-cancel aria-label="Tutup">×</button>
+            <button type="button" class="btn-secondary !size-10 !shrink-0 !p-0 text-xl" data-announcement-crop-cancel aria-label="Tutup">×</button>
         </div>
 
-        <div class="p-4 sm:p-6">
-            <div class="relative mx-auto aspect-video w-full max-w-3xl touch-none overflow-hidden rounded-[1.5rem] bg-slate-950 shadow-inner ring-1 ring-white/10" data-announcement-crop-frame>
-                <img src="" alt="Gambar yang akan dicrop" class="pointer-events-none absolute max-w-none select-none" draggable="false" data-announcement-crop-image>
-                <div class="pointer-events-none absolute inset-0 rounded-[1.5rem] ring-2 ring-inset ring-white/60"></div>
-                <div class="pointer-events-none absolute inset-x-0 top-1/2 border-t border-dashed border-white/20"></div>
-                <div class="pointer-events-none absolute inset-y-0 left-1/2 border-l border-dashed border-white/20"></div>
-            </div>
-
-            <div class="mx-auto mt-5 grid max-w-3xl gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[.03] sm:grid-cols-[1fr_auto] sm:items-end">
-                <div>
-                    <div class="flex items-center justify-between gap-4">
-                        <label for="announcement-crop-zoom" class="text-sm font-black">Zoom</label>
-                        <span class="text-xs font-bold text-slate-500" data-announcement-crop-zoom-label>100%</span>
+        <div class="announcement-crop-body">
+            <div class="announcement-crop-format">
+                <div class="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                        <div class="text-sm font-black">Format & resolusi</div>
+                        <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Pilih preset atau gunakan ukuran custom. Rasio frame mengikuti ukuran akhir secara otomatis.</p>
                     </div>
-                    <input id="announcement-crop-zoom" type="range" min="100" max="300" step="1" value="100" class="mt-3 w-full accent-violet-600" data-announcement-crop-zoom>
+                    <span class="announcement-crop-size-badge" data-announcement-output-label>1280×720 · 16:9</span>
                 </div>
-                <button type="button" class="btn-secondary" data-announcement-crop-reset>Reset posisi</button>
+
+                <div class="announcement-crop-presets" role="group" aria-label="Pilihan rasio gambar pengumuman">
+                    <button type="button" class="announcement-crop-preset is-active" data-announcement-crop-preset data-width="1280" data-height="720"><strong>Banner</strong><span>16:9 · 1280×720</span></button>
+                    <button type="button" class="announcement-crop-preset" data-announcement-crop-preset data-width="1500" data-height="500"><strong>Banner lebar</strong><span>3:1 · 1500×500</span></button>
+                    <button type="button" class="announcement-crop-preset" data-announcement-crop-preset data-width="1200" data-height="900"><strong>Landscape</strong><span>4:3 · 1200×900</span></button>
+                    <button type="button" class="announcement-crop-preset" data-announcement-crop-preset data-width="1080" data-height="1080"><strong>Persegi</strong><span>1:1 · 1080×1080</span></button>
+                    <button type="button" class="announcement-crop-preset" data-announcement-crop-preset data-width="900" data-height="1200"><strong>Portrait</strong><span>3:4 · 900×1200</span></button>
+                    <button type="button" class="announcement-crop-preset" data-announcement-crop-preset data-width="1080" data-height="1920"><strong>Story</strong><span>9:16 · 1080×1920</span></button>
+                    <button type="button" class="announcement-crop-preset" data-announcement-crop-custom-toggle><strong>Custom</strong><span>Atur sendiri</span></button>
+                </div>
+
+                <div class="announcement-crop-custom hidden" data-announcement-crop-custom-panel>
+                    <div>
+                        <label class="label !mb-1" for="announcement-custom-width">Lebar (px)</label>
+                        <input id="announcement-custom-width" class="input !py-2.5" type="number" min="240" max="2400" step="1" value="1280" inputmode="numeric" data-announcement-custom-width>
+                    </div>
+                    <div>
+                        <label class="label !mb-1" for="announcement-custom-height">Tinggi (px)</label>
+                        <input id="announcement-custom-height" class="input !py-2.5" type="number" min="240" max="2400" step="1" value="720" inputmode="numeric" data-announcement-custom-height>
+                    </div>
+                    <button type="button" class="btn-secondary self-end" data-announcement-custom-apply>Terapkan ukuran</button>
+                    <p class="col-span-full text-[11px] leading-5 text-slate-500 dark:text-slate-400">Ukuran 240–2400 px per sisi. Rasio custom mengikuti lebar : tinggi yang Anda masukkan, maksimum rasio 4:1 atau 1:4.</p>
+                </div>
             </div>
 
-            <div class="mx-auto mt-5 flex max-w-3xl flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <div class="announcement-crop-frame" data-announcement-crop-frame>
+                <img src="" alt="Gambar yang akan dicrop" class="pointer-events-none absolute max-w-none select-none" draggable="false" data-announcement-crop-image>
+                <div class="pointer-events-none absolute inset-0 rounded-[inherit] ring-2 ring-inset ring-white/45"></div>
+                <div class="pointer-events-none absolute inset-x-0 top-1/3 border-t border-dashed border-white/20"></div>
+                <div class="pointer-events-none absolute inset-x-0 top-2/3 border-t border-dashed border-white/20"></div>
+                <div class="pointer-events-none absolute inset-y-0 left-1/3 border-l border-dashed border-white/20"></div>
+                <div class="pointer-events-none absolute inset-y-0 left-2/3 border-l border-dashed border-white/20"></div>
+            </div>
+
+            <p class="announcement-crop-note">Tips: frame akan menyesuaikan pilihan rasio. Tarik gambar dengan mouse/jari untuk mengatur posisi, lalu gunakan zoom bila diperlukan.</p>
+
+            <div class="announcement-crop-controls">
+                <div class="flex items-center justify-between gap-4">
+                    <label for="announcement-crop-zoom" class="text-sm font-black">Zoom</label>
+                    <span class="rounded-full bg-violet-500/10 px-2.5 py-1 text-xs font-black text-violet-700 dark:text-violet-300" data-announcement-crop-zoom-label>100%</span>
+                </div>
+                <div class="mt-3 flex items-center gap-3">
+                    <input id="announcement-crop-zoom" type="range" min="100" max="300" step="1" value="100" class="min-w-0 flex-1 accent-violet-600" data-announcement-crop-zoom>
+                    <button type="button" class="btn-secondary !whitespace-nowrap" data-announcement-crop-reset>Reset</button>
+                </div>
+            </div>
+
+            <div class="announcement-crop-actions">
                 <button type="button" class="btn-secondary" data-announcement-crop-cancel>Batalkan</button>
-                <button type="button" class="btn-primary" data-announcement-crop-apply>Gunakan crop 16:9</button>
+                <button type="button" class="btn-primary" data-announcement-crop-apply>Gunakan gambar 16:9</button>
             </div>
         </div>
     </div>
@@ -155,6 +192,7 @@
     const croppedInput = editor.querySelector('[data-announcement-cropped-image]');
     const previewWrap = editor.querySelector('[data-announcement-preview-wrap]');
     const preview = editor.querySelector('[data-announcement-preview]');
+    const previewMeta = editor.querySelector('[data-announcement-preview-meta]');
     const recropButton = editor.querySelector('[data-announcement-recrop]');
     const modal = document.querySelector('[data-announcement-crop-modal]');
     const frame = modal?.querySelector('[data-announcement-crop-frame]');
@@ -163,6 +201,13 @@
     const zoomLabel = modal?.querySelector('[data-announcement-crop-zoom-label]');
     const resetButton = modal?.querySelector('[data-announcement-crop-reset]');
     const applyButton = modal?.querySelector('[data-announcement-crop-apply]');
+    const outputLabel = modal?.querySelector('[data-announcement-output-label]');
+    const presetButtons = [...(modal?.querySelectorAll('[data-announcement-crop-preset]') || [])];
+    const customToggle = modal?.querySelector('[data-announcement-crop-custom-toggle]');
+    const customPanel = modal?.querySelector('[data-announcement-crop-custom-panel]');
+    const customWidthInput = modal?.querySelector('[data-announcement-custom-width]');
+    const customHeightInput = modal?.querySelector('[data-announcement-custom-height]');
+    const customApply = modal?.querySelector('[data-announcement-custom-apply]');
 
     if (!fileInput || !croppedInput || !previewWrap || !preview || !modal || !frame || !cropImage || !zoomInput || !applyButton) return;
 
@@ -172,34 +217,88 @@
     let centerX = 0;
     let centerY = 0;
     let zoom = 100;
+    let outputWidth = 1280;
+    let outputHeight = 720;
     let dragging = false;
     let pointerX = 0;
     let pointerY = 0;
     let lastSelectedFile = null;
 
-    // V14: jangan bergantung pada blob: URL untuk membaca gambar. CSP production
-    // sebelumnya hanya mengizinkan data:/https:, sehingga file valid dapat memicu
-    // img.onerror dan terlihat seolah-olah format gambarnya rusak. FileReader data URL
-    // bekerja di bawah CSP tersebut dan lebih konsisten di Chrome/Android/WebView.
+    // FileReader data URL menghindari masalah CSP blob: di Chrome/Android/WebView.
     const revokeSource = () => {
         if (sourceUrl && sourceUrl.startsWith('blob:')) URL.revokeObjectURL(sourceUrl);
         sourceUrl = '';
     };
 
+    // Portal modal ke body supaya position:fixed tidak terpotong layout/sidebar.
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+
+    let previousBodyOverflow = '';
+    let previouslyFocused = null;
+
+    const gcd = (a, b) => {
+        a = Math.abs(Math.round(a));
+        b = Math.abs(Math.round(b));
+        while (b) [a, b] = [b, a % b];
+        return a || 1;
+    };
+
+    const ratioLabel = (width = outputWidth, height = outputHeight) => {
+        const divisor = gcd(width, height);
+        return `${Math.round(width / divisor)}:${Math.round(height / divisor)}`;
+    };
+
+    const updateOutputUi = () => {
+        const ratio = ratioLabel();
+        if (outputLabel) outputLabel.textContent = `${outputWidth}×${outputHeight} · ${ratio}`;
+        applyButton.textContent = `Gunakan gambar ${ratio}`;
+        if (customWidthInput) customWidthInput.value = String(outputWidth);
+        if (customHeightInput) customHeightInput.value = String(outputHeight);
+    };
+
+    const fitFrameToViewport = () => {
+        const body = modal.querySelector('.announcement-crop-body');
+        if (!body) return;
+        const bodyWidth = Math.max(240, body.clientWidth - 8);
+        const maxWidth = Math.min(bodyWidth, 768);
+        const maxHeight = Math.min(window.innerHeight * (window.innerWidth <= 640 ? .40 : .50), 520);
+        const ratio = outputWidth / outputHeight;
+
+        let width = maxWidth;
+        let height = width / ratio;
+        if (height > maxHeight) {
+            height = maxHeight;
+            width = height * ratio;
+        }
+        if (width > maxWidth) {
+            width = maxWidth;
+            height = width / ratio;
+        }
+
+        frame.style.width = `${Math.max(96, Math.round(width))}px`;
+        frame.style.height = `${Math.max(96, Math.round(height))}px`;
+        frame.style.aspectRatio = `${outputWidth} / ${outputHeight}`;
+    };
+
     const openModal = () => {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
+        previouslyFocused = document.activeElement;
+        previousBodyOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('overflow-hidden');
-        requestAnimationFrame(renderCrop);
+        requestAnimationFrame(() => {
+            fitFrameToViewport();
+            renderCrop();
+            modal.querySelector('[data-announcement-crop-cancel]')?.focus({ preventScroll: true });
+        });
     };
 
     const closeModal = () => {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
+        modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('overflow-hidden');
+        document.body.style.overflow = previousBodyOverflow;
         dragging = false;
+        if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus({ preventScroll: true });
     };
 
     const cropMetrics = () => {
@@ -240,7 +339,39 @@
         zoomInput.value = '100';
         centerX = naturalWidth / 2;
         centerY = naturalHeight / 2;
+        fitFrameToViewport();
         renderCrop();
+    };
+
+    const setOutputSize = (width, height, custom = false) => {
+        width = Math.round(Number(width));
+        height = Math.round(Number(height));
+        const ratio = width / height;
+
+        if (!Number.isFinite(width) || !Number.isFinite(height) || width < 240 || height < 240 || width > 2400 || height > 2400) {
+            alert('Lebar dan tinggi harus antara 240 sampai 2400 px.');
+            return false;
+        }
+        if (ratio < .25 || ratio > 4) {
+            alert('Rasio custom maksimum 4:1 atau 1:4 agar gambar tetap nyaman ditampilkan.');
+            return false;
+        }
+        if (width * height > 6_000_000) {
+            alert('Resolusi terlalu besar. Maksimum sekitar 6 megapiksel.');
+            return false;
+        }
+
+        outputWidth = width;
+        outputHeight = height;
+        presetButtons.forEach((button) => {
+            const active = Number(button.dataset.width) === width && Number(button.dataset.height) === height;
+            button.classList.toggle('is-active', active && !custom);
+        });
+        customToggle?.classList.toggle('is-active', custom);
+        customPanel?.classList.toggle('hidden', !custom);
+        updateOutputUi();
+        resetCrop();
+        return true;
     };
 
     const loadSource = (url, file = null) => {
@@ -260,6 +391,7 @@
             zoom = 100;
             zoomInput.value = '100';
             lastSelectedFile = file;
+            updateOutputUi();
             openModal();
         };
         cropImage.onerror = () => {
@@ -280,8 +412,6 @@
     const supportedFile = (file) => {
         const mime = String(file.type || '').toLowerCase();
         if (/^image\/(jpeg|jpg|png|webp)$/.test(mime)) return true;
-        // Beberapa file picker Android tidak mengirim MIME type. Ekstensi dipakai
-        // hanya sebagai fallback UI; validasi image Laravel tetap memeriksa isi file.
         return /\.(jpe?g|png|webp)$/i.test(String(file.name || ''));
     };
 
@@ -308,6 +438,25 @@
             fileInput.value = '';
         }
     });
+
+    presetButtons.forEach((button) => {
+        button.addEventListener('click', () => setOutputSize(button.dataset.width, button.dataset.height, false));
+    });
+
+    customToggle?.addEventListener('click', () => {
+        customPanel?.classList.remove('hidden');
+        presetButtons.forEach((button) => button.classList.remove('is-active'));
+        customToggle.classList.add('is-active');
+        customWidthInput?.focus();
+    });
+
+    customApply?.addEventListener('click', () => setOutputSize(customWidthInput?.value, customHeightInput?.value, true));
+    [customWidthInput, customHeightInput].forEach((input) => input?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            setOutputSize(customWidthInput?.value, customHeightInput?.value, true);
+        }
+    }));
 
     zoomInput.addEventListener('input', () => {
         zoom = Number(zoomInput.value || 100);
@@ -355,12 +504,13 @@
         const metrics = cropMetrics();
         if (!metrics) return;
 
+        const normalLabel = `Gunakan gambar ${ratioLabel()}`;
         applyButton.disabled = true;
         applyButton.textContent = 'Memproses…';
 
         const canvas = document.createElement('canvas');
-        canvas.width = 1280;
-        canvas.height = 720;
+        canvas.width = outputWidth;
+        canvas.height = outputHeight;
         const context = canvas.getContext('2d', { alpha: false });
         context.fillStyle = '#ffffff';
         context.fillRect(0, 0, canvas.width, canvas.height);
@@ -383,20 +533,19 @@
         canvas.toBlob((blob) => {
             if (!blob) {
                 applyButton.disabled = false;
-                applyButton.textContent = 'Gunakan crop 16:9';
+                applyButton.textContent = normalLabel;
                 alert('Gagal memproses gambar. Silakan coba gambar lain.');
                 return;
             }
 
-            // Preview memakai data: URL agar tidak ditolak CSP pada browser yang
-            // masih memuat konfigurasi lama. blob tetap dipakai hanya sebagai payload File.
             preview.src = previewDataUrl;
             previewWrap.classList.remove('hidden');
+            if (previewMeta) previewMeta.textContent = `Hasil ${outputWidth}×${outputHeight} (${ratioLabel()}). Sudut gambar akan tampil rounded.`;
             if (recropButton) recropButton.hidden = false;
 
             try {
                 if (typeof DataTransfer === 'function') {
-                    const croppedFile = new File([blob], `announcement-${Date.now()}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+                    const croppedFile = new File([blob], `announcement-${outputWidth}x${outputHeight}-${Date.now()}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
                     const transfer = new DataTransfer();
                     transfer.items.add(croppedFile);
                     fileInput.files = transfer.files;
@@ -412,7 +561,7 @@
 
             closeModal();
             applyButton.disabled = false;
-            applyButton.textContent = 'Gunakan crop 16:9';
+            applyButton.textContent = normalLabel;
         }, 'image/jpeg', 0.9);
     });
 
@@ -438,10 +587,29 @@
         fileInput.click();
     });
 
+    if (preview?.src) {
+        preview.addEventListener('load', () => {
+            if (!previewMeta || !preview.naturalWidth || !preview.naturalHeight) return;
+            previewMeta.textContent = `Pratinjau ${preview.naturalWidth}×${preview.naturalHeight} (${ratioLabel(preview.naturalWidth, preview.naturalHeight)}). Sudut gambar tampil rounded.`;
+        });
+    }
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeModal();
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+    });
+
     window.addEventListener('resize', () => {
-        if (!modal.classList.contains('hidden')) renderCrop();
+        if (modal.classList.contains('is-open')) {
+            fitFrameToViewport();
+            renderCrop();
+        }
     }, { passive: true });
 
+    updateOutputUi();
     window.addEventListener('beforeunload', revokeSource, { once: true });
 })();
 </script>

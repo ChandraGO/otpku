@@ -70,8 +70,8 @@ class AnnouncementController extends Controller
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'body' => ['required', 'string', 'max:10000'],
-            // Rasio tidak lagi dipaksa pada file mentah. Admin bisa crop 16:9 di browser
-            // sebelum disimpan, jadi foto portrait/square tetap bisa dipilih.
+            // File mentah bebas rasio. Editor browser dapat menghasilkan banner, landscape,
+            // persegi, portrait, story, atau ukuran custom sebelum gambar disimpan.
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'cropped_image' => ['nullable', 'string'],
             'remove_image' => ['nullable', 'boolean'],
@@ -90,8 +90,8 @@ class AnnouncementController extends Controller
             $this->deleteImage($announcement?->image_path);
             $data['image_path'] = $this->storeCroppedImage((string) $request->input('cropped_image'));
         } elseif ($request->hasFile('image')) {
-            // Fallback jika browser tidak mendukung editor crop. Tampilan publik tetap
-            // memakai object-cover 16:9 sehingga layout tidak rusak.
+            // Fallback jika browser tidak mendukung editor crop. Gambar asli tetap disimpan
+            // dan tampilan publik mempertahankan rasio intrinsiknya.
             $this->deleteImage($announcement?->image_path);
             $data['image_path'] = $request->file('image')->store('announcements', 'public');
         } elseif ($request->boolean('remove_image') && $announcement) {
@@ -119,9 +119,19 @@ class AnnouncementController extends Controller
         }
 
         $size = @getimagesizefromstring($binary);
-        if (! is_array($size) || ($size[0] ?? 0) !== 1280 || ($size[1] ?? 0) !== 720) {
+        $width = (int) ($size[0] ?? 0);
+        $height = (int) ($size[1] ?? 0);
+        $ratio = $height > 0 ? $width / $height : 0;
+
+        if (! is_array($size) || $width < 240 || $height < 240 || $width > 2400 || $height > 2400) {
             throw ValidationException::withMessages([
-                'image' => 'Hasil crop harus berukuran 1280×720 (16:9). Silakan crop ulang gambar.',
+                'image' => 'Resolusi hasil crop harus antara 240 sampai 2400 px pada setiap sisi.',
+            ]);
+        }
+
+        if (($width * $height) > 6000000 || $ratio < 0.25 || $ratio > 4) {
+            throw ValidationException::withMessages([
+                'image' => 'Resolusi atau rasio hasil crop terlalu besar. Gunakan maksimum 6 megapiksel dan rasio antara 1:4 sampai 4:1.',
             ]);
         }
 
