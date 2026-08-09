@@ -93,7 +93,13 @@ class AnnouncementController extends Controller
             // Fallback jika browser tidak mendukung editor crop. Gambar asli tetap disimpan
             // dan tampilan publik mempertahankan rasio intrinsiknya.
             $this->deleteImage($announcement?->image_path);
-            $data['image_path'] = $request->file('image')->store('announcements', 'public');
+            $storedPath = $request->file('image')->store('announcements', 'public');
+            if (! is_string($storedPath) || $storedPath === '' || ! Storage::disk('public')->exists($storedPath)) {
+                throw ValidationException::withMessages([
+                    'image' => 'Gambar gagal disimpan ke penyimpanan server. Silakan coba lagi setelah beberapa saat.',
+                ]);
+            }
+            $data['image_path'] = $storedPath;
         } elseif ($request->boolean('remove_image') && $announcement) {
             $this->deleteImage($announcement->image_path);
             $data['image_path'] = null;
@@ -136,7 +142,16 @@ class AnnouncementController extends Controller
         }
 
         $path = 'announcements/'.Str::uuid().'.jpg';
-        Storage::disk('public')->put($path, $binary);
+        $stored = Storage::disk('public')->put($path, $binary);
+
+        // Disk public memakai throw=false. Tanpa pengecekan ini kegagalan write
+        // dapat terlihat seperti sukses: image_path masuk DB tetapi file tidak ada,
+        // lalu browser mendapatkan 404.
+        if (! $stored || ! Storage::disk('public')->exists($path)) {
+            throw ValidationException::withMessages([
+                'image' => 'Gambar gagal disimpan ke penyimpanan server. Silakan coba lagi setelah beberapa saat.',
+            ]);
+        }
 
         return $path;
     }

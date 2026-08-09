@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-DEPLOY_SCRIPT_VERSION="2026.08.09-auto-maintenance-v20-shared-media"
+DEPLOY_SCRIPT_VERSION="2026.08.09-v22-shared-media-fix"
 
 APP_DIR="${APP_DIR:-/opt/kodeotp/app}"
 STACK_DIR="${STACK_DIR:-/opt/kodeotp}"
@@ -307,6 +307,26 @@ preserve_public_uploads() {
   rm -rf "$temp_dir"
 }
 preserve_public_uploads
+
+ensure_shared_public_permissions() {
+  local uid gid
+  mkdir -p "$SHARED_PUBLIC_DIR/announcements"
+
+  # Ambil UID/GID www-data dari runtime yang benar (Alpine dapat berbeda dari host).
+  # Bila slot aktif belum ada, entrypoint slot baru tetap akan melakukan chown lagi.
+  if [ -n "$CURRENT_CID" ]; then
+    uid="$(docker exec "$CURRENT_CID" sh -lc 'id -u www-data' 2>/dev/null || true)"
+    gid="$(docker exec "$CURRENT_CID" sh -lc 'id -g www-data' 2>/dev/null || true)"
+    if [[ "$uid" =~ ^[0-9]+$ ]] && [[ "$gid" =~ ^[0-9]+$ ]]; then
+      chown -R "$uid:$gid" "$SHARED_PUBLIC_DIR" 2>/dev/null || true
+    fi
+  fi
+
+  find "$SHARED_PUBLIC_DIR" -type d -exec chmod 0775 {} + 2>/dev/null || true
+  find "$SHARED_PUBLIC_DIR" -type f -exec chmod 0664 {} + 2>/dev/null || true
+  log 'shared/public disiapkan untuk upload pengumuman'
+}
+ensure_shared_public_permissions
 
 select_runtime_image() {
   local image_id

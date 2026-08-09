@@ -1,7 +1,10 @@
 #!/usr/bin/env sh
 set -eu
-mkdir -p storage/app/public storage/app/backups storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+mkdir -p storage/app/public/announcements storage/app/backups storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+# Bind mount shared/public berasal dari host. Pastikan PHP-FPM (www-data) benar-benar
+# dapat menulis upload, bukan sekadar berhasil membuat record image_path di DB.
 chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
+chmod -R u+rwX,g+rwX storage/app/public 2>/dev/null || true
 if [ "${1:-}" = "supervisord" ]; then
   # Container web selalu dimulai dari cache Laravel yang bersih. Ini membuat
   # perubahan config/route/view langsung aktif saat auto deploy tanpa perlu
