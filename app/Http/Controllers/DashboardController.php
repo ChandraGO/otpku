@@ -44,9 +44,16 @@ class DashboardController extends Controller
         $orders = OtpOrder::query()->where('user_id', $user->id);
         $monthStart = now()->startOfMonth();
         $monthEnd = now()->endOfMonth();
+        $canRate = (clone $orders)
+            ->where(function ($query): void {
+                $query->where('status', 'completed')
+                    ->orWhereNotNull('completed_at');
+            })
+            ->exists();
 
         return view('user.dashboard', [
             'user' => $user,
+            'canRate' => $canRate,
             'loginAnnouncement' => $loginAnnouncement,
             'dashboardBalance' => $user->isAdmin()
                 ? $adminProviderBalance['idr']

@@ -10,6 +10,9 @@ x-runtime-volumes: &runtime-volumes
   - "${KODEOTP_RELEASE_DIR:?KODEOTP_RELEASE_DIR wajib diisi}/resources:/var/www/html/resources:ro"
   - "${KODEOTP_RELEASE_DIR:?KODEOTP_RELEASE_DIR wajib diisi}/routes:/var/www/html/routes:ro"
   - app_backups:/var/www/html/storage/app/backups
+  # Upload publik harus hidup di luar writable layer container agar tidak hilang
+  # saat blue/green switch, force-recreate, atau deploy berikutnya.
+  - ./shared/public:/var/www/html/storage/app/public
 
 services:
   postgres:

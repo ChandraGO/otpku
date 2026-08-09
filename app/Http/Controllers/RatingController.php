@@ -32,7 +32,10 @@ class RatingController extends Controller
         if ($request->user()) {
             $canRate = OtpOrder::query()
                 ->where('user_id', $request->user()->id)
-                ->where('status', 'completed')
+                ->where(function ($query): void {
+                    $query->where('status', 'completed')
+                        ->orWhereNotNull('completed_at');
+                })
                 ->exists();
 
             $userRating = Rating::query()
@@ -55,7 +58,10 @@ class RatingController extends Controller
 
         $eligible = OtpOrder::query()
             ->where('user_id', $user->id)
-            ->where('status', 'completed')
+            ->where(function ($query): void {
+                $query->where('status', 'completed')
+                    ->orWhereNotNull('completed_at');
+            })
             ->exists();
 
         if (! $eligible) {

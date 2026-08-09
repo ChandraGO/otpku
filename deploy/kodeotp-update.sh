@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-DEPLOY_SCRIPT_VERSION="2026.08.09-auto-maintenance-v15"
+DEPLOY_SCRIPT_VERSION="2026.08.09-auto-maintenance-v20-shared-media"
 
 APP_DIR="${APP_DIR:-/opt/kodeotp/app}"
 STACK_DIR="${STACK_DIR:-/opt/kodeotp}"
@@ -13,6 +13,7 @@ ACTIVE_FILE="$STACK_DIR/.active_color"
 LOCK_FILE="$STACK_DIR/.deploy.lock"
 STACK_ENV="$STACK_DIR/.env"
 APP_ENV="$STACK_DIR/app.env"
+SHARED_PUBLIC_DIR="$STACK_DIR/shared/public"
 CHANGED_FILE=""
 OLD_RELEASE_DIR=""
 NEW_RELEASE_DIR=""
@@ -81,7 +82,7 @@ cleanup_exit() {
 }
 trap cleanup_exit EXIT
 
-mkdir -p "$STACK_DIR" "$STACK_DIR/caddy" "$RELEASES_DIR"
+mkdir -p "$STACK_DIR" "$STACK_DIR/caddy" "$RELEASES_DIR" "$SHARED_PUBLIC_DIR"
 exec 9>"$LOCK_FILE"
 flock -w "${LOCK_WAIT_SECONDS:-180}" 9 || {
   log 'deployment lain masih berjalan'
@@ -288,6 +289,24 @@ if [ "$CURRENT_COLOR" != none ]; then
   CURRENT_SERVICE="app_$CURRENT_COLOR"
   CURRENT_CID="$(service_cid "$CURRENT_SERVICE")"
 fi
+
+preserve_public_uploads() {
+  local temp_dir
+  mkdir -p "$SHARED_PUBLIC_DIR"
+
+  # Versi lama menyimpan Storage::disk('public') di writable layer container.
+  # Sebelum slot lama dibuang, salin apa pun yang masih tersisa ke direktori
+  # bersama. Setelah V20, direktori ini di-mount ke semua slot sehingga upload
+  # pengumuman bertahan melewati deploy/recreate berikutnya.
+  [ -n "$CURRENT_CID" ] || return 0
+  temp_dir="$(mktemp -d)"
+  if docker cp "$CURRENT_CID:/var/www/html/storage/app/public/." "$temp_dir/" 2>/dev/null; then
+    cp -an "$temp_dir/." "$SHARED_PUBLIC_DIR/" 2>/dev/null || true
+    log 'upload publik lama dipertahankan ke shared/public'
+  fi
+  rm -rf "$temp_dir"
+}
+preserve_public_uploads
 
 select_runtime_image() {
   local image_id

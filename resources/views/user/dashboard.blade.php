@@ -40,6 +40,9 @@
             @else
                 <a href="{{ route('topups.index') }}" class="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-black text-white backdrop-blur"><x-icon name="topup" size="size-4" /> Isi Saldo</a>
             @endif
+            <a href="{{ route('ratings.index') }}" class="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-black text-white backdrop-blur transition hover:bg-white/15" title="{{ $canRate ? 'Beri rating untuk transaksi Anda' : 'Lihat rating pelanggan' }}">
+                <span aria-hidden="true">★</span> {{ $canRate ? 'Beri Rating' : 'Lihat Rating' }}
+            </a>
         </div>
     </div>
 </section>
@@ -79,6 +82,17 @@
         <a href="{{ route('topups.index') }}" class="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm font-black text-white shadow-sm transition hover:bg-emerald-500"><x-icon name="topup" size="size-5" /> Isi Saldo</a>
     @endif
 </section>
+
+<a href="{{ route('ratings.index') }}" class="card mt-4 flex items-center justify-between gap-4 p-4 transition hover:-translate-y-0.5 hover:border-amber-300 dark:hover:border-amber-400/30">
+    <span class="flex min-w-0 items-center gap-3">
+        <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-400/10 text-lg text-amber-500">★</span>
+        <span class="min-w-0">
+            <strong class="block text-sm">{{ $canRate ? 'Transaksi selesai — Anda sudah bisa memberi rating' : 'Rating & review pelanggan' }}</strong>
+            <span class="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">{{ $canRate ? 'Bagikan pengalaman Anda. Rating menampilkan bintang, review, foto akun bila tersedia, serta tanggal dan jam.' : 'Form rating otomatis terbuka setelah minimal satu transaksi OTP selesai.' }}</span>
+        </span>
+    </span>
+    <span class="shrink-0 text-xs font-black text-violet-600 dark:text-violet-300">{{ $canRate ? 'Beri rating' : 'Lihat semua' }} →</span>
+</a>
 
 <section class="mt-5 space-y-3">
     <details class="card group overflow-hidden">
