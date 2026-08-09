@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SiteMedia;
 use App\Notifications\EmailOtpNotification;
 use App\Services\AuditService;
-use App\Services\CatalogSyncService;
+use App\Jobs\RepriceSmsVirtualCatalog;
 use App\Services\DuitkuClient;
 use App\Services\MailSettingsConfigurator;
 use App\Services\PakasirClient;
@@ -216,7 +216,9 @@ class SettingsController extends Controller
         $settings->setMany($mapped);
 
         if (in_array($group, ['pricing', 'sms_virtual'], true)) {
-            app(CatalogSyncService::class)->reprice();
+            // Repricing seluruh katalog dapat menyentuh ratusan/ribuan baris.
+            // Jalankan lewat worker Redis agar request Simpan kembali seketika.
+            RepriceSmsVirtualCatalog::dispatch();
         }
 
         if ($group === 'mail') {
@@ -233,10 +235,11 @@ class SettingsController extends Controller
             'keys' => array_keys($mapped),
         ]);
 
-        return back()->with(
-            'success',
-            'Pengaturan berhasil disimpan dan langsung diterapkan.',
-        );
+        $message = in_array($group, ['pricing', 'sms_virtual'], true)
+            ? 'Pengaturan berhasil disimpan. Harga layanan sedang diperbarui di background.'
+            : 'Pengaturan berhasil disimpan dan langsung diterapkan.';
+
+        return back()->with('success', $message);
     }
 
     public function testSms(ProviderBalanceService $providerBalance): RedirectResponse
