@@ -25,12 +25,14 @@
             <article class="rounded-2xl border border-slate-200 border-l-4 {{ $accentClass }} bg-white p-4 sm:p-5 dark:border-y-white/10 dark:border-r-white/10 dark:bg-white/[.025]">
                 <div class="flex flex-wrap items-center gap-2">
                     <x-announcement-category :value="$item->type" />
+                    @if($item->is_pinned)
+                        <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/35 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600 dark:text-amber-300" title="Pengumuman disematkan">📌 Disematkan</span>
+                    @endif
                     <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400"><x-icon name="history" size="size-3.5" /> {{ $item->created_at->format('d M Y (H:i)') }}</span>
-                    @if($item->is_pinned)<span class="text-xs text-amber-500" title="Disematkan">★</span>@endif
                 </div>
                 <h2 class="mt-3 text-lg font-black">{{ $item->title }}</h2>
                 @if($item->imageUrl())
-                    <img src="{{ $item->imageUrl() }}" alt="Gambar {{ $item->title }}" class="mt-4 aspect-video w-full max-w-3xl rounded-2xl border border-slate-200 object-cover dark:border-white/10" loading="lazy" decoding="async">
+                    <img src="{{ $item->imageUrl() }}" alt="Gambar {{ $item->title }}" class="mt-4 aspect-video w-full max-w-3xl rounded-[1.35rem] border border-slate-200 object-cover shadow-sm dark:border-white/10" loading="lazy" decoding="async">
                 @endif
                 <p class="mt-3 max-w-5xl whitespace-pre-line text-sm leading-7 text-slate-600 dark:text-slate-300">{{ $item->body }}</p>
             </article>

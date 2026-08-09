@@ -7,7 +7,9 @@
 <div x-data="{ open: true }" x-show="open" x-cloak class="fixed inset-0 z-[80] grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm">
     <div class="card max-h-[90vh] w-full max-w-2xl overflow-y-auto" @click.outside="open = false">
         @if($loginAnnouncement->imageUrl())
-            <img src="{{ $loginAnnouncement->imageUrl() }}" alt="Gambar {{ $loginAnnouncement->title }}" class="aspect-video w-full rounded-t-3xl object-cover">
+            <div class="px-4 pt-4 sm:px-5 sm:pt-5">
+                <img src="{{ $loginAnnouncement->imageUrl() }}" alt="Gambar {{ $loginAnnouncement->title }}" class="aspect-video w-full rounded-[1.35rem] border border-slate-200 object-cover shadow-sm dark:border-white/10">
+            </div>
         @endif
         <div class="p-6 sm:p-7">
             <div class="flex items-start justify-between gap-4">
@@ -153,10 +155,16 @@
             <article class="rounded-2xl border border-slate-200 border-l-4 {{ $accentClass }} bg-slate-50/70 p-4 dark:border-y-white/10 dark:border-r-white/10 dark:bg-white/[.025]">
                 <div class="flex flex-wrap items-center gap-2">
                     <x-announcement-category :value="$item->type" />
+                    @if($item->is_pinned)
+                        <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/35 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600 dark:text-amber-300" title="Pengumuman disematkan">📌 Disematkan</span>
+                    @endif
                     <span class="text-[10px] font-semibold text-slate-400">{{ $item->created_at->format('d M Y · H:i') }}</span>
                 </div>
                 <h3 class="mt-2 font-black">{{ $item->title }}</h3>
-                <p class="mt-1 line-clamp-3 whitespace-pre-line text-sm leading-6 text-slate-500">{{ $item->body }}</p>
+                @if($item->imageUrl())
+                    <img src="{{ $item->imageUrl() }}" alt="Gambar {{ $item->title }}" class="mt-3 aspect-video w-full max-w-2xl rounded-[1.15rem] border border-slate-200 object-cover shadow-sm dark:border-white/10" loading="lazy" decoding="async">
+                @endif
+                <p class="mt-2 line-clamp-3 whitespace-pre-line text-sm leading-6 text-slate-500">{{ $item->body }}</p>
             </article>
         @empty
             <div class="py-6 text-sm text-slate-500">Belum ada informasi terbaru.</div>
