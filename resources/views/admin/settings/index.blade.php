@@ -19,6 +19,8 @@
     $activeSeoImageUrl = (string) ($values['site.seo_image_url'] ?? '');
     $logoUrlInput = old('logo_url', \Illuminate\Support\Str::startsWith($activeLogoUrl, ['http://', 'https://']) ? $activeLogoUrl : '');
     $seoImageUrlInput = old('seo_image_url', \Illuminate\Support\Str::startsWith($activeSeoImageUrl, ['http://', 'https://']) ? $activeSeoImageUrl : '');
+    $activeSeoImageWidth = (int) ($values['site.seo_image_width'] ?? 0);
+    $activeSeoImageHeight = (int) ($values['site.seo_image_height'] ?? 0);
 @endphp
 @section('content')
 <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -212,12 +214,21 @@
                             </div>
                             <div>
                                 <label class="label">Pilih file META SEO Image</label>
-                                <input class="input" type="file" name="seo_image" accept="image/jpeg,image/png,image/webp">
-                                <p class="mt-1 text-xs text-slate-500">JPG/PNG/WebP maksimal 4 MB. Disarankan 1200×630. Jika URL dan file diisi bersamaan, file lokal yang dipakai.</p>
+                                <input id="seo-image-input" data-seo-image-input class="input" type="file" name="seo_image" accept="image/jpeg,image/png,image/webp">
+                                <p class="mt-1 text-xs text-slate-500">JPG/PNG/WebP maksimal 4 MB. Setelah dipilih, gambar akan dibuka di editor dan dipotong otomatis ke <strong>1200×630 (1,91:1)</strong> agar konsisten untuk preview WhatsApp/Open Graph dan jejaring sosial. File juga dikompres otomatis agar ringan untuk crawler. File lokal tetap diprioritaskan jika URL juga diisi.</p>
+                                <div data-seo-image-status hidden class="mt-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300"></div>
                             </div>
                         </div>
                         @if(filled($activeSeoImageUrl))
-                            <div class="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10"><img src="{{ $activeSeoImageUrl }}" alt="META SEO image aktif" class="aspect-[1.91/1] w-full bg-slate-100 object-cover dark:bg-white/5"><div class="p-3 text-xs font-semibold text-slate-500">Thumbnail META SEO yang sedang aktif, baik dari URL maupun upload lokal.</div></div>
+                            <div class="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10">
+                                <img data-seo-active-preview src="{{ $activeSeoImageUrl }}" alt="META SEO image aktif" class="aspect-[1200/630] w-full bg-slate-100 object-cover dark:bg-white/5">
+                                <div class="flex flex-wrap items-center justify-between gap-2 p-3 text-xs font-semibold text-slate-500">
+                                    <span>Thumbnail META SEO aktif.</span>
+                                    @if($activeSeoImageWidth > 0 && $activeSeoImageHeight > 0)
+                                        <span class="rounded-full bg-slate-100 px-2.5 py-1 font-black text-slate-600 dark:bg-white/5 dark:text-slate-300">{{ $activeSeoImageWidth }}×{{ $activeSeoImageHeight }}</span>
+                                    @endif
+                                </div>
+                            </div>
                         @endif
                     </div>
                 </div>
@@ -273,4 +284,236 @@
     </aside>
 </div>
 @endif
+
+@if($tab === 'site')
+<div data-seo-crop-modal hidden class="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-labelledby="seo-crop-title">
+    <div class="mx-auto flex min-h-full max-w-5xl items-center justify-center">
+        <div class="w-full overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0b1222]">
+            <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-white/10 sm:px-6">
+                <div>
+                    <div class="text-[11px] font-black uppercase tracking-[.18em] text-violet-600 dark:text-violet-300">Thumbnail sosial</div>
+                    <h2 id="seo-crop-title" class="mt-1 text-lg font-black">Sesuaikan gambar 1200×630</h2>
+                    <p class="mt-1 text-xs text-slate-500">Geser gambar dan atur zoom. Area yang terlihat adalah hasil akhir thumbnail.</p>
+                </div>
+                <button type="button" data-seo-crop-cancel class="btn-secondary !size-10 !p-0" aria-label="Tutup editor">×</button>
+            </div>
+
+            <div class="p-4 sm:p-6">
+                <div class="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner dark:border-white/10 dark:bg-slate-950">
+                    <canvas data-seo-crop-canvas width="1200" height="630" class="block aspect-[1200/630] w-full cursor-grab touch-none select-none active:cursor-grabbing"></canvas>
+                </div>
+
+                <div class="mt-5 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <div>
+                        <div class="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-500"><span>Zoom</span><span data-seo-zoom-label>100%</span></div>
+                        <input data-seo-zoom class="w-full accent-violet-600" type="range" min="100" max="300" step="1" value="100">
+                    </div>
+                    <button type="button" data-seo-crop-reset class="btn-secondary">Reset posisi</button>
+                </div>
+
+                <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button type="button" data-seo-crop-cancel class="btn-secondary">Batal</button>
+                    <button type="button" data-seo-crop-apply class="btn-primary">Gunakan thumbnail 1200×630</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+(() => {
+    const input = document.querySelector('[data-seo-image-input]');
+    const modal = document.querySelector('[data-seo-crop-modal]');
+    const canvas = document.querySelector('[data-seo-crop-canvas]');
+    if (!input || !modal || !canvas) return;
+
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const zoomInput = modal.querySelector('[data-seo-zoom]');
+    const zoomLabel = modal.querySelector('[data-seo-zoom-label]');
+    const applyButton = modal.querySelector('[data-seo-crop-apply]');
+    const resetButton = modal.querySelector('[data-seo-crop-reset]');
+    const status = document.querySelector('[data-seo-image-status]');
+    const preview = document.querySelector('[data-seo-active-preview]');
+    const cancelButtons = modal.querySelectorAll('[data-seo-crop-cancel]');
+
+    const OUT_W = 1200;
+    const OUT_H = 630;
+    let image = null;
+    let zoom = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let dragging = false;
+    let pointerX = 0;
+    let pointerY = 0;
+    let previewUrl = null;
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    function geometry() {
+        if (!image) return null;
+        const baseScale = Math.max(OUT_W / image.naturalWidth, OUT_H / image.naturalHeight);
+        const scale = baseScale * zoom;
+        const drawW = image.naturalWidth * scale;
+        const drawH = image.naturalHeight * scale;
+        const limitX = Math.max(0, (drawW - OUT_W) / 2);
+        const limitY = Math.max(0, (drawH - OUT_H) / 2);
+        offsetX = clamp(offsetX, -limitX, limitX);
+        offsetY = clamp(offsetY, -limitY, limitY);
+        return { drawW, drawH, x: (OUT_W - drawW) / 2 + offsetX, y: (OUT_H - drawH) / 2 + offsetY };
+    }
+
+    function draw() {
+        if (!image) return;
+        const g = geometry();
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, OUT_W, OUT_H);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(image, g.x, g.y, g.drawW, g.drawH);
+        zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+    }
+
+    function openModal() {
+        modal.hidden = false;
+        document.documentElement.classList.add('overflow-hidden');
+        document.body.classList.add('overflow-hidden');
+        requestAnimationFrame(draw);
+    }
+
+    function closeModal({ clearInput = false } = {}) {
+        modal.hidden = true;
+        document.documentElement.classList.remove('overflow-hidden');
+        document.body.classList.remove('overflow-hidden');
+        dragging = false;
+        if (clearInput) input.value = '';
+    }
+
+    function resetCrop() {
+        zoom = 1;
+        offsetX = 0;
+        offsetY = 0;
+        zoomInput.value = '100';
+        draw();
+    }
+
+    input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        if (!/^image\/(jpeg|png|webp)$/i.test(file.type || '')) {
+            input.value = '';
+            alert('Gunakan JPG, PNG, atau WebP yang valid.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onerror = () => {
+            input.value = '';
+            alert('Gambar tidak dapat dibaca. Silakan pilih file lain.');
+        };
+        reader.onload = () => {
+            const nextImage = new Image();
+            nextImage.onload = () => {
+                image = nextImage;
+                resetCrop();
+                openModal();
+            };
+            nextImage.onerror = () => {
+                input.value = '';
+                alert('Gambar tidak dapat dibaca. Gunakan JPG, PNG, atau WebP yang valid.');
+            };
+            nextImage.src = String(reader.result || '');
+        };
+        reader.readAsDataURL(file);
+    });
+
+    zoomInput.addEventListener('input', () => {
+        zoom = Number(zoomInput.value || 100) / 100;
+        draw();
+    });
+
+    resetButton.addEventListener('click', resetCrop);
+    cancelButtons.forEach((button) => button.addEventListener('click', () => closeModal({ clearInput: true })));
+
+    canvas.addEventListener('pointerdown', (event) => {
+        if (!image) return;
+        dragging = true;
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+        canvas.setPointerCapture?.(event.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+        if (!dragging || !image) return;
+        const rect = canvas.getBoundingClientRect();
+        const ratio = OUT_W / Math.max(1, rect.width);
+        offsetX += (event.clientX - pointerX) * ratio;
+        offsetY += (event.clientY - pointerY) * ratio;
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+        draw();
+    });
+
+    const endDrag = () => { dragging = false; };
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+
+    applyButton.addEventListener('click', () => {
+        if (!image) return;
+        applyButton.disabled = true;
+        applyButton.textContent = 'Menyiapkan…';
+        draw();
+
+        const finishBlob = (blob) => {
+            applyButton.disabled = false;
+            applyButton.textContent = 'Gunakan thumbnail 1200×630';
+            if (!blob) {
+                alert('Thumbnail gagal dibuat. Coba gunakan gambar lain.');
+                return;
+            }
+
+            try {
+                const output = new File([blob], `seo-thumbnail-${Date.now()}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+                const transfer = new DataTransfer();
+                transfer.items.add(output);
+                input.files = transfer.files;
+            } catch (_) {
+                alert('Browser ini tidak mendukung editor upload. Silakan gunakan Chrome/Edge terbaru.');
+                return;
+            }
+
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            previewUrl = URL.createObjectURL(blob);
+            if (preview) preview.src = previewUrl;
+            if (status) {
+                status.hidden = false;
+                const kb = Math.max(1, Math.round(blob.size / 1024));
+                status.textContent = `Siap diunggah: 1200×630 px · JPEG · ${kb} KB · rasio 1,91:1`;
+            }
+            closeModal();
+        };
+
+        // Mulai 82%. Bila hasil masih berat, turunkan kualitas otomatis supaya
+        // crawler WhatsApp/sosial lebih cepat mengambil OG image.
+        const encode = (quality) => {
+            canvas.toBlob((blob) => {
+                if (!blob) return finishBlob(null);
+                if (blob.size > 300 * 1024 && quality > 0.62) {
+                    encode(Math.max(0.62, quality - 0.06));
+                    return;
+                }
+                finishBlob(blob);
+            }, 'image/jpeg', quality);
+        };
+        encode(0.82);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.hidden) closeModal({ clearInput: true });
+    });
+})();
+</script>
+@endpush
+@endif
+
 @endsection
