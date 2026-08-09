@@ -45,7 +45,7 @@
             </div>
             <label class="btn-secondary cursor-pointer">
                 <span>{{ $announcement->imageUrl() ? 'Ganti gambar' : 'Pilih gambar' }}</span>
-                <input class="sr-only" type="file" name="image" accept="image/jpeg,image/png,image/webp" data-announcement-image-input>
+                <input class="sr-only" type="file" name="image" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/jpg,image/png,image/webp" data-announcement-image-input>
             </label>
         </div>
         <input type="hidden" name="cropped_image" value="" data-announcement-cropped-image>
@@ -177,6 +177,10 @@
     let pointerY = 0;
     let lastSelectedFile = null;
 
+    // V14: jangan bergantung pada blob: URL untuk membaca gambar. CSP production
+    // sebelumnya hanya mengizinkan data:/https:, sehingga file valid dapat memicu
+    // img.onerror dan terlihat seolah-olah format gambarnya rusak. FileReader data URL
+    // bekerja di bawah CSP tersebut dan lebih konsisten di Chrome/Android/WebView.
     const revokeSource = () => {
         if (sourceUrl && sourceUrl.startsWith('blob:')) URL.revokeObjectURL(sourceUrl);
         sourceUrl = '';
@@ -241,8 +245,16 @@
 
     const loadSource = (url, file = null) => {
         cropImage.onload = () => {
+            cropImage.onload = null;
+            cropImage.onerror = null;
             naturalWidth = cropImage.naturalWidth;
             naturalHeight = cropImage.naturalHeight;
+
+            if (!naturalWidth || !naturalHeight) {
+                alert('Ukuran gambar tidak dapat dibaca. Silakan pilih JPG, PNG, atau WebP lain.');
+                return;
+            }
+
             centerX = naturalWidth / 2;
             centerY = naturalHeight / 2;
             zoom = 100;
@@ -251,23 +263,50 @@
             openModal();
         };
         cropImage.onerror = () => {
-            alert('Gambar tidak dapat dibaca. Gunakan JPG, PNG, atau WebP yang valid.');
+            cropImage.onload = null;
+            cropImage.onerror = null;
+            alert('Browser gagal membuka gambar tersebut. Pastikan file benar-benar JPG, PNG, atau WebP (bukan HEIC/AVIF yang hanya berganti nama).');
         };
         cropImage.src = url;
     };
 
-    fileInput.addEventListener('change', () => {
+    const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('empty-result'));
+        reader.onerror = () => reject(reader.error || new Error('file-reader-error'));
+        reader.readAsDataURL(file);
+    });
+
+    const supportedFile = (file) => {
+        const mime = String(file.type || '').toLowerCase();
+        if (/^image\/(jpeg|jpg|png|webp)$/.test(mime)) return true;
+        // Beberapa file picker Android tidak mengirim MIME type. Ekstensi dipakai
+        // hanya sebagai fallback UI; validasi image Laravel tetap memeriksa isi file.
+        return /\.(jpe?g|png|webp)$/i.test(String(file.name || ''));
+    };
+
+    fileInput.addEventListener('change', async () => {
         const file = fileInput.files?.[0];
         if (!file) return;
-        if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+        if (!supportedFile(file)) {
             alert('Gunakan file JPG, PNG, atau WebP.');
             fileInput.value = '';
             return;
         }
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Ukuran gambar maksimum 5 MB.');
+            fileInput.value = '';
+            return;
+        }
 
-        revokeSource();
-        sourceUrl = URL.createObjectURL(file);
-        loadSource(sourceUrl, file);
+        try {
+            revokeSource();
+            sourceUrl = await readFileAsDataUrl(file);
+            loadSource(sourceUrl, file);
+        } catch (_) {
+            alert('File gambar tidak dapat dibaca oleh browser. Coba pilih ulang atau simpan ulang sebagai JPG/PNG/WebP.');
+            fileInput.value = '';
+        }
     });
 
     zoomInput.addEventListener('input', () => {
@@ -339,6 +378,8 @@
             canvas.height
         );
 
+        const previewDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
         canvas.toBlob((blob) => {
             if (!blob) {
                 applyButton.disabled = false;
@@ -347,8 +388,9 @@
                 return;
             }
 
-            const previewUrl = URL.createObjectURL(blob);
-            preview.src = previewUrl;
+            // Preview memakai data: URL agar tidak ditolak CSP pada browser yang
+            // masih memuat konfigurasi lama. blob tetap dipakai hanya sebagai payload File.
+            preview.src = previewDataUrl;
             previewWrap.classList.remove('hidden');
             if (recropButton) recropButton.hidden = false;
 
@@ -360,11 +402,11 @@
                     fileInput.files = transfer.files;
                     croppedInput.value = '';
                 } else {
-                    croppedInput.value = canvas.toDataURL('image/jpeg', 0.9);
+                    croppedInput.value = previewDataUrl;
                     fileInput.value = '';
                 }
             } catch (_) {
-                croppedInput.value = canvas.toDataURL('image/jpeg', 0.9);
+                croppedInput.value = previewDataUrl;
                 fileInput.value = '';
             }
 
@@ -374,14 +416,18 @@
         }, 'image/jpeg', 0.9);
     });
 
-    recropButton?.addEventListener('click', () => {
+    recropButton?.addEventListener('click', async () => {
         if (sourceUrl) {
-            openModal();
+            loadSource(sourceUrl, lastSelectedFile);
             return;
         }
         if (lastSelectedFile) {
-            sourceUrl = URL.createObjectURL(lastSelectedFile);
-            loadSource(sourceUrl, lastSelectedFile);
+            try {
+                sourceUrl = await readFileAsDataUrl(lastSelectedFile);
+                loadSource(sourceUrl, lastSelectedFile);
+            } catch (_) {
+                fileInput.click();
+            }
             return;
         }
         if (preview.src) {
