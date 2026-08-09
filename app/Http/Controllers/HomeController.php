@@ -16,7 +16,7 @@ class HomeController extends Controller
     public function index(): View
     {
         $publicCounts = Cache::remember(
-            'catalog:public-counts:v3',
+            'catalog:public-counts:v4',
             now()->addMinute(),
             fn (): array => [
                 'services' => SmsService::query()
@@ -25,9 +25,64 @@ class HomeController extends Controller
                 'countries' => SmsCountry::query()
                     ->where('is_active', true)
                     ->count(),
-                // Angka pengguna ditampilkan dari data aktual, bukan angka buatan.
-                'users' => User::query()->count(),
+                // Baseline tampilan pengguna dimulai dari 50, lalu ditambah jumlah akun aktual.
+                'users' => 50 + User::query()->count(),
             ],
+        );
+
+        $otpPreviewServices = Cache::remember(
+            'catalog:home-otp-preview-services:v1',
+            now()->addMinutes(15),
+            function (): array {
+                $preferred = ['whatsapp', 'telegram', 'google'];
+
+                $services = SmsService::query()
+                    ->where('is_active', true)
+                    ->whereNotNull('icon_url')
+                    ->where('icon_url', '<>', '')
+                    ->where(function ($query) use ($preferred): void {
+                        foreach ($preferred as $needle) {
+                            $query->orWhereRaw('LOWER(name) LIKE ?', ['%'.$needle.'%']);
+                        }
+                    })
+                    ->get(['id', 'name', 'icon_url']);
+
+                $ordered = collect($preferred)
+                    ->map(fn (string $needle) => $services->first(
+                        fn (SmsService $service): bool => str_contains(
+                            mb_strtolower($service->name),
+                            $needle,
+                        ),
+                    ))
+                    ->filter()
+                    ->values();
+
+                if ($ordered->count() < 3) {
+                    $fallback = SmsService::query()
+                        ->where('is_active', true)
+                        ->whereNotNull('icon_url')
+                        ->where('icon_url', '<>', '')
+                        ->when(
+                            $ordered->isNotEmpty(),
+                            fn ($query) => $query->whereNotIn('id', $ordered->pluck('id')),
+                        )
+                        ->orderBy('name')
+                        ->limit(3 - $ordered->count())
+                        ->get(['id', 'name', 'icon_url']);
+
+                    $ordered = $ordered->concat($fallback)->values();
+                }
+
+                return $ordered
+                    ->unique('id')
+                    ->take(3)
+                    ->map(fn (SmsService $service): array => [
+                        'name' => $service->name,
+                        'icon_url' => $service->icon_url,
+                    ])
+                    ->values()
+                    ->all();
+            },
         );
 
         return view('home', [
@@ -38,6 +93,7 @@ class HomeController extends Controller
             'serviceCount' => $publicCounts['services'],
             'countryCount' => $publicCounts['countries'],
             'userCount' => $publicCounts['users'],
+            'otpPreviewServices' => $otpPreviewServices,
         ]);
     }
 

@@ -1,5 +1,26 @@
 @extends('layouts.guest')
-@php($title = $siteName)
+@php
+    $title = $siteName;
+    $otpSampleCodes = ['842 193', '517 406', '291 684'];
+    $otpSamples = collect($otpPreviewServices ?? [])
+        ->values()
+        ->map(fn ($service, $index) => [
+            'name' => (string) ($service['name'] ?? 'Layanan OTP'),
+            'icon_url' => (string) ($service['icon_url'] ?? ''),
+            'code' => $otpSampleCodes[$index % count($otpSampleCodes)],
+        ])
+        ->all();
+
+    if ($otpSamples === []) {
+        $otpSamples = [[
+            'name' => 'Layanan OTP',
+            'icon_url' => '',
+            'code' => $otpSampleCodes[0],
+        ]];
+    }
+
+    $firstOtpSample = $otpSamples[0];
+@endphp
 @section('content')
 <section class="page-grid relative overflow-hidden">
     <div class="mx-auto grid min-h-[720px] max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:py-24">
@@ -38,18 +59,12 @@
                         <div>
                             <div class="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">Verifikasi aman</div>
                             <h2 class="mt-2 text-2xl font-black">OTP diterima langsung</h2>
-                            <p class="mt-2 max-w-sm text-xs leading-5 text-slate-300">Contoh alur verifikasi WhatsApp melalui nomor virtual.</p>
+                            <p class="mt-2 max-w-sm text-xs leading-5 text-slate-300">Contoh alur OTP dari layanan populer melalui nomor virtual.</p>
                         </div>
                         <span class="grid size-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[.07]"><x-icon name="shield" size="size-6" /></span>
                     </div>
 
-                    <div class="otp-stage mt-6" aria-label="Animasi alur pengguna meminta OTP, web memverifikasi, lalu SMS WhatsApp masuk">
-                        <div class="otp-service-row" aria-label="Contoh layanan OTP">
-                            <span class="otp-service-chip otp-service-chip-active"><span class="otp-service-dot bg-emerald-400"></span> WhatsApp</span>
-                            <span class="otp-service-chip"><span class="otp-service-dot bg-sky-400"></span> Telegram</span>
-                            <span class="otp-service-chip"><span class="otp-service-dot bg-amber-300"></span> Google</span>
-                        </div>
-
+                    <div class="otp-stage mt-6" aria-label="Animasi alur pengguna meminta OTP, web memverifikasi, lalu SMS layanan masuk">
                         <div class="otp-flow-clean">
                             <div class="otp-step otp-step-user">
                                 <span class="otp-step-number">01</span>
@@ -77,21 +92,44 @@
                             </div>
                         </div>
 
-                        <div class="otp-message">
+                        <div class="otp-message" data-otp-preview>
                             <div class="otp-message-head">
                                 <div class="flex min-w-0 items-center gap-3">
-                                    <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-400/15 text-emerald-200"><x-icon name="check" size="size-5" /></span>
+                                    <span class="otp-service-logo" aria-hidden="true">
+                                        @foreach($otpSamples as $index => $sample)
+                                            @if(filled($sample['icon_url']))
+                                                <img
+                                                    src="{{ $sample['icon_url'] }}"
+                                                    alt=""
+                                                    class="otp-service-logo-item {{ $index === 0 ? 'is-active' : '' }}"
+                                                    data-otp-logo
+                                                    data-service-name="{{ $sample['name'] }}"
+                                                    data-code="{{ $sample['code'] }}"
+                                                    loading="{{ $index === 0 ? 'eager' : 'lazy' }}"
+                                                    decoding="async"
+                                                    referrerpolicy="no-referrer"
+                                                >
+                                            @else
+                                                <span
+                                                    class="otp-service-logo-item otp-service-logo-fallback {{ $index === 0 ? 'is-active' : '' }}"
+                                                    data-otp-logo
+                                                    data-service-name="{{ $sample['name'] }}"
+                                                    data-code="{{ $sample['code'] }}"
+                                                ></span>
+                                            @endif
+                                        @endforeach
+                                    </span>
                                     <div class="min-w-0">
-                                        <div class="truncate text-sm font-black text-white">WhatsApp</div>
+                                        <div class="truncate text-sm font-black text-white" data-otp-service-name>{{ $firstOtpSample['name'] }}</div>
                                         <div class="mt-0.5 text-[10px] font-bold uppercase tracking-[.14em] text-cyan-300">SMS verifikasi diterima</div>
                                     </div>
                                 </div>
                                 <span class="otp-live-pill"><span></span> Live</span>
                             </div>
                             <div class="otp-message-body">
-                                <p class="text-xs leading-5 text-slate-300">Kode verifikasi WhatsApp Anda:</p>
+                                <p class="text-xs leading-5 text-slate-300">Kode verifikasi <span data-otp-service-inline>{{ $firstOtpSample['name'] }}</span> Anda:</p>
                                 <div class="mt-2 flex items-end justify-between gap-3">
-                                    <strong class="font-mono text-2xl font-black tracking-[.22em] text-white sm:text-3xl">842 193</strong>
+                                    <strong class="font-mono text-2xl font-black tracking-[.22em] text-white sm:text-3xl" data-otp-code>{{ $firstOtpSample['code'] }}</strong>
                                     <span class="text-[10px] font-semibold text-slate-400">Jangan bagikan kode ini</span>
                                 </div>
                             </div>
@@ -102,7 +140,7 @@
                 <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div class="card-soft p-3 text-center"><div data-count-to="{{ (int) $serviceCount }}" data-count-suffix="+" class="text-lg font-black text-violet-600 dark:text-violet-300">0+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Layanan</div></div>
                     <div class="card-soft p-3 text-center"><div data-count-to="{{ (int) $countryCount }}" data-count-suffix="+" class="text-lg font-black text-violet-600 dark:text-violet-300">0+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Negara</div></div>
-                    <div class="card-soft p-3 text-center"><div data-count-to="{{ (int) $userCount }}" data-count-suffix="+" class="text-lg font-black text-violet-600 dark:text-violet-300">0+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pengguna</div></div>
+                    <div class="card-soft p-3 text-center"><div data-count-from="50" data-count-to="{{ (int) $userCount }}" data-count-suffix="+" class="text-lg font-black text-violet-600 dark:text-violet-300">50+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pengguna</div></div>
                     <div class="card-soft p-3 text-center"><div data-count-to="24" data-count-suffix="/7" class="text-lg font-black text-violet-600 dark:text-violet-300">0/7</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pemantauan</div></div>
                 </div>
             </div>
@@ -210,11 +248,7 @@
 @push('head')
 <style>
     .otp-stage { overflow: hidden; border: 1px solid rgba(148,163,184,.13); border-radius: 1.25rem; background: linear-gradient(180deg, rgba(15,23,42,.42), rgba(2,6,23,.25)); padding: .85rem; }
-    .otp-service-row { display: flex; flex-wrap: wrap; gap: .45rem; padding: .1rem .1rem .85rem; border-bottom: 1px solid rgba(148,163,184,.12); }
-    .otp-service-chip { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid rgba(148,163,184,.13); border-radius: 999px; background: rgba(15,23,42,.38); padding: .38rem .6rem; font-size: .62rem; font-weight: 800; color: rgba(226,232,240,.66); }
-    .otp-service-chip-active { border-color: rgba(52,211,153,.25); background: rgba(16,185,129,.09); color: #d1fae5; }
-    .otp-service-dot { width: .42rem; height: .42rem; border-radius: 999px; box-shadow: 0 0 0 4px rgba(255,255,255,.025); }
-    .otp-flow-clean { display: grid; grid-template-columns: minmax(0,1fr) 38px minmax(0,1fr) 38px minmax(0,1fr); align-items: center; gap: .45rem; padding: 1rem .1rem .85rem; }
+    .otp-flow-clean { display: grid; grid-template-columns: minmax(0,1fr) 38px minmax(0,1fr) 38px minmax(0,1fr); align-items: center; gap: .45rem; padding: .2rem .1rem .85rem; }
     .otp-step { position: relative; min-width: 0; border: 1px solid rgba(148,163,184,.12); border-radius: 1rem; background: rgba(30,41,59,.38); padding: .72rem .45rem .68rem; text-align: center; box-shadow: inset 0 1px 0 rgba(255,255,255,.025); opacity: .62; animation: otpCleanStep 6.6s ease-in-out infinite; }
     .otp-step-web { animation-delay: 1.8s; }
     .otp-step-sms { animation-delay: 3.6s; }
@@ -228,6 +262,12 @@
     .otp-connector span { position: absolute; right: -1px; top: 50%; width: 6px; height: 6px; border-top: 2px solid rgba(103,232,249,.55); border-right: 2px solid rgba(103,232,249,.55); transform: translateY(-50%) rotate(45deg); }
     .otp-message { margin-top: .25rem; overflow: hidden; border: 1px solid rgba(103,232,249,.16); border-radius: 1rem; background: rgba(15,23,42,.62); box-shadow: 0 14px 38px rgba(2,6,23,.17); opacity: .5; transform: translateY(6px); animation: otpCleanMessage 6.6s ease-in-out infinite; }
     .otp-message-head { display: flex; align-items: center; justify-content: space-between; gap: .7rem; padding: .75rem .8rem; border-bottom: 1px solid rgba(148,163,184,.10); }
+    .otp-service-logo { position: relative; display: grid; width: 2.65rem; height: 2.65rem; flex-shrink: 0; place-items: center; overflow: hidden; border: 1px solid rgba(255,255,255,.16); border-radius: .82rem; background: rgba(255,255,255,.96); box-shadow: 0 8px 22px rgba(2,6,23,.22); }
+    .otp-service-logo-item { position: absolute; inset: .38rem; width: calc(100% - .76rem); height: calc(100% - .76rem); object-fit: contain; opacity: 0; transform: scale(.84); transition: opacity .2s ease, transform .2s ease; }
+    .otp-service-logo-item.is-active { opacity: 1; transform: scale(1); }
+    .otp-service-logo-fallback { inset: .48rem; width: calc(100% - .96rem); height: calc(100% - .96rem); border-radius: .45rem; background: linear-gradient(135deg, #7c3aed, #06b6d4); }
+    .otp-message [data-otp-service-name], .otp-message [data-otp-service-inline], .otp-message [data-otp-code] { transition: opacity .16s ease, transform .16s ease; }
+    .otp-message.otp-message-switching [data-otp-service-name], .otp-message.otp-message-switching [data-otp-service-inline], .otp-message.otp-message-switching [data-otp-code] { opacity: .25; transform: translateY(2px); }
     .otp-message-body { padding: .8rem; }
     .otp-live-pill { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; background: rgba(16,185,129,.10); padding: .28rem .5rem; font-size: .52rem; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; color: #a7f3d0; }
     .otp-live-pill span { width: .4rem; height: .4rem; border-radius: 999px; background: #34d399; box-shadow: 0 0 0 4px rgba(52,211,153,.10); animation: otpLive 1.2s ease-in-out infinite; }
@@ -243,7 +283,6 @@
         .otp-step-title { font-size:.65rem; }
         .otp-step-copy { font-size:.48rem; }
         .otp-step-number { display:none; }
-        .otp-service-chip { font-size:.56rem; padding:.34rem .5rem; }
     }
     @media (prefers-reduced-motion: reduce) {
         .otp-step, .otp-connector::after, .otp-message, .otp-live-pill span { animation:none !important; }
@@ -251,5 +290,41 @@
         .otp-connector::after { width:100%; opacity:.65; }
     }
 </style>
+@endpush
+
+@push('scripts')
+<script>
+(() => {
+    const root = document.querySelector('[data-otp-preview]');
+    if (!root) return;
+
+    const logos = Array.from(root.querySelectorAll('[data-otp-logo]'));
+    if (logos.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const name = root.querySelector('[data-otp-service-name]');
+    const inlineName = root.querySelector('[data-otp-service-inline]');
+    const code = root.querySelector('[data-otp-code]');
+    let index = 0;
+
+    window.setInterval(() => {
+        root.classList.add('otp-message-switching');
+
+        window.setTimeout(() => {
+            logos[index]?.classList.remove('is-active');
+            index = (index + 1) % logos.length;
+            const active = logos[index];
+            active?.classList.add('is-active');
+
+            const serviceName = active?.dataset.serviceName || 'Layanan OTP';
+            const otpCode = active?.dataset.code || '842 193';
+            if (name) name.textContent = serviceName;
+            if (inlineName) inlineName.textContent = serviceName;
+            if (code) code.textContent = otpCode;
+
+            root.classList.remove('otp-message-switching');
+        }, 170);
+    }, 6600);
+})();
+</script>
 @endpush
 @endsection

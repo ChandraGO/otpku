@@ -142,6 +142,7 @@
 
     const animateCounter = (element) => {
         const target = Number(element.dataset.countTo || 0);
+        const start = Number(element.dataset.countFrom || 0);
         const duration = Number(element.dataset.countDuration || 1100);
         const suffix = element.dataset.countSuffix || '';
         const prefix = element.dataset.countPrefix || '';
@@ -150,7 +151,8 @@
         const frame = (now) => {
             const progress = Math.min((now - started) / duration, 1);
             const eased = 1 - Math.pow(1 - progress, 3);
-            element.textContent = prefix + formatter.format(Math.round(target * eased)) + suffix;
+            const current = start + ((target - start) * eased);
+            element.textContent = prefix + formatter.format(Math.round(current)) + suffix;
             if (progress < 1) requestAnimationFrame(frame);
         };
         requestAnimationFrame(frame);
