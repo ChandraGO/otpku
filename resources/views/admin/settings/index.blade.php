@@ -173,10 +173,17 @@
                             <p class="mt-1 text-xs text-slate-500">JPG/PNG/WebP maksimal 4 MB. Untuk tampil paling cepat di HP, upload file lokal lebih disarankan daripada URL eksternal.</p>
                         </div>
                     </div>
-                    <div class="mt-4 max-w-sm">
-                        <label class="label">Perbesaran logo (%)</label>
-                        <input class="input" type="number" name="logo_zoom" min="100" max="400" step="10" value="{{ $v('logo_zoom',240) }}">
-                        <p class="mt-1 text-xs text-slate-500">Default 240%. Naikkan jika file logo memiliki ruang kosong/transparan yang besar; turunkan jika logo terpotong.</p>
+                    <div class="mt-4 grid max-w-2xl gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="label">Perbesaran logo (%)</label>
+                            <input class="input" type="number" name="logo_zoom" min="100" max="400" step="10" value="{{ $v('logo_zoom',240) }}">
+                            <p class="mt-1 text-xs text-slate-500">Naikkan jika file logo memiliki ruang transparan besar; turunkan jika logo terpotong.</p>
+                        </div>
+                        <div>
+                            <label class="label">Posisi logo di HP (%)</label>
+                            <input class="input" type="number" name="logo_mobile_shift" min="-45" max="45" step="1" value="{{ $v('logo_mobile_shift',-30) }}">
+                            <p class="mt-1 text-xs text-slate-500">Nilai negatif menggeser logo ke kiri. Default -30% agar wordmark lebih dekat ke tepi layar.</p>
+                        </div>
                     </div>
                     @if(filled($activeLogoUrl))
                         <div class="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 dark:border-white/10">

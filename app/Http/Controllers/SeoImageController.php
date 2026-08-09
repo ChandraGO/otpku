@@ -25,10 +25,15 @@ class SeoImageController extends Controller
         $binary = base64_decode((string) $media->data_base64, true);
         abort_if($binary === false, 404);
 
+        // URL media lokal selalu memakai query ?v=<timestamp> saat file berubah.
+        // Karena itu aset dapat dicache lama. ETag tidak lagi menghitung hash
+        // seluruh base64 pada setiap request sehingga logo lebih cepat muncul di HP.
+        $etag = '"'.sha1($media->id.'|'.$media->updated_at?->getTimestamp().'|'.$media->mime_type).'"';
+
         return response($binary, 200, [
             'Content-Type' => $media->mime_type ?: 'image/png',
-            'Cache-Control' => 'public, max-age=86400',
-            'ETag' => '"'.sha1((string) $media->updated_at?->timestamp.'|'.$media->data_base64).'"',
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+            'ETag' => $etag,
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

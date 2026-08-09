@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SmsCountry;
 use App\Models\SmsService;
+use App\Models\User;
 use App\Support\CatalogSummary;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -14,8 +15,8 @@ class HomeController extends Controller
 {
     public function index(): View
     {
-        $catalogCounts = Cache::remember(
-            'catalog:public-counts:v2',
+        $publicCounts = Cache::remember(
+            'catalog:public-counts:v3',
             now()->addMinute(),
             fn (): array => [
                 'services' => SmsService::query()
@@ -24,6 +25,8 @@ class HomeController extends Controller
                 'countries' => SmsCountry::query()
                     ->where('is_active', true)
                     ->count(),
+                // Angka pengguna ditampilkan dari data aktual, bukan angka buatan.
+                'users' => User::query()->count(),
             ],
         );
 
@@ -32,8 +35,9 @@ class HomeController extends Controller
                 ->orderByDesc('catalog_price_stats.total_stock')
                 ->limit(8)
                 ->get(),
-            'serviceCount' => $catalogCounts['services'],
-            'countryCount' => $catalogCounts['countries'],
+            'serviceCount' => $publicCounts['services'],
+            'countryCount' => $publicCounts['countries'],
+            'userCount' => $publicCounts['users'],
         ]);
     }
 

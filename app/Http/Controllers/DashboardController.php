@@ -42,6 +42,10 @@ class DashboardController extends Controller
             }
         }
 
+        $orders = OtpOrder::query()->where('user_id', $user->id);
+        $monthStart = now()->startOfMonth();
+        $monthEnd = now()->endOfMonth();
+
         return view('user.dashboard', [
             'user' => $user,
             'loginAnnouncement' => $loginAnnouncement,
@@ -51,12 +55,15 @@ class DashboardController extends Controller
             'dashboardBalanceAvailable' => $user->isAdmin()
                 ? (bool) $adminProviderBalance['available']
                 : true,
-            'dashboardBalanceLabel' => $user->isAdmin() ? 'Saldo penyedia' : 'Saldo tersedia',
+            'dashboardBalanceLabel' => $user->isAdmin() ? 'Saldo penyedia' : 'Sisa saldo',
             'dashboardBalanceSource' => $user->isAdmin() ? $adminProviderBalance['source'] : 'wallet',
             'dashboardBalanceCheckedAt' => $user->isAdmin() ? $adminProviderBalance['checked_at'] : null,
             'dashboardBalanceError' => $user->isAdmin() ? $adminProviderBalance['error'] : null,
-            'activeOrders' => OtpOrder::query()
-                ->where('user_id', $user->id)
+            'totalOrders' => (clone $orders)->count(),
+            'totalSpent' => (float) (clone $orders)
+                ->whereNotIn('status', ['cancelled', 'refunded', 'failed'])
+                ->sum('sell_price'),
+            'activeOrders' => (clone $orders)
                 ->whereNotIn('status', [
                     'completed',
                     'cancelled',
@@ -66,6 +73,30 @@ class DashboardController extends Controller
                 ])
                 ->latest()
                 ->limit(5)
+                ->get(),
+            'recentOrders' => (clone $orders)
+                ->latest()
+                ->limit(5)
+                ->get(),
+            'topServices' => (clone $orders)
+                ->select('service_name')
+                ->selectRaw('COUNT(*) AS total')
+                ->groupBy('service_name')
+                ->orderByDesc('total')
+                ->limit(10)
+                ->get(),
+            'monthFrequentServices' => (clone $orders)
+                ->whereBetween('created_at', [$monthStart, $monthEnd])
+                ->select('service_name')
+                ->selectRaw('COUNT(*) AS total')
+                ->groupBy('service_name')
+                ->orderByDesc('total')
+                ->limit(8)
+                ->get(),
+            'monthRecentOrders' => (clone $orders)
+                ->whereBetween('created_at', [$monthStart, $monthEnd])
+                ->latest()
+                ->limit(8)
                 ->get(),
             'recentTransactions' => WalletTransaction::query()
                 ->where('user_id', $user->id)
@@ -81,6 +112,11 @@ class DashboardController extends Controller
             'featuredServices' => CatalogSummary::query()
                 ->orderByDesc('catalog_price_stats.total_stock')
                 ->limit(8)
+                ->get(),
+            'latestAnnouncements' => Announcement::visible()
+                ->orderByDesc('is_pinned')
+                ->latest()
+                ->limit(6)
                 ->get(),
         ]);
     }

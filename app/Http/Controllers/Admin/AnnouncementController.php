@@ -67,7 +67,7 @@ class AnnouncementController extends Controller
             'body' => ['required', 'string', 'max:10000'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'dimensions:ratio=16/9'],
             'remove_image' => ['nullable', 'boolean'],
-            'type' => ['required', Rule::in(['info', 'success', 'warning', 'danger'])],
+            'type' => ['required', Rule::in(['info', 'important', 'news', 'update', 'deposit', 'service', 'success', 'warning', 'danger'])],
             'is_active' => ['nullable', 'boolean'],
             'is_pinned' => ['nullable', 'boolean'],
             'starts_at' => ['nullable', 'date'],

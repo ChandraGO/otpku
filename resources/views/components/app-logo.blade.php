@@ -3,6 +3,7 @@
     $isSidebar = $variant === 'sidebar';
     $zoomPercent = max(100, min(400, (int) ($siteLogoZoom ?? 240)));
     $zoomScale = $zoomPercent / 100;
+    $mobileShift = max(-45, min(45, (int) ($siteLogoMobileShift ?? -30)));
 
     $wrapperClass = $isSidebar
         ? 'flex w-full min-w-0 items-center'
@@ -11,16 +12,18 @@
     $logoFrameStyle = $isSidebar
         ? 'width:100%;max-width:252px;height:104px;'
         : ($compact
-            ? 'width:min(58vw,210px);height:58px;'
+            ? 'width:min(61vw,220px);height:62px;'
             : 'width:min(72vw,300px);height:72px;');
+
+    $transform = $compact
+        ? 'translateX('.$mobileShift.'%) scale('.number_format($zoomScale, 2, '.', '').')'
+        : 'scale('.number_format($zoomScale, 2, '.', '').')';
+
+    $transformOrigin = $compact ? 'left center' : 'center center';
+    $objectPosition = $compact ? 'left center' : 'center center';
 @endphp
 <span {{ $attributes->merge(['class' => $wrapperClass]) }}>
     @if(filled($siteLogoUrl ?? null))
-        {{--
-            Banyak logo hasil ekspor memiliki canvas/ruang transparan yang lebar.
-            Frame + zoom membuat wordmark tetap terbaca besar tanpa mengubah file asli.
-            Nilai zoom dapat diatur dari Admin > Situs & SEO.
-        --}}
         <span
             class="relative block min-w-0 overflow-hidden"
             style="{{ $logoFrameStyle }}"
@@ -32,7 +35,7 @@
                 width="300"
                 height="104"
                 class="absolute inset-0 block h-full w-full object-contain"
-                style="object-position:center center;transform:scale({{ number_format($zoomScale, 2, '.', '') }});transform-origin:center center;"
+                style="object-position:{{ $objectPosition }};transform:{{ $transform }};transform-origin:{{ $transformOrigin }};"
                 referrerpolicy="no-referrer"
                 loading="eager"
                 fetchpriority="high"

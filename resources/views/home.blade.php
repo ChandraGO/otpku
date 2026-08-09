@@ -11,6 +11,9 @@
             <h1 class="text-balance mt-7 max-w-3xl text-4xl font-black leading-[1.08] tracking-tight text-slate-950 dark:text-white sm:text-6xl lg:text-7xl">
                 Aktivasi SMS OTP virtual, cepat dan mudah dipantau.
             </h1>
+            <p class="mt-5 max-w-2xl text-base font-medium leading-7 text-slate-600 dark:text-slate-300 sm:text-lg sm:leading-8">
+                Pilih layanan dan negara, terima nomor virtual, lalu pantau SMS serta kode OTP dari satu halaman dengan status transaksi yang jelas.
+            </p>
             <div class="mt-9 flex flex-wrap gap-3">
                 @auth
                     <a href="{{ route('services.index') }}" class="btn-primary">Pilih layanan <x-icon name="arrow-right" size="size-4" /></a>
@@ -30,50 +33,76 @@
         <div class="relative">
             <div class="absolute -inset-8 rounded-full bg-gradient-to-br from-violet-500/20 to-cyan-400/20 blur-3xl"></div>
             <div class="card relative overflow-hidden p-4 sm:p-6">
-                <div class="rounded-[1.4rem] bg-gradient-to-br from-[#1d2742] via-[#253554] to-[#19243b] p-5 text-white sm:p-7">
-                    <div class="flex items-center justify-between">
+                <div class="rounded-[1.4rem] bg-gradient-to-br from-[#17233d] via-[#203252] to-[#152039] p-5 text-white sm:p-7">
+                    <div class="flex items-start justify-between gap-4">
                         <div>
                             <div class="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">Verifikasi aman</div>
                             <h2 class="mt-2 text-2xl font-black">OTP diterima langsung</h2>
+                            <p class="mt-2 max-w-sm text-xs leading-5 text-slate-300">Contoh alur verifikasi WhatsApp melalui nomor virtual.</p>
                         </div>
-                        <span class="grid size-12 place-items-center rounded-2xl bg-white/10"><x-icon name="shield" size="size-7" /></span>
+                        <span class="grid size-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[.07]"><x-icon name="shield" size="size-6" /></span>
                     </div>
-                    <div class="otp-flow mt-6" aria-label="Animasi alur User ke Web lalu menerima SMS OTP">
-                        <div class="otp-flow-line" aria-hidden="true"></div>
-                        <span class="otp-flow-pulse otp-flow-pulse-a" aria-hidden="true"></span>
-                        <span class="otp-flow-pulse otp-flow-pulse-b" aria-hidden="true"></span>
 
-                        <div class="relative z-10 grid grid-cols-3 items-center gap-3 sm:gap-5">
-                            <div class="otp-flow-node otp-flow-user">
-                                <span class="otp-flow-icon"><x-icon name="user" size="size-7" /></span>
-                                <span class="otp-flow-label">User</span>
-                                <span class="otp-flow-state">Minta OTP</span>
+                    <div class="otp-stage mt-6" aria-label="Animasi alur pengguna meminta OTP, web memverifikasi, lalu SMS WhatsApp masuk">
+                        <div class="otp-service-row" aria-label="Contoh layanan OTP">
+                            <span class="otp-service-chip otp-service-chip-active"><span class="otp-service-dot bg-emerald-400"></span> WhatsApp</span>
+                            <span class="otp-service-chip"><span class="otp-service-dot bg-sky-400"></span> Telegram</span>
+                            <span class="otp-service-chip"><span class="otp-service-dot bg-amber-300"></span> Google</span>
+                        </div>
+
+                        <div class="otp-flow-clean">
+                            <div class="otp-step otp-step-user">
+                                <span class="otp-step-number">01</span>
+                                <span class="otp-step-icon"><x-icon name="user" size="size-6" /></span>
+                                <span class="otp-step-title">User</span>
+                                <span class="otp-step-copy">Minta OTP</span>
                             </div>
-                            <div class="otp-flow-node otp-flow-web">
-                                <span class="otp-flow-icon"><x-icon name="globe" size="size-7" /></span>
-                                <span class="otp-flow-label">Web</span>
-                                <span class="otp-flow-state">Verifikasi</span>
+
+                            <div class="otp-connector otp-connector-a" aria-hidden="true"><span></span></div>
+
+                            <div class="otp-step otp-step-web">
+                                <span class="otp-step-number">02</span>
+                                <span class="otp-step-icon"><x-icon name="globe" size="size-6" /></span>
+                                <span class="otp-step-title">Web</span>
+                                <span class="otp-step-copy">Verifikasi</span>
                             </div>
-                            <div class="otp-flow-node otp-flow-sms">
-                                <span class="otp-flow-icon"><x-icon name="mail" size="size-7" /></span>
-                                <span class="otp-flow-label">SMS</span>
-                                <span class="otp-flow-state">OTP masuk</span>
+
+                            <div class="otp-connector otp-connector-b" aria-hidden="true"><span></span></div>
+
+                            <div class="otp-step otp-step-sms">
+                                <span class="otp-step-number">03</span>
+                                <span class="otp-step-icon"><x-icon name="mail" size="size-6" /></span>
+                                <span class="otp-step-title">SMS</span>
+                                <span class="otp-step-copy">OTP masuk</span>
                             </div>
                         </div>
 
-                        <div class="otp-sms-card">
-                            <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-cyan-300/15 text-cyan-200"><x-icon name="check" size="size-5" /></span>
-                            <div class="min-w-0 flex-1">
-                                <div class="text-[10px] font-black uppercase tracking-[.16em] text-cyan-300">SMS diterima</div>
-                                <div class="mt-1 font-mono text-lg font-black tracking-[.22em] text-white">842 193</div>
+                        <div class="otp-message">
+                            <div class="otp-message-head">
+                                <div class="flex min-w-0 items-center gap-3">
+                                    <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-400/15 text-emerald-200"><x-icon name="check" size="size-5" /></span>
+                                    <div class="min-w-0">
+                                        <div class="truncate text-sm font-black text-white">WhatsApp</div>
+                                        <div class="mt-0.5 text-[10px] font-bold uppercase tracking-[.14em] text-cyan-300">SMS verifikasi diterima</div>
+                                    </div>
+                                </div>
+                                <span class="otp-live-pill"><span></span> Live</span>
                             </div>
-                            <span class="otp-live-dot" aria-hidden="true"></span>
+                            <div class="otp-message-body">
+                                <p class="text-xs leading-5 text-slate-300">Kode verifikasi WhatsApp Anda:</p>
+                                <div class="mt-2 flex items-end justify-between gap-3">
+                                    <strong class="font-mono text-2xl font-black tracking-[.22em] text-white sm:text-3xl">842 193</strong>
+                                    <span class="text-[10px] font-semibold text-slate-400">Jangan bagikan kode ini</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="mt-4 grid grid-cols-3 gap-3">
+
+                <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div class="card-soft p-3 text-center"><div data-count-to="{{ (int) $serviceCount }}" data-count-suffix="+" class="text-lg font-black text-violet-600 dark:text-violet-300">0+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Layanan</div></div>
                     <div class="card-soft p-3 text-center"><div data-count-to="{{ (int) $countryCount }}" data-count-suffix="+" class="text-lg font-black text-violet-600 dark:text-violet-300">0+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Negara</div></div>
+                    <div class="card-soft p-3 text-center"><div data-count-to="{{ (int) $userCount }}" data-count-suffix="+" class="text-lg font-black text-violet-600 dark:text-violet-300">0+</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pengguna</div></div>
                     <div class="card-soft p-3 text-center"><div data-count-to="24" data-count-suffix="/7" class="text-lg font-black text-violet-600 dark:text-violet-300">0/7</div><div class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pemantauan</div></div>
                 </div>
             </div>
@@ -180,27 +209,47 @@
 </section>
 @push('head')
 <style>
-    .otp-flow { position: relative; min-height: 280px; overflow: hidden; border-radius: 1.4rem; padding: 2.25rem 1rem 1.2rem; background: radial-gradient(circle at 50% 20%, rgba(99,102,241,.26), transparent 42%), linear-gradient(180deg, rgba(15,23,42,.20), rgba(2,6,23,.38)); border: 1px solid rgba(255,255,255,.08); }
-    .otp-flow-line { position: absolute; left: 17%; right: 17%; top: 83px; height: 3px; border-radius: 999px; background: linear-gradient(90deg, rgba(103,232,249,.2), rgba(129,140,248,.75), rgba(103,232,249,.2)); box-shadow: 0 0 20px rgba(103,232,249,.22); }
-    .otp-flow-line::after { content: ''; position: absolute; inset: -5px 0; background: repeating-linear-gradient(90deg, transparent 0 18px, rgba(255,255,255,.18) 18px 21px); mask: linear-gradient(#000, #000); opacity: .45; }
-    .otp-flow-node { display: flex; min-width: 0; flex-direction: column; align-items: center; text-align: center; opacity: .56; transform: translateY(4px) scale(.96); animation: otpNode 6s ease-in-out infinite; }
-    .otp-flow-web { animation-delay: 1.7s; }
-    .otp-flow-sms { animation-delay: 3.4s; }
-    .otp-flow-icon { display: grid; width: 70px; height: 70px; place-items: center; border-radius: 22px; color: #cffafe; background: linear-gradient(145deg, rgba(99,102,241,.72), rgba(6,182,212,.35)); border: 1px solid rgba(165,243,252,.30); box-shadow: inset 0 1px rgba(255,255,255,.12), 0 12px 30px rgba(15,23,42,.28); }
-    .otp-flow-label { margin-top: .75rem; font-size: .82rem; font-weight: 900; color: white; }
-    .otp-flow-state { margin-top: .2rem; font-size: .62rem; font-weight: 700; color: rgba(207,250,254,.62); }
-    .otp-flow-pulse { position: absolute; top: 76px; z-index: 20; width: 17px; height: 17px; border-radius: 999px; background: #67e8f9; border: 4px solid rgba(255,255,255,.35); box-shadow: 0 0 0 7px rgba(103,232,249,.10), 0 0 22px rgba(103,232,249,.8); opacity: 0; }
-    .otp-flow-pulse-a { left: 17%; animation: otpTravelA 6s ease-in-out infinite; }
-    .otp-flow-pulse-b { left: 49%; animation: otpTravelB 6s ease-in-out infinite; }
-    .otp-sms-card { margin: 1.45rem auto 0; display: flex; width: min(100%, 330px); align-items: center; gap: .8rem; border-radius: 1rem; padding: .8rem .95rem; background: rgba(15,23,42,.62); border: 1px solid rgba(103,232,249,.20); box-shadow: 0 12px 30px rgba(2,6,23,.2); opacity: .35; transform: translateY(8px); animation: otpSmsCard 6s ease-in-out infinite; }
-    .otp-live-dot { width: 9px; height: 9px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 6px rgba(52,211,153,.12); animation: otpLive 1.15s ease-in-out infinite; }
-    @keyframes otpNode { 0%, 18%, 100% { opacity: .56; transform: translateY(4px) scale(.96); } 24%, 42% { opacity: 1; transform: translateY(0) scale(1.04); } 48%, 94% { opacity: .7; transform: translateY(0) scale(1); } }
-    @keyframes otpTravelA { 0%, 17% { left: 17%; opacity: 0; } 22% { opacity: 1; } 40% { left: 49%; opacity: 1; } 45%, 100% { left: 49%; opacity: 0; } }
-    @keyframes otpTravelB { 0%, 45% { left: 49%; opacity: 0; } 50% { opacity: 1; } 68% { left: 81%; opacity: 1; } 73%, 100% { left: 81%; opacity: 0; } }
-    @keyframes otpSmsCard { 0%, 61%, 100% { opacity: .35; transform: translateY(8px); } 70%, 92% { opacity: 1; transform: translateY(0); box-shadow: 0 14px 38px rgba(34,211,238,.12); } }
-    @keyframes otpLive { 50% { transform: scale(.72); opacity: .55; } }
-    @media (max-width: 420px) { .otp-flow { min-height: 260px; padding-inline: .7rem; } .otp-flow-icon { width: 58px; height: 58px; border-radius: 18px; } .otp-flow-line { top: 77px; } .otp-flow-pulse { top: 70px; } .otp-flow-state { font-size: .55rem; } }
-    @media (prefers-reduced-motion: reduce) { .otp-flow-node, .otp-flow-pulse, .otp-sms-card, .otp-live-dot { animation: none !important; } .otp-flow-node, .otp-sms-card { opacity: 1; transform: none; } .otp-flow-pulse { display: none; } }
+    .otp-stage { overflow: hidden; border: 1px solid rgba(148,163,184,.13); border-radius: 1.25rem; background: linear-gradient(180deg, rgba(15,23,42,.42), rgba(2,6,23,.25)); padding: .85rem; }
+    .otp-service-row { display: flex; flex-wrap: wrap; gap: .45rem; padding: .1rem .1rem .85rem; border-bottom: 1px solid rgba(148,163,184,.12); }
+    .otp-service-chip { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid rgba(148,163,184,.13); border-radius: 999px; background: rgba(15,23,42,.38); padding: .38rem .6rem; font-size: .62rem; font-weight: 800; color: rgba(226,232,240,.66); }
+    .otp-service-chip-active { border-color: rgba(52,211,153,.25); background: rgba(16,185,129,.09); color: #d1fae5; }
+    .otp-service-dot { width: .42rem; height: .42rem; border-radius: 999px; box-shadow: 0 0 0 4px rgba(255,255,255,.025); }
+    .otp-flow-clean { display: grid; grid-template-columns: minmax(0,1fr) 38px minmax(0,1fr) 38px minmax(0,1fr); align-items: center; gap: .45rem; padding: 1rem .1rem .85rem; }
+    .otp-step { position: relative; min-width: 0; border: 1px solid rgba(148,163,184,.12); border-radius: 1rem; background: rgba(30,41,59,.38); padding: .72rem .45rem .68rem; text-align: center; box-shadow: inset 0 1px 0 rgba(255,255,255,.025); opacity: .62; animation: otpCleanStep 6.6s ease-in-out infinite; }
+    .otp-step-web { animation-delay: 1.8s; }
+    .otp-step-sms { animation-delay: 3.6s; }
+    .otp-step-number { position: absolute; left: .45rem; top: .4rem; font-size: .48rem; font-weight: 900; letter-spacing: .08em; color: rgba(148,163,184,.55); }
+    .otp-step-icon { margin: 0 auto; display: grid; width: 2.85rem; height: 2.85rem; place-items: center; border-radius: .9rem; color: #cffafe; background: linear-gradient(145deg, rgba(99,102,241,.55), rgba(6,182,212,.20)); border: 1px solid rgba(165,243,252,.15); }
+    .otp-step-title { display: block; margin-top: .55rem; font-size: .72rem; font-weight: 900; color: white; }
+    .otp-step-copy { display: block; margin-top: .12rem; font-size: .54rem; font-weight: 700; color: rgba(203,213,225,.62); white-space: nowrap; }
+    .otp-connector { position: relative; height: 2px; overflow: visible; border-radius: 999px; background: rgba(148,163,184,.16); }
+    .otp-connector::after { content: ''; position: absolute; left: 0; top: 0; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #818cf8, #67e8f9); box-shadow: 0 0 12px rgba(103,232,249,.45); animation: otpCleanConnector 6.6s ease-in-out infinite; }
+    .otp-connector-b::after { animation-delay: 2.15s; }
+    .otp-connector span { position: absolute; right: -1px; top: 50%; width: 6px; height: 6px; border-top: 2px solid rgba(103,232,249,.55); border-right: 2px solid rgba(103,232,249,.55); transform: translateY(-50%) rotate(45deg); }
+    .otp-message { margin-top: .25rem; overflow: hidden; border: 1px solid rgba(103,232,249,.16); border-radius: 1rem; background: rgba(15,23,42,.62); box-shadow: 0 14px 38px rgba(2,6,23,.17); opacity: .5; transform: translateY(6px); animation: otpCleanMessage 6.6s ease-in-out infinite; }
+    .otp-message-head { display: flex; align-items: center; justify-content: space-between; gap: .7rem; padding: .75rem .8rem; border-bottom: 1px solid rgba(148,163,184,.10); }
+    .otp-message-body { padding: .8rem; }
+    .otp-live-pill { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; background: rgba(16,185,129,.10); padding: .28rem .5rem; font-size: .52rem; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; color: #a7f3d0; }
+    .otp-live-pill span { width: .4rem; height: .4rem; border-radius: 999px; background: #34d399; box-shadow: 0 0 0 4px rgba(52,211,153,.10); animation: otpLive 1.2s ease-in-out infinite; }
+    @keyframes otpCleanStep { 0%, 16%, 100% { opacity:.62; transform:translateY(0); border-color:rgba(148,163,184,.12); } 22%, 39% { opacity:1; transform:translateY(-2px); border-color:rgba(103,232,249,.28); box-shadow:0 12px 26px rgba(8,145,178,.08), inset 0 1px rgba(255,255,255,.04); } 45%, 92% { opacity:.74; transform:translateY(0); } }
+    @keyframes otpCleanConnector { 0%, 20% { width:0; opacity:0; } 25% { opacity:1; } 42%, 82% { width:100%; opacity:1; } 90%, 100% { width:100%; opacity:.28; } }
+    @keyframes otpCleanMessage { 0%, 58%, 100% { opacity:.5; transform:translateY(6px); } 68%, 92% { opacity:1; transform:translateY(0); border-color:rgba(52,211,153,.24); } }
+    @keyframes otpLive { 50% { transform:scale(.72); opacity:.55; } }
+    @media (max-width: 420px) {
+        .otp-stage { padding:.7rem; }
+        .otp-flow-clean { grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr) 20px minmax(0,1fr); gap:.25rem; }
+        .otp-step { border-radius:.85rem; padding:.68rem .25rem .58rem; }
+        .otp-step-icon { width:2.35rem; height:2.35rem; border-radius:.72rem; }
+        .otp-step-title { font-size:.65rem; }
+        .otp-step-copy { font-size:.48rem; }
+        .otp-step-number { display:none; }
+        .otp-service-chip { font-size:.56rem; padding:.34rem .5rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .otp-step, .otp-connector::after, .otp-message, .otp-live-pill span { animation:none !important; }
+        .otp-step, .otp-message { opacity:1; transform:none; }
+        .otp-connector::after { width:100%; opacity:.65; }
+    }
 </style>
 @endpush
 @endsection
