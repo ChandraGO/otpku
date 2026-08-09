@@ -243,6 +243,50 @@
     }
 }
 
+/* Mobile app shell ------------------------------------------------------------- */
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+[data-app-shell],
+[data-app-content],
+[data-app-content] main {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.card, .stat-card {
+    min-width: 0;
+    max-width: 100%;
+}
+
+@media (max-width: 1023.98px) {
+    [data-sidebar-panel] {
+        translate: none !important;
+        transform: translate3d(-105%, 0, 0);
+        visibility: hidden;
+        pointer-events: none;
+        will-change: transform;
+    }
+
+    [data-sidebar-panel][data-open="true"] {
+        transform: translate3d(0, 0, 0);
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    [data-sidebar-overlay]:not([hidden]) {
+        display: block;
+    }
+
+    .mobile-dashboard-grid > *,
+    .mobile-dashboard-list > * {
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+
 .faq-item > summary::-webkit-details-marker {
     display: none;
 }

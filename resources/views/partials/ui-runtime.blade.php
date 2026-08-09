@@ -89,9 +89,14 @@
         const panel = document.querySelector('[data-sidebar-panel]');
         const overlay = document.querySelector('[data-sidebar-overlay]');
         if (!panel) return;
-        panel.style.transform = open ? 'translateX(0)' : '';
+        // Tailwind modern memakai properti CSS `translate`, bukan hanya `transform`.
+        // Status data-open menjadi satu-satunya sumber posisi supaya menu HP benar-benar muncul.
         panel.dataset.open = open ? 'true' : 'false';
+        document.querySelectorAll('[data-sidebar-open]').forEach((button) => {
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
         if (overlay) overlay.hidden = !open;
+        document.documentElement.classList.toggle('overflow-hidden', open && window.innerWidth < 1024);
         document.body.classList.toggle('overflow-hidden', open && window.innerWidth < 1024);
     };
 

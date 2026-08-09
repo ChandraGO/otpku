@@ -11,6 +11,22 @@
         if (filled($metaImage) && !\Illuminate\Support\Str::startsWith($metaImage, ['http://', 'https://'])) {
             $metaImage = url($metaImage);
         }
+        // Jika URL lokal tersimpan saat domain lama masih aktif, gunakan host aplikasi
+        // saat ini agar crawler sosial tidak perlu melewati redirect lintas domain.
+        $metaImagePath = filled($metaImage) ? parse_url($metaImage, PHP_URL_PATH) : null;
+        $isLocalSeoImage = in_array($metaImagePath, ['/meta/seo-image', '/og-image.jpg'], true);
+        if ($isLocalSeoImage) {
+            $query = parse_url($metaImage, PHP_URL_QUERY);
+            $metaImage = route('meta.social-image').(filled($query) ? '?'.$query : '');
+        }
+        $metaImageWidth = max(0, (int) ($siteSeoImageWidth ?? 0));
+        $metaImageHeight = max(0, (int) ($siteSeoImageHeight ?? 0));
+        $metaImageMime = trim((string) ($siteSeoImageMime ?? ''));
+        if ($isLocalSeoImage) {
+            $metaImageWidth = $metaImageWidth ?: 1200;
+            $metaImageHeight = $metaImageHeight ?: 630;
+            $metaImageMime = $metaImageMime ?: 'image/jpeg';
+        }
         $metaKeywords = trim(implode(', ', array_filter([$siteSeoKeywords ?? '', $siteSeoHashtags ?? ''])));
     @endphp
     <title>{{ $metaTitle }}@unless(request()->routeIs('home')) — {{ $siteName }}@endunless</title>
@@ -22,11 +38,24 @@
     <meta property="og:description" content="{{ $metaDescription }}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:site_name" content="{{ $siteName }}">
+    <meta property="og:locale" content="id_ID">
     @if(filled($metaImage))
         <meta property="og:image" content="{{ $metaImage }}">
-        <meta property="og:image:alt" content="{{ $siteName }}">
+        <meta property="og:image:url" content="{{ $metaImage }}">
+        @if(\Illuminate\Support\Str::startsWith($metaImage, 'https://'))
+            <meta property="og:image:secure_url" content="{{ $metaImage }}">
+        @endif
+        @if(filled($metaImageMime))<meta property="og:image:type" content="{{ $metaImageMime }}">@endif
+        @if($metaImageWidth > 0)<meta property="og:image:width" content="{{ $metaImageWidth }}">@endif
+        @if($metaImageHeight > 0)<meta property="og:image:height" content="{{ $metaImageHeight }}">@endif
+        <meta property="og:image:alt" content="Thumbnail {{ $siteName }}">
+        <meta itemprop="image" content="{{ $metaImage }}">
+        <link rel="image_src" href="{{ $metaImage }}">
         <meta name="twitter:card" content="summary_large_image">
         <meta name="twitter:image" content="{{ $metaImage }}">
+        <meta name="twitter:image:src" content="{{ $metaImage }}">
+        <meta name="twitter:image:alt" content="Thumbnail {{ $siteName }}">
     @else
         <meta name="twitter:card" content="summary">
     @endif

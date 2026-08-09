@@ -154,6 +154,7 @@ class SettingsController extends Controller
         $seoImageUrl = null;
         $logoUrlInput = null;
         $seoImageUrlInput = null;
+        $seoImageMeta = null;
 
         if ($group === 'site') {
             $logoUrlInput = trim((string) ($data['logo_url'] ?? ''));
@@ -169,11 +170,14 @@ class SettingsController extends Controller
             }
 
             if ($request->hasFile('seo_image')) {
+                $seoFile = $request->file('seo_image');
+                $seoImageMeta = @getimagesize($seoFile->getRealPath()) ?: null;
+
                 $seoImageUrl = $this->storeSiteImage(
                     $request,
                     'seo_image',
                     'meta_seo',
-                    '/meta/seo-image',
+                    '/og-image.jpg',
                 );
             }
 
@@ -208,8 +212,16 @@ class SettingsController extends Controller
 
             if ($seoImageUrl !== null) {
                 $mapped['site.seo_image_url'] = $seoImageUrl;
+                $mapped['site.seo_image_width'] = (string) ((int) ($seoImageMeta[0] ?? 0));
+                $mapped['site.seo_image_height'] = (string) ((int) ($seoImageMeta[1] ?? 0));
+                $mapped['site.seo_image_mime'] = (string) ($seoImageMeta['mime'] ?? $request->file('seo_image')?->getMimeType() ?? 'image/jpeg');
             } elseif ($seoImageUrlInput !== '') {
                 $mapped['site.seo_image_url'] = $seoImageUrlInput;
+                // Dimensi URL eksternal tidak dapat dipercaya tanpa mengunduh URL dari server.
+                // Kosongkan structured metadata lama agar tidak mengiklankan ukuran yang salah.
+                $mapped['site.seo_image_width'] = '';
+                $mapped['site.seo_image_height'] = '';
+                $mapped['site.seo_image_mime'] = '';
             }
         }
 

@@ -44,7 +44,7 @@
         id="app-sidebar"
         data-sidebar-panel
         data-open="false"
-        class="fixed inset-y-0 left-0 z-50 flex w-[280px] -translate-x-full flex-col border-r border-slate-200/80 bg-white px-4 py-5 shadow-2xl transition-transform duration-300 dark:border-white/10 dark:bg-[#0a1020] lg:translate-x-0 lg:shadow-none"
+        class="fixed inset-y-0 left-0 z-50 flex w-[min(86vw,280px)] flex-col border-r border-slate-200/80 bg-white px-4 py-5 shadow-2xl transition-transform duration-300 dark:border-white/10 dark:bg-[#0a1020] lg:w-[280px] lg:shadow-none"
     >
         <div class="flex min-h-[104px] items-center justify-between gap-2 px-2">
             <a href="{{ route('dashboard') }}" class="flex min-w-0 flex-1 items-center overflow-hidden" aria-label="{{ $siteName }}">
@@ -154,7 +154,7 @@
         </div>
     </aside>
 
-    <div data-app-content class="min-h-screen transition-[padding] duration-300 lg:pl-[280px]">
+    <div data-app-content class="min-h-screen min-w-0 max-w-full overflow-x-hidden transition-[padding] duration-300 lg:pl-[280px]">
         <header class="sticky top-0 z-30 hidden border-b border-slate-200/80 bg-slate-50/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85 lg:block">
             <div class="flex h-20 items-center justify-between px-8">
                 <div class="flex items-center gap-4">
@@ -186,15 +186,14 @@
             </div>
         </header>
 
-        <header class="sticky top-0 z-40 border-b border-white/20 bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/10 lg:hidden">
+        <header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 text-slate-900 shadow-sm backdrop-blur-2xl dark:border-white/10 dark:bg-[#080e1c]/95 dark:text-white lg:hidden">
             <div class="flex min-h-20 items-center gap-3 px-4 py-3">
                 <button
                     type="button"
                     data-sidebar-open
                     aria-controls="app-sidebar"
                     aria-expanded="false"
-                    class="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/15 text-white backdrop-blur"
-                    style="border: 1px solid rgba(255,255,255,.35); background-color: rgba(15,23,42,.22); color: #fff;"
+                    class="grid size-11 shrink-0 place-items-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 shadow-sm transition active:scale-95 dark:border-white/15 dark:bg-white/[.06] dark:text-white"
                     aria-label="Buka menu"
                     title="Buka menu"
                 >
@@ -207,7 +206,7 @@
                 <div class="min-w-0 flex-1">
                     <div class="truncate text-lg font-black">{{ auth()->user()->name }}</div>
                 </div>
-                <button type="button" data-theme-toggle class="grid size-11 shrink-0 place-items-center rounded-2xl border border-white/35 bg-slate-950/20 text-white" aria-label="Aktifkan mode terang" aria-pressed="true" title="Aktifkan mode terang">
+                <button type="button" data-theme-toggle class="grid size-11 shrink-0 place-items-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 shadow-sm transition active:scale-95 dark:border-white/15 dark:bg-white/[.06] dark:text-white" aria-label="Aktifkan mode terang" aria-pressed="true" title="Aktifkan mode terang">
                     <x-icon data-theme-icon="light" name="moon" hidden />
                     <x-icon data-theme-icon="dark" name="sun" />
                 </button>
@@ -220,7 +219,7 @@
             </div>
         </header>
 
-        <main class="mx-auto w-full max-w-[1600px] p-4 pb-28 sm:p-6 sm:pb-28 lg:p-8 lg:pb-10">
+        <main class="mx-auto w-full min-w-0 max-w-[1600px] overflow-x-hidden p-4 pb-28 sm:p-6 sm:pb-28 lg:p-8 lg:pb-10">
             <x-flash />
             @yield('content')
         </main>

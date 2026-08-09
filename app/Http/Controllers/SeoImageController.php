@@ -18,7 +18,12 @@ class SeoImageController extends Controller
         return $this->respond('business_logo');
     }
 
-    private function respond(string $key): Response
+    public function social(): Response
+    {
+        return $this->respond('meta_seo', true);
+    }
+
+    private function respond(string $key, bool $social = false): Response
     {
         $media = Cache::remember('site-media:'.$key, now()->addHour(), fn () => SiteMedia::query()->where('key', $key)->first());
         abort_unless($media, 404);
@@ -31,10 +36,21 @@ class SeoImageController extends Controller
         // seluruh base64 pada setiap request sehingga logo lebih cepat muncul di HP.
         $etag = '"'.sha1($media->id.'|'.$media->updated_at?->getTimestamp().'|'.$media->mime_type).'"';
 
+        $mime = $media->mime_type ?: ($social ? 'image/jpeg' : 'image/png');
+        $extension = match ($mime) {
+            'image/jpeg' => 'jpg',
+            'image/webp' => 'webp',
+            default => 'png',
+        };
+
         return response($binary, 200, [
-            'Content-Type' => $media->mime_type ?: 'image/png',
+            'Content-Type' => $mime,
+            'Content-Length' => (string) strlen($binary),
+            'Content-Disposition' => 'inline; filename="dapetotp-social.'.$extension.'"',
             'Cache-Control' => 'public, max-age=31536000, immutable',
             'ETag' => $etag,
+            'Last-Modified' => optional($media->updated_at)->toRfc7231String() ?: now()->toRfc7231String(),
+            'Access-Control-Allow-Origin' => '*',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

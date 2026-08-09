@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div data-kodeotp-safe-admin="v16">
+<div data-kodeotp-safe-admin="v23" class="min-w-0 max-w-full overflow-hidden">
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
             <h1 class="mt-1 text-3xl font-black tracking-tight">
@@ -17,8 +17,8 @@
         </a>
     </div>
 
-    <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <section class="stat-card">
+    <div class="mobile-dashboard-grid mt-6 grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <section class="stat-card min-w-0 overflow-hidden">
             <div class="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Pengguna
             </div>
@@ -27,7 +27,7 @@
             </div>
         </section>
 
-        <section class="stat-card">
+        <section class="stat-card min-w-0 overflow-hidden">
             <div class="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Total saldo pengguna
             </div>
@@ -36,7 +36,7 @@
             </div>
         </section>
 
-        <section class="stat-card">
+        <section class="stat-card min-w-0 overflow-hidden">
             <div class="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Saldo layanan
             </div>
@@ -62,7 +62,7 @@
             @endif
         </section>
 
-        <section class="stat-card">
+        <section class="stat-card min-w-0 overflow-hidden">
             <div class="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Isi saldo berhasil
             </div>
@@ -71,7 +71,7 @@
             </div>
         </section>
 
-        <section class="stat-card">
+        <section class="stat-card min-w-0 overflow-hidden">
             <div class="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Pesanan hari ini
             </div>
@@ -80,7 +80,7 @@
             </div>
         </section>
 
-        <section class="stat-card">
+        <section class="stat-card min-w-0 overflow-hidden">
             <div class="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Penjualan hari ini
             </div>
@@ -90,8 +90,8 @@
         </section>
     </div>
 
-    <div class="mt-6 grid gap-6 xl:grid-cols-2">
-        <section class="card p-5">
+    <div class="mobile-dashboard-grid mt-6 grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-2">
+        <section class="card min-w-0 overflow-hidden p-5">
             <div class="flex items-center justify-between gap-3">
                 <h2 class="font-black">Pesanan terbaru</h2>
                 <a
@@ -105,7 +105,7 @@
             <div class="mt-4 space-y-3">
                 @forelse(($recentOrders ?? []) as $order)
                     <a
-                        class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4 dark:border-white/10"
+                        class="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200 p-4 dark:border-white/10"
                         href="{{ route('admin.orders.show', $order) }}"
                     >
                         <div class="min-w-0">
@@ -129,7 +129,7 @@
             </div>
         </section>
 
-        <section class="card p-5">
+        <section class="card min-w-0 overflow-hidden p-5">
             <div class="flex items-center justify-between gap-3">
                 <h2 class="font-black">Isi saldo terbaru</h2>
                 <a
@@ -143,7 +143,7 @@
             <div class="mt-4 space-y-3">
                 @forelse(($recentTopups ?? []) as $topup)
                     <a
-                        class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4 dark:border-white/10"
+                        class="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200 p-4 dark:border-white/10"
                         href="{{ route('admin.topups.show', $topup) }}"
                     >
                         <div class="min-w-0">
