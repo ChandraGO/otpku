@@ -22,10 +22,28 @@
         $metaImageWidth = max(0, (int) ($siteSeoImageWidth ?? 0));
         $metaImageHeight = max(0, (int) ($siteSeoImageHeight ?? 0));
         $metaImageMime = trim((string) ($siteSeoImageMime ?? ''));
+        $metaImageVersion = null;
         if ($isLocalSeoImage) {
-            $metaImageWidth = $metaImageWidth ?: 1200;
-            $metaImageHeight = $metaImageHeight ?: 630;
-            $metaImageMime = $metaImageMime ?: 'image/jpeg';
+            // Endpoint /og-image.jpg selalu menormalisasi gambar menjadi JPEG 1200x630.
+            // Iklankan metadata yang sama persis agar crawler sosial tidak menolak
+            // gambar karena MIME/dimensi di HTML berbeda dengan response image.
+            $metaImageWidth = 1200;
+            $metaImageHeight = 630;
+            $metaImageMime = 'image/jpeg';
+
+            $metaImageQuery = parse_url($metaImage, PHP_URL_QUERY);
+            if (filled($metaImageQuery)) {
+                parse_str($metaImageQuery, $metaImageQueryParams);
+                $metaImageVersion = $metaImageQueryParams['v'] ?? null;
+            }
+        }
+
+        // Canonical tetap URL bersih. Untuk Open Graph homepage, gunakan versi
+        // objek yang mengikuti versi gambar. Pengunjung tetap membagikan URL utama
+        // tanpa query, tetapi scraper mendapat object URL baru saat thumbnail berubah.
+        $metaOgUrl = request()->fullUrl();
+        if (request()->routeIs('home') && filled($metaImageVersion) && !request()->has('v')) {
+            $metaOgUrl = url('/').'?v='.rawurlencode((string) $metaImageVersion);
         }
         $metaKeywords = trim(implode(', ', array_filter([$siteSeoKeywords ?? '', $siteSeoHashtags ?? ''])));
     @endphp
@@ -37,7 +55,7 @@
     <meta property="og:title" content="{{ $metaTitle }}">
     <meta property="og:description" content="{{ $metaDescription }}">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:url" content="{{ $metaOgUrl }}">
     <meta property="og:site_name" content="{{ $siteName }}">
     <meta property="og:locale" content="id_ID">
     @if(filled($metaImage))
