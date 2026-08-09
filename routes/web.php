@@ -108,6 +108,7 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
         Route::get('/backups', [AdminBackupController::class, 'index'])->name('backups.index');
         Route::post('/backups', [AdminBackupController::class, 'create'])->name('backups.create');
         Route::post('/backups/upload', [AdminBackupController::class, 'upload'])->name('backups.upload');
+        Route::delete('/backups/bulk', [AdminBackupController::class, 'bulkDestroy'])->name('backups.bulk-destroy');
         Route::get('/backups/{backup}/download', [AdminBackupController::class, 'download'])->name('backups.download');
         Route::post('/backups/{backup}/restore', [AdminBackupController::class, 'restore'])->name('backups.restore');
         Route::delete('/backups/{backup}', [AdminBackupController::class, 'destroy'])->name('backups.destroy');
