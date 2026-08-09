@@ -58,7 +58,7 @@
 @include('partials.ui-runtime')
 <header class="fixed inset-x-0 top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b16]/85">
     <div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <a href="{{ route('home') }}" aria-label="Beranda" class="-ml-4 min-w-0 flex-1 overflow-hidden sm:ml-0 sm:flex-none">
+        <a href="{{ route('home') }}" aria-label="Beranda" class="min-w-0 flex-1 overflow-hidden sm:flex-none">
             <span class="block sm:hidden"><x-app-logo compact /></span>
             <span class="hidden sm:inline-flex"><x-app-logo /></span>
         </a>
