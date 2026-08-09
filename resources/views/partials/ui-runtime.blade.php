@@ -108,6 +108,38 @@
         }
     };
 
+    const prefetchedUrls = new Set();
+    const prefetchNavigation = (href) => {
+        if (!href || prefetchedUrls.size >= 8) return;
+        let url;
+        try { url = new URL(href, window.location.href); } catch (_) { return; }
+        if (url.origin !== window.location.origin) return;
+        if (!['http:', 'https:'].includes(url.protocol)) return;
+        if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+        if (url.pathname.includes('/logout')) return;
+        if (['/dashboard', '/profil', '/api-docs'].includes(url.pathname)) return;
+        const key = url.pathname + url.search;
+        if (prefetchedUrls.has(key)) return;
+
+        prefetchedUrls.add(key);
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.as = 'document';
+        link.href = url.href;
+        link.setAttribute('fetchpriority', 'low');
+        document.head.appendChild(link);
+    };
+
+    const prefetchFromEvent = (event) => {
+        const link = event.target.closest?.('a[href]');
+        if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
+        prefetchNavigation(link.href);
+    };
+
+    document.addEventListener('pointerover', prefetchFromEvent, { passive: true });
+    document.addEventListener('touchstart', prefetchFromEvent, { passive: true });
+    document.addEventListener('focusin', prefetchFromEvent);
+
     const animateCounter = (element) => {
         const target = Number(element.dataset.countTo || 0);
         const duration = Number(element.dataset.countDuration || 1100);
@@ -237,6 +269,27 @@
             counters.forEach((counter) => observer.observe(counter));
         } else {
             counters.forEach(animateCounter);
+        }
+
+        const warmPrimaryNavigation = () => {
+            const links = Array.from(document.querySelectorAll('a.nav-link[href], a.mobile-nav-link[href]'));
+            const seen = new Set();
+            for (const link of links) {
+                if (seen.size >= 4) break;
+                try {
+                    const url = new URL(link.href, window.location.href);
+                    const key = url.pathname + url.search;
+                    if (seen.has(key) || url.pathname === window.location.pathname) continue;
+                    seen.add(key);
+                    prefetchNavigation(url.href);
+                } catch (_) {}
+            }
+        };
+
+        if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(warmPrimaryNavigation, { timeout: 1800 });
+        } else {
+            window.setTimeout(warmPrimaryNavigation, 900);
         }
     };
 

@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Models\Announcement;
 use App\Models\OtpOrder;
 use App\Models\Topup;
 use App\Observers\OtpOrderObserver;
@@ -13,7 +12,6 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Throwable;
@@ -52,7 +50,7 @@ class AppServiceProvider extends ServiceProvider
                 $view->with('siteSupportWhatsapp', $settings->get('site.support_whatsapp', ''));
                 $view->with('siteLogoUrl', $settings->get('site.logo_url', ''));
                 $view->with('siteLogoZoom', max(100, min(400, (int) $settings->get('site.logo_zoom', 240))));
-                $view->with('siteLogoMobileShift', max(-45, min(45, (int) $settings->get('site.logo_mobile_shift', -30))));
+                $view->with('siteLogoMobileShift', max(-60, min(45, (int) $settings->get('site.logo_mobile_shift', -40))));
                 $view->with('siteSeoTitle', $settings->get('site.seo_title', ''));
                 $view->with('siteSeoDescription', $settings->get('site.seo_description', ''));
                 $view->with('siteSeoKeywords', $settings->get('site.seo_keywords', ''));
@@ -64,7 +62,7 @@ class AppServiceProvider extends ServiceProvider
                 $view->with('siteSupportWhatsapp', '');
                 $view->with('siteLogoUrl', '');
                 $view->with('siteLogoZoom', 240);
-                $view->with('siteLogoMobileShift', -30);
+                $view->with('siteLogoMobileShift', -40);
                 $view->with('siteSeoTitle', '');
                 $view->with('siteSeoDescription', '');
                 $view->with('siteSeoKeywords', '');
@@ -74,17 +72,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer('layouts.app', function ($view) use ($settings): void {
-            try {
-                $view->with(
-                    'navAnnouncements',
-                    Schema::hasTable('announcements')
-                        ? Announcement::visible()->latest()->limit(3)->get()
-                        : collect(),
-                );
-            } catch (Throwable) {
-                $view->with('navAnnouncements', collect());
-            }
-
+            // Tidak ada query pengumuman global di layout; dashboard/list memuatnya hanya saat dibutuhkan.
             $user = request()->user();
             $data = [
                 'headerBalanceLabel' => 'Saldo',

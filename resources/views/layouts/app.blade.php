@@ -129,9 +129,20 @@
 
         <div class="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[.035]">
             <div class="flex items-center gap-3">
-                <div class="grid size-10 place-items-center rounded-2xl bg-violet-100 font-black text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
-                    {{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}
-                </div>
+                @php($accountAvatarUrl = auth()->user()->emailAvatarUrl())
+                @if(filled($accountAvatarUrl))
+                    <span class="size-10 shrink-0 overflow-hidden rounded-2xl bg-transparent" data-user-avatar>
+                        <img
+                            src="{{ $accountAvatarUrl }}"
+                            alt=""
+                            class="h-full w-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                            referrerpolicy="no-referrer"
+                            onerror="this.closest('[data-user-avatar]')?.remove()"
+                        >
+                    </span>
+                @endif
                 <div class="min-w-0 flex-1">
                     <div class="truncate text-sm font-bold">{{ auth()->user()->name }}</div>
                     <div class="truncate text-xs text-slate-500">{{ auth()->user()->email }}</div>
@@ -156,8 +167,8 @@
                         <div class="text-lg font-black">{{ auth()->user()->name }}</div>
                     </div>
                 </div>
-                @unless($simpleDashboardHeader)
-                    <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3">
+                    @unless($simpleDashboardHeader)
                         <div class="flex items-center gap-3 rounded-3xl border border-violet-200 bg-white px-4 py-2.5 shadow-sm dark:border-violet-400/20 dark:bg-white/5">
                             <span class="grid size-9 place-items-center rounded-full bg-amber-400 font-black text-white">Rp</span>
                             <div>
@@ -166,12 +177,12 @@
                             </div>
                         </div>
                         <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="btn-primary" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif><x-icon name="topup" size="size-4" /> {{ $headerTopupLabel ?? 'Isi Saldo' }}</a>
-                        <button type="button" data-theme-toggle class="btn-secondary !p-3" aria-label="Aktifkan mode terang" aria-pressed="true" title="Aktifkan mode terang">
-                            <x-icon data-theme-icon="light" name="moon" hidden />
-                            <x-icon data-theme-icon="dark" name="sun" />
-                        </button>
-                    </div>
-                @endunless
+                    @endunless
+                    <button type="button" data-theme-toggle class="btn-secondary !p-3" aria-label="Aktifkan mode terang" aria-pressed="true" title="Aktifkan mode terang">
+                        <x-icon data-theme-icon="light" name="moon" hidden />
+                        <x-icon data-theme-icon="dark" name="sun" />
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -196,8 +207,12 @@
                 <div class="min-w-0 flex-1">
                     <div class="truncate text-lg font-black">{{ auth()->user()->name }}</div>
                 </div>
+                <button type="button" data-theme-toggle class="grid size-11 shrink-0 place-items-center rounded-2xl border border-white/35 bg-slate-950/20 text-white" aria-label="Aktifkan mode terang" aria-pressed="true" title="Aktifkan mode terang">
+                    <x-icon data-theme-icon="light" name="moon" hidden />
+                    <x-icon data-theme-icon="dark" name="sun" />
+                </button>
                 @unless($simpleDashboardHeader)
-                    <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="rounded-2xl border border-white/35 bg-white/12 px-3 py-2 text-right backdrop-blur" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif>
+                    <a href="{{ $headerTopupUrl ?? route('topups.index') }}" class="rounded-2xl border border-white/35 bg-slate-950/20 px-3 py-2 text-right" @if($headerTopupExternal ?? false) target="_blank" rel="noopener" @endif>
                         <div class="text-[9px] font-bold uppercase tracking-wider text-white/70">{{ $headerBalanceLabel ?? 'Saldo' }}</div>
                         <div class="text-sm font-black">@if($headerBalanceAvailable ?? true) Rp {{ number_format((float) ($headerBalance ?? auth()->user()->balance), 0, ',', '.') }} @else — @endif</div>
                     </a>

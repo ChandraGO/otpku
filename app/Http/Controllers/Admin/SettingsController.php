@@ -418,7 +418,7 @@ class SettingsController extends Controller
                 'logo_url' => ['nullable', 'url', 'max:2048'],
                 'logo_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
                 'logo_zoom' => ['nullable', 'integer', 'min:100', 'max:400'],
-                'logo_mobile_shift' => ['nullable', 'integer', 'min:-45', 'max:45'],
+                'logo_mobile_shift' => ['nullable', 'integer', 'min:-60', 'max:45'],
                 'seo_title' => ['nullable', 'string', 'max:70'],
                 'seo_description' => ['nullable', 'string', 'max:180'],
                 'seo_keywords' => ['nullable', 'string', 'max:500'],
@@ -522,6 +522,8 @@ class SettingsController extends Controller
                 'data_base64' => base64_encode($binary),
             ],
         );
+
+        Cache::forget('site-media:'.$key);
 
         // Media lokal disajikan lewat route publik sehingga tidak memerlukan
         // symbolic-link storage dan tetap aman untuk deployment read-only.

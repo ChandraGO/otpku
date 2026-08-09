@@ -4,10 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Announcement;
 use App\Models\OtpOrder;
-use App\Models\Topup;
-use App\Models\WalletTransaction;
 use App\Services\ProviderBalanceService;
-use App\Support\CatalogSummary;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -18,8 +15,10 @@ class DashboardController extends Controller
         $user = $request->user();
         $user->refresh();
 
+        // Dashboard harus cepat. Saldo admin memakai nilai provider terakhir yang sudah
+        // tersimpan; sinkronisasi live tidak lagi memblokir render halaman.
         $adminProviderBalance = $user->isAdmin()
-            ? $providerBalance->get(refresh: true)
+            ? $providerBalance->get(refresh: false)
             : null;
 
         $loginAnnouncement = null;
@@ -63,21 +62,6 @@ class DashboardController extends Controller
             'totalSpent' => (float) (clone $orders)
                 ->whereNotIn('status', ['cancelled', 'refunded', 'failed'])
                 ->sum('sell_price'),
-            'activeOrders' => (clone $orders)
-                ->whereNotIn('status', [
-                    'completed',
-                    'cancelled',
-                    'expired',
-                    'refunded',
-                    'failed',
-                ])
-                ->latest()
-                ->limit(5)
-                ->get(),
-            'recentOrders' => (clone $orders)
-                ->latest()
-                ->limit(5)
-                ->get(),
             'topServices' => (clone $orders)
                 ->select('service_name')
                 ->selectRaw('COUNT(*) AS total')
@@ -96,21 +80,6 @@ class DashboardController extends Controller
             'monthRecentOrders' => (clone $orders)
                 ->whereBetween('created_at', [$monthStart, $monthEnd])
                 ->latest()
-                ->limit(8)
-                ->get(),
-            'recentTransactions' => WalletTransaction::query()
-                ->where('user_id', $user->id)
-                ->latest()
-                ->limit(8)
-                ->get(),
-            'pendingTopups' => Topup::query()
-                ->where('user_id', $user->id)
-                ->where('status', 'pending')
-                ->latest()
-                ->limit(3)
-                ->get(),
-            'featuredServices' => CatalogSummary::query()
-                ->orderByDesc('catalog_price_stats.total_stock')
                 ->limit(8)
                 ->get(),
             'latestAnnouncements' => Announcement::visible()

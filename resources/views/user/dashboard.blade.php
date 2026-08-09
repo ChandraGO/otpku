@@ -70,11 +70,11 @@
 </section>
 
 <section class="mt-4 grid gap-3 sm:grid-cols-2">
-    <a href="{{ route('services.index') }}" class="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-violet-500/15 transition hover:-translate-y-0.5"><x-icon name="services" size="size-5" /> Pemesanan</a>
+    <a href="{{ route('services.index') }}" class="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-3.5 text-sm font-black text-white shadow-sm transition hover:bg-violet-500"><x-icon name="services" size="size-5" /> Pemesanan</a>
     @if($user->isAdmin())
-        <a href="https://sms-virtual.net" target="_blank" rel="noopener" class="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/15 transition hover:-translate-y-0.5"><x-icon name="topup" size="size-5" /> Deposit Penyedia</a>
+        <a href="https://sms-virtual.net" target="_blank" rel="noopener" class="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm font-black text-white shadow-sm transition hover:bg-emerald-500"><x-icon name="topup" size="size-5" /> Deposit Penyedia</a>
     @else
-        <a href="{{ route('topups.index') }}" class="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/15 transition hover:-translate-y-0.5"><x-icon name="topup" size="size-5" /> Isi Saldo</a>
+        <a href="{{ route('topups.index') }}" class="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm font-black text-white shadow-sm transition hover:bg-emerald-500"><x-icon name="topup" size="size-5" /> Isi Saldo</a>
     @endif
 </section>
 
@@ -128,40 +128,38 @@
 
 <section class="card mt-6 p-5 sm:p-6">
     <div class="flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3"><span class="grid size-10 place-items-center rounded-xl bg-pink-500/10 text-pink-500"><x-icon name="announcement" size="size-5" /></span><div><div class="text-xs font-black uppercase tracking-[.15em] text-slate-400">Berita & Informasi</div><h2 class="mt-1 text-lg font-black">Informasi terbaru</h2></div></div>
-        <a href="{{ route('announcements.index') }}" class="text-xs font-black text-violet-600 dark:text-violet-300">Lihat semua</a>
+        <div class="flex items-center gap-3">
+            <span class="grid size-10 place-items-center rounded-xl bg-pink-500/10 text-pink-500"><x-icon name="announcement" size="size-5" /></span>
+            <div>
+                <div class="text-xs font-black uppercase tracking-[.15em] text-slate-400">Berita & Informasi</div>
+                <h2 class="mt-1 text-lg font-black">Informasi terbaru</h2>
+            </div>
+        </div>
+        <a href="{{ route('announcements.index') }}" class="text-xs font-black text-violet-600 hover:text-violet-500 dark:text-violet-300">Lihat semua</a>
     </div>
-    <div class="relative mt-6 ml-1 border-l border-slate-200 pl-6 dark:border-white/10">
+
+    <div class="mt-6 space-y-3">
         @forelse($latestAnnouncements as $item)
             @php
-                $timelineDot = match(strtolower((string) $item->type)) {
-                    'important', 'warning', 'danger' => 'bg-rose-500',
-                    'news' => 'bg-slate-700 dark:bg-slate-300',
-                    'update' => 'bg-violet-500',
-                    'deposit' => 'bg-emerald-500',
-                    'service' => 'bg-amber-500',
-                    default => 'bg-sky-500',
+                $accentClass = match(strtolower((string) $item->type)) {
+                    'important', 'warning', 'danger' => 'border-rose-500',
+                    'news' => 'border-slate-500',
+                    'update' => 'border-violet-500',
+                    'deposit' => 'border-emerald-500',
+                    'service' => 'border-amber-500',
+                    default => 'border-sky-500',
                 };
             @endphp
-            <article class="relative pb-7 last:pb-0">
-                <span class="absolute -left-[1.91rem] top-1.5 size-3 rounded-full border-2 border-white {{ $timelineDot }} dark:border-[#0f172a]"></span>
-                <div class="flex flex-wrap items-center gap-2"><x-announcement-category :value="$item->type" /><span class="text-[10px] font-semibold text-slate-400">{{ $item->created_at->format('d M Y · H:i') }}</span></div>
+            <article class="rounded-2xl border border-slate-200 border-l-4 {{ $accentClass }} bg-slate-50/70 p-4 dark:border-y-white/10 dark:border-r-white/10 dark:bg-white/[.025]">
+                <div class="flex flex-wrap items-center gap-2">
+                    <x-announcement-category :value="$item->type" />
+                    <span class="text-[10px] font-semibold text-slate-400">{{ $item->created_at->format('d M Y · H:i') }}</span>
+                </div>
                 <h3 class="mt-2 font-black">{{ $item->title }}</h3>
                 <p class="mt-1 line-clamp-3 whitespace-pre-line text-sm leading-6 text-slate-500">{{ $item->body }}</p>
             </article>
         @empty
             <div class="py-6 text-sm text-slate-500">Belum ada informasi terbaru.</div>
-        @endforelse
-    </div>
-</section>
-
-<section class="mt-8">
-    <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><h2 class="text-xl font-black">Layanan rekomendasi</h2><a href="{{ route('services.index') }}" class="btn-secondary">Lihat semua <x-icon name="arrow-right" size="size-4" /></a></div>
-    <div class="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
-        @forelse($featuredServices as $service)
-            <a href="{{ route('services.show', $service) }}" class="service-row group"><x-service-icon :service="$service" /><div class="min-w-0 flex-1"><div class="truncate font-black group-hover:text-violet-600 dark:group-hover:text-violet-300">{{ trim($service->name) }}</div><div class="mt-1 text-xs text-slate-500">Mulai <span class="font-bold text-cyan-600 dark:text-cyan-300">Rp {{ number_format((float) $service->lowest_price, 0, ',', '.') }}</span></div><div class="mt-1 text-xs text-slate-400">Stok {{ number_format((int) $service->total_stock) }}</div></div><x-icon name="chevron-right" class="text-slate-400" /></a>
-        @empty
-            <div class="card col-span-full p-10 text-center text-sm text-slate-500">Katalog belum tersedia.</div>
         @endforelse
     </div>
 </section>

@@ -3,7 +3,9 @@
     $isSidebar = $variant === 'sidebar';
     $zoomPercent = max(100, min(400, (int) ($siteLogoZoom ?? 240)));
     $zoomScale = $zoomPercent / 100;
-    $mobileShift = max(-45, min(45, (int) ($siteLogoMobileShift ?? -30)));
+    $mobileShiftSetting = max(-60, min(45, (int) ($siteLogoMobileShift ?? -40)));
+    // Koreksi tambahan untuk logo horizontal yang memiliki canvas/transparansi lebar di sisi kiri.
+    $mobileShift = max(-70, min(35, $mobileShiftSetting - 10));
 
     $wrapperClass = $isSidebar
         ? 'flex w-full min-w-0 items-center'

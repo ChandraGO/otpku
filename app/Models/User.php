@@ -56,7 +56,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function rotateApiKey(): string
     {
-        $plain = 'otp_live_'.Str::random(48);
+        $plain = 'dapetotp_'.Str::random(48);
 
         $this->forceFill([
             'api_key' => $plain,
@@ -71,7 +71,41 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         if (! filled($this->api_key_hash) || ! filled($this->api_key)) {
             $this->rotateApiKey();
+            return;
         }
+
+        // Migrasikan prefix lama secara transparan. Middleware tetap menerima
+        // kedua prefix untuk kompatibilitas integrasi yang belum diperbarui.
+        $plain = (string) $this->api_key;
+        if (str_starts_with($plain, 'otp_live_')) {
+            $migrated = 'dapetotp_'.substr($plain, strlen('otp_live_'));
+            $this->forceFill([
+                'api_key' => $migrated,
+                'api_key_hash' => hash('sha256', $migrated),
+                'api_key_created_at' => $this->api_key_created_at ?: now(),
+            ])->save();
+        }
+    }
+
+    /**
+     * Avatar akun tanpa menyimpan file baru.
+     * GitHub dipakai bila akun terhubung; selain itu Gravatar berdasarkan email.
+     * Gravatar memakai d=404 sehingga tampilan dapat menghilangkan avatar bila kosong.
+     */
+    public function emailAvatarUrl(int $size = 96): ?string
+    {
+        $size = max(32, min(256, $size));
+
+        if (filled($this->github_id) && ctype_digit((string) $this->github_id)) {
+            return 'https://avatars.githubusercontent.com/u/'.rawurlencode((string) $this->github_id).'?s='.$size.'&v=4';
+        }
+
+        $email = strtolower(trim((string) $this->email));
+        if ($email === '') {
+            return null;
+        }
+
+        return 'https://www.gravatar.com/avatar/'.md5($email).'?s='.$size.'&d=404&r=g';
     }
 
     public function otpOrders(): HasMany { return $this->hasMany(OtpOrder::class); }

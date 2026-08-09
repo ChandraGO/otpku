@@ -181,8 +181,8 @@
                         </div>
                         <div>
                             <label class="label">Posisi logo di HP (%)</label>
-                            <input class="input" type="number" name="logo_mobile_shift" min="-45" max="45" step="1" value="{{ $v('logo_mobile_shift',-30) }}">
-                            <p class="mt-1 text-xs text-slate-500">Nilai negatif menggeser logo ke kiri. Default -30% agar wordmark lebih dekat ke tepi layar.</p>
+                            <input class="input" type="number" name="logo_mobile_shift" min="-60" max="45" step="1" value="{{ $v('logo_mobile_shift',-40) }}">
+                            <p class="mt-1 text-xs text-slate-500">Nilai negatif menggeser logo ke kiri. Default -40% agar wordmark lebih dekat ke tepi layar.</p>
                         </div>
                     </div>
                     @if(filled($activeLogoUrl))

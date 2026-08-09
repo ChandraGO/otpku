@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SiteMedia;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 
 class SeoImageController extends Controller
 {
@@ -19,7 +20,7 @@ class SeoImageController extends Controller
 
     private function respond(string $key): Response
     {
-        $media = SiteMedia::query()->where('key', $key)->first();
+        $media = Cache::remember('site-media:'.$key, now()->addHour(), fn () => SiteMedia::query()->where('key', $key)->first());
         abort_unless($media, 404);
 
         $binary = base64_decode((string) $media->data_base64, true);
