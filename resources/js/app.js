@@ -181,8 +181,12 @@ Alpine.data('orderStatus', () => ({
         reactivate: false,
     },
     countdown: 'Menunggu nomor dari penyedia',
+    paymentCountdown: '--:--',
+    paymentRemaining: null,
+    paymentExpiryRefreshTriggered: false,
     copied: false,
-    timer: null,
+    clockTimer: null,
+    fetchTimer: null,
     fetching: false,
     lastChecked: 'Belum diperbarui',
     init() {
@@ -201,19 +205,28 @@ Alpine.data('orderStatus', () => ({
 
         this.tick();
         this.fetch();
-        this.timer = window.setInterval(() => {
-            this.tick();
+
+        // Countdown runs every second so the QRIS expiry timer feels immediate.
+        this.clockTimer = window.setInterval(() => this.tick(), 1000);
+
+        // Remote status polling remains lighter and runs every three seconds.
+        this.fetchTimer = window.setInterval(() => {
             if (!this.data.terminal || this.data.status === 'expired' || this.data.status === 'cancelled') {
                 this.fetch();
             }
         }, 3000);
     },
     destroy() {
-        if (this.timer) window.clearInterval(this.timer);
+        if (this.clockTimer) window.clearInterval(this.clockTimer);
+        if (this.fetchTimer) window.clearInterval(this.fetchTimer);
     },
     applyPayload(payload) {
         if (!payload || typeof payload !== 'object') return;
+        const previousPaymentExpiry = this.data.payment_expires_at;
         this.data = { ...this.data, ...payload };
+        if (previousPaymentExpiry !== this.data.payment_expires_at) {
+            this.paymentExpiryRefreshTriggered = false;
+        }
         this.can = payload.can || this.deriveActions(this.data);
         this.lastChecked = this.formatChecked(payload.last_checked_at);
         this.tick();
@@ -246,26 +259,82 @@ Alpine.data('orderStatus', () => ({
         }
     },
     tick() {
-        if (this.data.payment_channel === 'paykita' && this.data.payment_status === 'pending' && this.data.payment_expires_at) {
-            const remaining = Math.max(0, Math.floor((new Date(this.data.payment_expires_at).getTime() - Date.now()) / 1000));
-            const minutes = Math.floor(remaining / 60);
-            const seconds = remaining % 60;
-            this.countdown = remaining > 0 ? `Bayar dalam ${minutes}m ${String(seconds).padStart(2, '0')}s` : 'Pembayaran kedaluwarsa';
-            return;
-        }
-        if (!this.data.expires_at) {
-            this.countdown = this.data.provider_activation_id
-                ? 'Menunggu durasi dari penyedia'
-                : (this.data.payment_status === 'pending' ? 'Menunggu pembayaran' : 'Menunggu nomor dari penyedia');
+        this.tickPayment();
+        this.tickProvider();
+    },
+    tickPayment() {
+        const paymentStatus = String(this.data.payment_status || '');
+        const isDirectPayment = this.data.payment_channel === 'paykita';
+
+        if (!isDirectPayment) {
+            this.paymentRemaining = null;
+            this.paymentCountdown = '';
             return;
         }
 
-        const remaining = Math.max(0, Math.floor((new Date(this.data.expires_at).getTime() - Date.now()) / 1000));
-        const minutes = Math.floor(remaining / 60);
-        const seconds = remaining % 60;
-        this.countdown = remaining > 0
-            ? `${minutes}m ${String(seconds).padStart(2, '0')}s`
-            : '00m 00s';
+        if (['expired', 'cancelled', 'failed'].includes(paymentStatus)) {
+            this.paymentRemaining = 0;
+            this.paymentCountdown = 'Kedaluwarsa';
+            return;
+        }
+
+        if (paymentStatus === 'paid') {
+            this.paymentRemaining = null;
+            this.paymentCountdown = 'Terbayar';
+            return;
+        }
+
+        if (paymentStatus !== 'pending' || !this.data.payment_expires_at) {
+            this.paymentRemaining = null;
+            this.paymentCountdown = 'Menunggu';
+            return;
+        }
+
+        const remaining = this.secondsUntil(this.data.payment_expires_at);
+        this.paymentRemaining = remaining;
+
+        if (remaining <= 0) {
+            this.paymentCountdown = 'Kedaluwarsa';
+            if (!this.paymentExpiryRefreshTriggered) {
+                this.paymentExpiryRefreshTriggered = true;
+                window.setTimeout(() => this.fetch(), 0);
+            }
+            return;
+        }
+
+        this.paymentExpiryRefreshTriggered = false;
+        this.paymentCountdown = this.formatDuration(remaining);
+    },
+    tickProvider() {
+        if (this.data.payment_status !== 'paid') {
+            this.countdown = 'Menunggu pembayaran';
+            return;
+        }
+
+        if (!this.data.expires_at) {
+            this.countdown = this.data.provider_activation_id
+                ? 'Menunggu durasi dari penyedia'
+                : 'Menunggu nomor dari penyedia';
+            return;
+        }
+
+        const remaining = this.secondsUntil(this.data.expires_at);
+        this.countdown = remaining > 0 ? this.formatDuration(remaining) : '00:00';
+    },
+    secondsUntil(value) {
+        const target = new Date(value).getTime();
+        if (!Number.isFinite(target)) return 0;
+        return Math.max(0, Math.floor((target - Date.now()) / 1000));
+    },
+    formatDuration(totalSeconds) {
+        const seconds = Math.max(0, Number(totalSeconds) || 0);
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const remainder = seconds % 60;
+        if (hours > 0) {
+            return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+        }
+        return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
     },
     formatChecked(value) {
         if (!value) return this.lastChecked;
@@ -273,7 +342,34 @@ Alpine.data('orderStatus', () => ({
         if (Number.isNaN(date.getTime())) return this.lastChecked;
         return `Terakhir dicek ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
     },
+    get paymentActive() {
+        return this.data.payment_channel === 'paykita'
+            && this.data.payment_status === 'pending'
+            && (this.paymentRemaining === null || this.paymentRemaining > 0);
+    },
+    get paymentExpired() {
+        if (this.data.payment_channel !== 'paykita') return false;
+        if (['expired', 'cancelled', 'failed'].includes(String(this.data.payment_status || ''))) return true;
+        return this.data.payment_status === 'pending' && this.paymentRemaining === 0;
+    },
+    get paymentDeadlineLabel() {
+        if (!this.data.payment_expires_at) return '—';
+        const date = new Date(this.data.payment_expires_at);
+        if (Number.isNaN(date.getTime())) return '—';
+        return date.toLocaleString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+    },
     get statusLabel() {
+        if (this.paymentExpired && String(this.data.status || '') === 'awaiting_payment') {
+            return 'QRIS kedaluwarsa';
+        }
+
         const status = String(this.data.status || 'processing');
         const labels = {
             completed: 'Selesai',
@@ -296,7 +392,9 @@ Alpine.data('orderStatus', () => ({
         return labels[status] || status.replaceAll('_', ' ');
     },
     get waitingForActivation() {
-        return !this.data.provider_activation_id && ['processing', 'provider_pending'].includes(String(this.data.status || ''));
+        return this.data.payment_status === 'paid'
+            && !this.data.provider_activation_id
+            && ['processing', 'provider_pending'].includes(String(this.data.status || ''));
     },
     async copy(value) {
         if (!value) return;
