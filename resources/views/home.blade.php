@@ -211,7 +211,7 @@
         <div class="relative grid gap-5 lg:grid-cols-3">
             @foreach([
                 ['1', 'services', 'Pilih layanan', 'Pilih aplikasi yang ingin diverifikasi, tentukan negara atau operator, lalu pilih harga dengan stok yang masih tersedia.', 'violet'],
-                ['2', 'wallet', 'Pilih cara bayar', 'Harga pesanan dipotong langsung dari saldo Rupiah akun setelah Anda menekan tombol Pesan. Anda juga dapat membayar langsung melalui PayKita tanpa isi saldo terlebih dahulu.', 'cyan'],
+                ['2', 'wallet', 'Pilih cara bayar', 'Harga pesanan dipotong langsung dari saldo Rupiah akun saat Anda memilih Pakai saldo. Anda juga dapat memilih Bayar Langsung dengan QRIS tanpa isi saldo terlebih dahulu.', 'cyan'],
                 ['3', 'mail', 'Terima OTP', 'Setelah nomor virtual aktif, gunakan nomor tersebut pada layanan tujuan. SMS dan kode OTP yang masuk akan tampil pada halaman detail pesanan beserta status dan waktu kedaluwarsa.', 'emerald'],
             ] as $step)
                 @php
@@ -307,7 +307,7 @@
         </div>
         <div class="mt-10 space-y-3">
             @foreach([
-                ['Bagaimana cara memesan nomor OTP?', 'Pilih layanan, tentukan negara atau operator, pilih Bayar PayKita untuk pembayaran langsung atau gunakan saldo akun, lalu lanjutkan pesanan. Setelah nomor tersedia, gunakan aksi Siap sebelum meminta kode dari aplikasi tujuan. Nomor dan status akan tampil pada halaman detail pesanan.'],
+                ['Bagaimana cara memesan nomor OTP?', 'Pilih layanan, tentukan negara atau operator, pilih Bayar Langsung untuk pembayaran langsung atau gunakan saldo akun, lalu lanjutkan pesanan. Setelah nomor tersedia, gunakan aksi Siap sebelum meminta kode dari aplikasi tujuan. Nomor dan status akan tampil pada halaman detail pesanan.'],
                 ['Apakah OTP aman digunakan?', 'Kode OTP hanya ditampilkan pada akun pemesan dan digunakan untuk layanan yang dipilih. Keamanan akun tujuan tetap menjadi tanggung jawab pengguna.'],
                 ['Apa yang harus dilakukan jika OTP belum masuk?', 'Gunakan aksi kirim ulang selama waktu pesanan masih aktif. Bila tetap tidak diterima, batalkan pesanan sebelum waktu habis jika status penyedia mengizinkan.'],
                 ['Apakah kirim ulang OTP dikenakan biaya?', 'Tidak ada biaya tambahan dari platform untuk aksi Kirim ulang selama pesanan masih aktif. Setelah OTP berhasil digunakan, tekan Selesai untuk mengakhiri layanan. Kebijakan akhir tetap mengikuti respons penyedia.'],

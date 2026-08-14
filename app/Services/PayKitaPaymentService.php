@@ -28,13 +28,13 @@ class PayKitaPaymentService
 
         $data = $response['data'] ?? null;
         if (! is_array($data) || blank($data['id'] ?? null)) {
-            throw new RuntimeException('PayKita tidak mengembalikan ID pembayaran yang valid.');
+            throw new RuntimeException('Gateway pembayaran tidak mengembalikan ID transaksi yang valid.');
         }
         if ((string) ($data['reference'] ?? '') !== 'OTP-'.$order->id) {
-            throw new RuntimeException('Referensi pembayaran PayKita tidak cocok dengan pesanan lokal.');
+            throw new RuntimeException('Referensi pembayaran tidak cocok dengan pesanan lokal.');
         }
         if (isset($data['base_amount']) && (int) $data['base_amount'] !== (int) round((float) $order->sell_price)) {
-            throw new RuntimeException('Nominal pembayaran PayKita tidak cocok dengan harga produk.');
+            throw new RuntimeException('Nominal pembayaran tidak cocok dengan harga produk.');
         }
 
         $fields = $this->paymentFields($data);
@@ -42,13 +42,13 @@ class PayKitaPaymentService
         if ($status === 'paid') {
             $fields['status'] = 'processing';
             $fields['payment_paid_at'] = $this->date($data['paid_at'] ?? null) ?: now();
-            $fields['provider_message'] = 'Pembayaran PayKita terverifikasi. Nomor sedang diproses.';
+            $fields['provider_message'] = 'Pembayaran terverifikasi. Nomor sedang diproses.';
         } elseif ($status === 'expired') {
             $fields['status'] = 'expired';
-            $fields['provider_message'] = 'Pembayaran PayKita kedaluwarsa sebelum dibayar.';
+            $fields['provider_message'] = 'Pembayaran kedaluwarsa sebelum dibayar.';
         } elseif ($status === 'cancelled') {
             $fields['status'] = 'cancelled';
-            $fields['provider_message'] = 'Pembayaran PayKita dibatalkan.';
+            $fields['provider_message'] = 'Pembayaran dibatalkan.';
         }
 
         $order->update($fields);
@@ -64,7 +64,7 @@ class PayKitaPaymentService
 
         $response = $this->client->order((string) $order->paykita_order_id);
         $data = $response['data'] ?? null;
-        if (! is_array($data)) throw new RuntimeException('Status pembayaran PayKita tidak valid.');
+        if (! is_array($data)) throw new RuntimeException('Status pembayaran tidak valid.');
 
         $dispatch = false;
         DB::transaction(function () use ($order, $data, &$dispatch): void {
@@ -73,13 +73,13 @@ class PayKitaPaymentService
             $remoteId = (string) ($data['id'] ?? '');
             $reference = (string) ($data['reference'] ?? '');
             if ($remoteId === '' || ! hash_equals((string) $locked->paykita_order_id, $remoteId)) {
-                throw new RuntimeException('ID pembayaran PayKita tidak cocok dengan pesanan lokal.');
+                throw new RuntimeException('ID pembayaran tidak cocok dengan pesanan lokal.');
             }
             if ($reference !== '' && ! hash_equals('OTP-'.$locked->id, $reference)) {
-                throw new RuntimeException('Referensi pembayaran PayKita tidak cocok dengan pesanan lokal.');
+                throw new RuntimeException('Referensi pembayaran tidak cocok dengan pesanan lokal.');
             }
             if (isset($data['base_amount']) && (int) $data['base_amount'] !== (int) round((float) $locked->sell_price)) {
-                throw new RuntimeException('Nominal pembayaran PayKita tidak cocok dengan harga produk.');
+                throw new RuntimeException('Nominal pembayaran tidak cocok dengan harga produk.');
             }
 
             $status = strtolower((string) ($data['status'] ?? 'pending'));
@@ -89,14 +89,14 @@ class PayKitaPaymentService
             if ($status === 'paid') {
                 $updates['status'] = 'processing';
                 $updates['payment_paid_at'] = $this->date($data['paid_at'] ?? null) ?: now();
-                $updates['provider_message'] = 'Pembayaran PayKita terverifikasi. Nomor sedang diproses.';
+                $updates['provider_message'] = 'Pembayaran terverifikasi. Nomor sedang diproses.';
                 $dispatch = ! $locked->provider_activation_id && ! in_array($locked->status, ['completed', 'refunded'], true);
             } elseif ($status === 'expired') {
                 $updates['status'] = 'expired';
-                $updates['provider_message'] = 'Pembayaran PayKita kedaluwarsa sebelum dibayar.';
+                $updates['provider_message'] = 'Pembayaran kedaluwarsa sebelum dibayar.';
             } elseif ($status === 'cancelled') {
                 $updates['status'] = 'cancelled';
-                $updates['provider_message'] = 'Pembayaran PayKita dibatalkan.';
+                $updates['provider_message'] = 'Pembayaran dibatalkan.';
             }
 
             $locked->update($updates);

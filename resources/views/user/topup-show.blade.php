@@ -9,7 +9,7 @@
             <a class="text-sm text-brand-600 dark:text-brand-300" href="{{ route('topups.index') }}">← Kembali</a>
             <h1 class="mt-2 text-3xl font-black">Invoice isi saldo</h1>
             <p class="mt-2 font-mono text-sm text-slate-500">{{ $topup->order_id }}</p>
-            <p class="mt-1 text-xs font-bold text-violet-600 dark:text-violet-300">Penyedia pembayaran: {{ $gatewayLabel }}</p>
+            <p class="mt-1 text-xs font-bold text-violet-600 dark:text-violet-300">Metode pembayaran: {{ $gatewayLabel }}</p>
         </div>
         <x-status :value="$topup->status" />
     </div>
@@ -56,7 +56,7 @@
                 <div class="mx-auto grid min-h-48 place-items-center rounded-xl border border-amber-300 bg-amber-50 p-6 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
                     <div>
                         <div class="font-black">Data pembayaran belum tersedia</div>
-                        <p class="mt-2 text-sm leading-6">Buat invoice baru. QRIS PayKita belum tersedia. Silakan buat invoice baru atau hubungi admin.</p>
+                        <p class="mt-2 text-sm leading-6">Buat invoice baru. QRIS pembayaran belum tersedia. Silakan buat invoice baru atau hubungi admin.</p>
                     </div>
                 </div>
             @endif
@@ -77,7 +77,7 @@
                     <dd class="font-semibold">Rp {{ number_format((float) $topup->amount, 0, ',', '.') }}</dd>
                 </div>
                 <div class="flex justify-between gap-4">
-                    <dt class="text-slate-500">Biaya {{ $gatewayLabel }}</dt>
+                    <dt class="text-slate-500">Biaya layanan</dt>
                     <dd>Rp {{ number_format((float) $topup->fee, 0, ',', '.') }}</dd>
                 </div>
                 <div class="flex justify-between gap-4 border-t border-slate-200 pt-4 text-base dark:border-white/10">
@@ -91,7 +91,7 @@
             </dl>
 
             <div class="mt-6 rounded-xl bg-amber-500/10 p-4 text-sm leading-6 text-amber-700 dark:text-amber-300">
-                Bayar sesuai total yang tertera. Saldo hanya ditambahkan setelah server memverifikasi invoice lokal dan status transaksi langsung ke {{ $gatewayLabel }}. Data callback atau URL kembali tidak pernah dipakai sendirian untuk mengkredit saldo.
+                Bayar sesuai total yang tertera. Saldo hanya ditambahkan setelah server memverifikasi invoice lokal dan status transaksi langsung ke penyedia pembayaran. Data callback atau URL kembali tidak pernah dipakai sendirian untuk mengkredit saldo.
             </div>
 
             @if(in_array($topup->status, ['creating', 'pending'], true))

@@ -54,7 +54,7 @@ class OtpOrderController extends Controller
                 'payment_channel' => $balancePayment ? 'balance' : 'paykita',
                 'payment_status' => $balancePayment ? 'paid' : 'pending',
                 'status' => $balancePayment ? 'processing' : 'awaiting_payment',
-                'provider_message' => $balancePayment ? 'Pembayaran saldo diterima. Nomor sedang diproses.' : 'Menunggu pembayaran PayKita.',
+                'provider_message' => $balancePayment ? 'Pembayaran saldo diterima. Nomor sedang diproses.' : 'Menunggu pembayaran.',
             ]);
 
             if ($balancePayment && ! $request->user()->isAdmin()) {
@@ -66,11 +66,11 @@ class OtpOrderController extends Controller
         if ($order->payment_channel === 'paykita') {
             try {
                 $payments->createForOrder($order);
-                return redirect()->route('orders.show', $order)->with('success', 'Pesanan dibuat. Selesaikan pembayaran PayKita untuk memproses nomor.');
+                return redirect()->route('orders.show', $order)->with('success', 'Pesanan dibuat. Selesaikan pembayaran untuk memproses nomor.');
             } catch (Throwable $e) {
                 report($e);
-                $order->update(['status' => 'payment_failed', 'provider_message' => 'Gagal membuat pembayaran PayKita: '.$e->getMessage()]);
-                return redirect()->route('orders.show', $order)->withErrors(['order' => 'Gagal membuat pembayaran PayKita: '.$e->getMessage()]);
+                $order->update(['status' => 'payment_failed', 'provider_message' => 'Gagal membuat pembayaran. Silakan coba lagi.']);
+                return redirect()->route('orders.show', $order)->withErrors(['order' => 'Gagal membuat pembayaran. Silakan coba lagi.']);
             }
         }
 
@@ -115,7 +115,7 @@ class OtpOrderController extends Controller
         try {
             if ($data['action'] === 'cancel' && $order->payment_channel === 'paykita' && $order->payment_status === 'pending') {
                 $payments->cancelOrder($order);
-                return back()->with('success', 'Pembayaran PayKita dibatalkan.');
+                return back()->with('success', 'Pembayaran dibatalkan.');
             }
             $updated = $service->action($order->refresh(), $data['action']);
             $message = $data['action'] === 'cancel' && ! $updated->provider_activation_id
@@ -123,6 +123,10 @@ class OtpOrderController extends Controller
                 : 'Perintah '.$data['action'].' berhasil dikirim.';
             return back()->with('success', $message);
         } catch (Throwable $e) {
+            if ($data['action'] === 'cancel' && $order->payment_channel === 'paykita' && $order->payment_status === 'pending') {
+                report($e);
+                return back()->withErrors(['order' => 'Pembayaran tidak dapat dibatalkan saat ini. Silakan coba lagi.']);
+            }
             return back()->withErrors(['order' => $e->getMessage()]);
         }
     }

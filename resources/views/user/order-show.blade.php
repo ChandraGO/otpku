@@ -62,19 +62,16 @@
         <section class="card mt-6 p-6">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <div class="text-xs font-black uppercase tracking-wider text-violet-600 dark:text-violet-300">Pembayaran PayKita</div>
-                    <h2 class="mt-1 text-xl font-black">Bayar pesanan ini langsung, tanpa top up</h2>
-                    <p class="mt-2 text-sm leading-6 text-slate-500">Harga produk Rp {{ number_format((float) $order->sell_price,0,',','.') }}. Nominal final mengikuti <strong>pay_amount</strong> PayKita.</p>
+                    <div class="text-xs font-black uppercase tracking-wider text-violet-600 dark:text-violet-300">Pembayaran langsung</div>
+                    <h2 class="mt-1 text-xl font-black">Bayar pesanan ini langsung</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">Harga produk Rp {{ number_format((float) $order->sell_price,0,',','.') }}. Total pembayaran mengikuti nominal QRIS yang tertera.</p>
                     <div class="mt-4 text-3xl font-black text-violet-700 dark:text-violet-300">Rp {{ number_format((float) ($order->payment_pay_amount ?: $order->sell_price),0,',','.') }}</div>
                     @if($order->payment_expires_at)<p class="mt-2 text-xs text-slate-500">Batas bayar: {{ $order->payment_expires_at->format('d M Y H:i:s') }}</p>@endif
-                    @if(filled($order->payment_checkout_url) && $order->payment_status === 'pending')
-                        <a class="btn-secondary mt-4 inline-flex" href="{{ $order->payment_checkout_url }}" target="_blank" rel="noopener noreferrer">Buka halaman bayar PayKita</a>
-                    @endif
                 </div>
                 @if(filled($order->payment_qris) && $order->payment_status === 'pending')
                     <div x-data="qrCode(@js($order->payment_qris))" class="text-center">
-                        <img x-show="src" :src="src" class="mx-auto w-56 rounded-2xl bg-white p-3" alt="QRIS PayKita">
-                        <div class="mt-2 text-xs font-bold text-slate-500">Scan QRIS PayKita</div>
+                        <img x-show="src" :src="src" class="mx-auto w-56 rounded-2xl bg-white p-3" alt="QRIS pembayaran">
+                        <div class="mt-2 text-xs font-bold text-slate-500">Scan QRIS untuk membayar</div>
                     </div>
                 @endif
             </div>

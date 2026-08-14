@@ -22,9 +22,9 @@ class TopupController extends Controller
             'minimum' => (int) $settings->get('topup.minimum', 10000),
             'maximum' => (int) $settings->get('topup.maximum', 5000000),
             'defaultMethod' => 'qris',
-            'paymentMethods' => ['qris' => 'PayKita QRIS'],
+            'paymentMethods' => ['qris' => 'QRIS'],
             'activeGateway' => 'paykita',
-            'activeGatewayLabel' => 'PayKita',
+            'activeGatewayLabel' => 'QRIS',
         ]);
     }
 
@@ -38,10 +38,10 @@ class TopupController extends Controller
         ]);
         try {
             $topup = $service->create($request->user(), (int) $data['amount']);
-            return redirect()->route('topups.show', $topup)->with('success', 'Invoice PayKita berhasil dibuat.');
+            return redirect()->route('topups.show', $topup)->with('success', 'Invoice pembayaran berhasil dibuat.');
         } catch (Throwable $e) {
             report($e);
-            return back()->withErrors(['topup' => 'Gagal membuat pembayaran PayKita: '.$e->getMessage()])->withInput();
+            return back()->withErrors(['topup' => 'Gagal membuat pembayaran. Silakan coba lagi.'])->withInput();
         }
     }
 
@@ -52,8 +52,8 @@ class TopupController extends Controller
         return view('user.topup-show', [
             'topup' => $topup,
             'paymentNumber' => $topup->payment_number,
-            'providerError' => data_get($topup->provider_payload, 'error'),
-            'gatewayLabel' => 'PayKita',
+            'providerError' => $topup->status === 'failed' ? 'Pembayaran belum dapat dibuat. Silakan buat invoice baru atau hubungi admin.' : null,
+            'gatewayLabel' => 'QRIS',
             'isQris' => true,
         ]);
     }
@@ -71,8 +71,11 @@ class TopupController extends Controller
         $data = $request->validate(['reason' => ['required', Rule::in(array_keys(Topup::CANCELLATION_REASONS))], 'note' => ['nullable', 'string', 'max:500']]);
         try {
             $service->cancel($topup, $data['reason'], $data['reason'] === 'other' ? ($data['note'] ?? null) : null);
-            return redirect()->route('topups.show', $topup)->with('success', 'Invoice PayKita dibatalkan.');
-        } catch (Throwable $e) { return back()->withErrors(['topup' => $e->getMessage()]); }
+            return redirect()->route('topups.show', $topup)->with('success', 'Invoice pembayaran dibatalkan.');
+        } catch (Throwable $e) {
+            report($e);
+            return back()->withErrors(['topup' => 'Invoice tidak dapat dibatalkan saat ini. Silakan coba lagi.']);
+        }
     }
 
     private function owner(Request $request, Topup $topup): void

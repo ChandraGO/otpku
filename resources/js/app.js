@@ -256,7 +256,7 @@ Alpine.data('orderStatus', () => ({
         if (!this.data.expires_at) {
             this.countdown = this.data.provider_activation_id
                 ? 'Menunggu durasi dari penyedia'
-                : (this.data.payment_status === 'pending' ? 'Menunggu pembayaran PayKita' : 'Menunggu nomor dari penyedia');
+                : (this.data.payment_status === 'pending' ? 'Menunggu pembayaran' : 'Menunggu nomor dari penyedia');
             return;
         }
 
