@@ -92,15 +92,9 @@
                             Scan QRIS di halaman ini. Setelah pembayaran terkonfirmasi, nomor akan diproses otomatis tanpa perlu berpindah halaman.
                         </p>
 
-                        <div class="mt-5 grid gap-3 sm:grid-cols-2">
-                            <div class="rounded-2xl border border-slate-200 p-4 dark:border-white/10">
-                                <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Harga produk</div>
-                                <div class="mt-1 text-lg font-black">Rp {{ number_format((float) $order->sell_price, 0, ',', '.') }}</div>
-                            </div>
-                            <div class="rounded-2xl border border-violet-200 bg-violet-50/70 p-4 dark:border-violet-400/20 dark:bg-violet-400/10">
-                                <div class="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-300">Total bayar</div>
-                                <div class="mt-1 text-2xl font-black text-violet-700 dark:text-violet-200">Rp {{ number_format((float) ($order->payment_pay_amount ?: $order->sell_price), 0, ',', '.') }}</div>
-                            </div>
+                        <div class="mt-5 rounded-2xl border border-violet-200 bg-violet-50/70 p-4 sm:p-5 dark:border-violet-400/20 dark:bg-violet-400/10">
+                            <div class="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-300">Total bayar</div>
+                            <div class="mt-1 text-3xl font-black text-violet-700 dark:text-violet-200">Rp {{ number_format((float) ($order->payment_pay_amount ?: $order->sell_price), 0, ',', '.') }}</div>
                         </div>
 
                         <div
