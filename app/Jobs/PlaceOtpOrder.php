@@ -7,6 +7,7 @@ use App\Services\OtpOrderStatusService;
 use App\Services\SmsVirtualClient;
 use App\Services\WalletService;
 use App\Support\Settings;
+use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -122,7 +123,7 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
                 'activation.phoneNumber',
                 'activation.number',
             ]);
-            $expiresAt = $this->findValue($activationPayload, [
+            $expiresAt = $this->providerDate($this->findValue($activationPayload, [
                 'expiredTime',
                 'expiredAt',
                 'expiresAt',
@@ -135,7 +136,7 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
                 '0.expiredTime',
                 '0.expiredAt',
                 '0.expiresAt',
-            ])
+            ]))
                 ?: now()->addMinutes((int) $settings->get('orders.default_expiry_minutes', 20));
 
             $cancelProviderActivation = false;
@@ -270,6 +271,20 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
         }
 
         return null;
+    }
+
+    private function providerDate(mixed $value): ?Carbon
+    {
+        if (! $value) return null;
+
+        try {
+            // Provider dapat mengirim timestamp UTC (mis. ...Z). Sebelum
+            // disimpan ke kolom DATETIME, ubah dulu ke timezone aplikasi agar
+            // clock time tidak bergeser -8 jam saat dibaca kembali di WITA.
+            return Carbon::parse($value)->setTimezone((string) config('app.timezone', 'Asia/Makassar'));
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function findValue(array $payload, array $keys): mixed

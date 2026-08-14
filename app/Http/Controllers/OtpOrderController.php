@@ -107,27 +107,61 @@ class OtpOrderController extends Controller
         return response()->json($this->publicPayload($order));
     }
 
-    public function action(Request $request, OtpOrder $order, OtpOrderStatusService $service, PayKitaPaymentService $payments): RedirectResponse
+    public function action(Request $request, OtpOrder $order, OtpOrderStatusService $service, PayKitaPaymentService $payments): JsonResponse|RedirectResponse
     {
         $this->authorizeOwner($request, $order);
         $data = $request->validate(['action' => ['required', Rule::in(['ready', 'resend', 'cancel', 'complete', 'reactivate'])]]);
 
         try {
             if ($data['action'] === 'cancel' && $order->payment_channel === 'paykita' && $order->payment_status === 'pending') {
-                $payments->cancelOrder($order);
-                return back()->with('success', 'Pembayaran dibatalkan.');
+                $updated = $payments->cancelOrder($order);
+                $message = 'Pembayaran dibatalkan.';
+            } else {
+                $updated = $service->action($order->refresh(), $data['action']);
+                $message = $data['action'] === 'cancel' && ! $updated->provider_activation_id
+                    ? 'Pesanan dibatalkan sebelum nomor dialokasikan provider.'
+                    : match ($data['action']) {
+                        'ready' => 'Status SMS dikirim berhasil diteruskan.',
+                        'resend' => 'Permintaan kirim ulang berhasil diteruskan.',
+                        'complete' => 'Pesanan berhasil diselesaikan.',
+                        'reactivate' => 'Permintaan aktifkan ulang berhasil diteruskan.',
+                        'cancel' => 'Permintaan pembatalan berhasil diteruskan.',
+                        default => 'Perintah berhasil dikirim.',
+                    };
             }
-            $updated = $service->action($order->refresh(), $data['action']);
-            $message = $data['action'] === 'cancel' && ! $updated->provider_activation_id
-                ? 'Pesanan dibatalkan sebelum nomor dialokasikan provider.'
-                : 'Perintah '.$data['action'].' berhasil dikirim.';
+
+            $updated = $updated->refresh();
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => true,
+                    'message' => $message,
+                    'data' => $this->publicPayload($updated),
+                ]);
+            }
+
             return back()->with('success', $message);
         } catch (Throwable $e) {
-            if ($data['action'] === 'cancel' && $order->payment_channel === 'paykita' && $order->payment_status === 'pending') {
+            $paymentCancel = $data['action'] === 'cancel'
+                && $order->payment_channel === 'paykita'
+                && $order->payment_status === 'pending';
+
+            if ($paymentCancel) {
                 report($e);
-                return back()->withErrors(['order' => 'Pembayaran tidak dapat dibatalkan saat ini. Silakan coba lagi.']);
+                $message = 'Pembayaran tidak dapat dibatalkan saat ini. Silakan coba lagi.';
+            } else {
+                $message = trim($e->getMessage()) !== '' ? $e->getMessage() : 'Aksi pesanan gagal diproses.';
             }
-            return back()->withErrors(['order' => $e->getMessage()]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => $message,
+                    'data' => $this->publicPayload($order->refresh()),
+                ], 422);
+            }
+
+            return back()->withErrors(['order' => $message]);
         }
     }
 

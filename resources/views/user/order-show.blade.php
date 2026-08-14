@@ -47,6 +47,7 @@
 <div
     x-data="orderStatus"
     data-status-url="{{ route('orders.status', $order) }}"
+    data-action-url="{{ route('orders.action', $order) }}"
     data-initial="{{ $initialPayloadEncoded }}"
 >
     <div class="mx-auto max-w-6xl">
@@ -178,9 +179,18 @@
                 <div class="mt-4 rounded-2xl border border-slate-200 p-4 sm:p-5 dark:border-white/10">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Pesan status</div>
-                        <div class="flex items-center gap-2 text-xs text-slate-500">
-                            <span class="inline-block size-2 animate-pulse rounded-full bg-emerald-400"></span>
-                            <span x-text="lastChecked">Sinkron otomatis</span>
+                        <div class="flex flex-wrap items-center justify-end gap-2 text-xs text-slate-500">
+                            <span class="inline-flex items-center gap-2">
+                                <span class="inline-block size-2 animate-pulse rounded-full bg-emerald-400"></span>
+                                <span x-text="lastChecked">Sinkron otomatis</span>
+                            </span>
+                            <button
+                                type="button"
+                                @click="refreshStatus"
+                                x-bind:disabled="fetching || actionBusy"
+                                class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"
+                                x-text="fetching ? 'Memperbarui…' : 'Perbarui'"
+                            >Perbarui</button>
                         </div>
                     </div>
                     <p class="mt-2 whitespace-pre-line text-sm leading-6" x-text="data.message || 'Menunggu pembaruan status...'">
@@ -218,36 +228,61 @@
                 </dl>
 
                 <h3 class="mt-6 text-sm font-black uppercase tracking-wider text-slate-400">Aksi pesanan</h3>
+
+                <div
+                    x-show="actionMessage"
+                    x-cloak
+                    class="mt-3 rounded-xl border px-3 py-2.5 text-xs font-semibold leading-5"
+                    :class="actionError
+                        ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-300'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300'"
+                    x-text="actionMessage"
+                ></div>
+
                 <div class="mt-3 grid grid-cols-2 gap-2">
-                    <form method="post" action="{{ route('orders.action', $order) }}">
-                        @csrf
-                        <input type="hidden" name="action" value="ready">
-                        <button x-bind:disabled="!can.ready" class="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-40">SMS dikirim</button>
-                    </form>
-                    <form method="post" action="{{ route('orders.action', $order) }}">
-                        @csrf
-                        <input type="hidden" name="action" value="resend">
-                        <button x-bind:disabled="!can.resend" class="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-40">Kirim ulang</button>
-                    </form>
-                    <form method="post" action="{{ route('orders.action', $order) }}">
-                        @csrf
-                        <input type="hidden" name="action" value="complete">
-                        <button x-bind:disabled="!can.complete" class="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-40">Selesaikan</button>
-                    </form>
-                    <form method="post" action="{{ route('orders.action', $order) }}">
-                        @csrf
-                        <input type="hidden" name="action" value="reactivate">
-                        <button x-bind:disabled="!can.reactivate" class="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-40">Aktifkan ulang</button>
-                    </form>
-                    <form class="col-span-2" method="post" action="{{ route('orders.action', $order) }}">
-                        @csrf
-                        <input type="hidden" name="action" value="cancel">
-                        <button x-bind:disabled="!can.cancel || paymentExpired" class="btn-danger w-full disabled:cursor-not-allowed disabled:opacity-40">Batalkan</button>
-                    </form>
+                    <button
+                        type="button"
+                        @click="runAction('ready')"
+                        x-bind:disabled="!can.ready || actionBusy"
+                        class="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-40"
+                        x-text="actionBusy === 'ready' ? 'Mengirim…' : 'SMS dikirim'"
+                    >SMS dikirim</button>
+
+                    <button
+                        type="button"
+                        @click="runAction('resend')"
+                        x-bind:disabled="!can.resend || actionBusy"
+                        class="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-40"
+                        x-text="actionBusy === 'resend' ? 'Mengirim…' : 'Kirim ulang'"
+                    >Kirim ulang</button>
+
+                    <button
+                        type="button"
+                        @click="runAction('complete')"
+                        x-bind:disabled="!can.complete || actionBusy"
+                        class="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-40"
+                        x-text="actionBusy === 'complete' ? 'Memproses…' : 'Selesaikan'"
+                    >Selesaikan</button>
+
+                    <button
+                        type="button"
+                        @click="runAction('reactivate')"
+                        x-bind:disabled="!can.reactivate || actionBusy"
+                        class="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-40"
+                        x-text="actionBusy === 'reactivate' ? 'Memproses…' : 'Aktifkan ulang'"
+                    >Aktifkan ulang</button>
+
+                    <button
+                        type="button"
+                        @click="runAction('cancel')"
+                        x-bind:disabled="!can.cancel || actionBusy || (data.payment_status !== 'paid' && paymentExpired)"
+                        class="btn-danger col-span-2 w-full disabled:cursor-not-allowed disabled:opacity-40"
+                        x-text="actionBusy === 'cancel' ? 'Membatalkan…' : 'Batalkan'"
+                    >Batalkan</button>
                 </div>
 
                 <p class="mt-4 text-xs leading-5 text-slate-500">
-                    Aksi aktif otomatis sesuai status. Pembatalan dinonaktifkan setelah OTP diterima atau waktu pembayaran sudah habis.
+                    Tombol yang tersedia mengikuti status nomor. Setelah aksi dikirim, status diperbarui otomatis tanpa reload halaman.
                 </p>
             </aside>
         </div>

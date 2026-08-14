@@ -160,6 +160,7 @@ Alpine.data('copyText', (value) => ({
 
 Alpine.data('orderStatus', () => ({
     url: '',
+    actionUrl: '',
     data: {
         status: 'processing',
         payment_channel: 'balance',
@@ -188,9 +189,13 @@ Alpine.data('orderStatus', () => ({
     clockTimer: null,
     fetchTimer: null,
     fetching: false,
+    actionBusy: '',
+    actionMessage: '',
+    actionError: false,
     lastChecked: 'Belum diperbarui',
     init() {
         this.url = this.$root.dataset.statusUrl || '';
+        this.actionUrl = this.$root.dataset.actionUrl || '';
 
         const encoded = this.$root.dataset.initial || '';
         if (encoded) {
@@ -256,6 +261,45 @@ Alpine.data('orderStatus', () => ({
             this.lastChecked = 'Gagal memperbarui, mencoba lagi otomatis…';
         } finally {
             this.fetching = false;
+        }
+    },
+    async refreshStatus() {
+        this.actionMessage = '';
+        this.actionError = false;
+        await this.fetch();
+    },
+    async runAction(action) {
+        if (!this.actionUrl || this.actionBusy) return;
+
+        this.actionBusy = action;
+        this.actionMessage = '';
+        this.actionError = false;
+
+        try {
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            const response = await axios.post(this.actionUrl, { action }, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': token,
+                },
+            });
+
+            const payload = response.data?.data;
+            if (payload) this.applyPayload(payload);
+
+            this.actionMessage = response.data?.message || 'Aksi berhasil diproses.';
+            await this.fetch();
+        } catch (error) {
+            const response = error?.response?.data;
+            const validationMessage = response?.errors
+                ? Object.values(response.errors).flat().filter(Boolean)[0]
+                : null;
+
+            this.actionError = true;
+            this.actionMessage = response?.message || validationMessage || 'Aksi gagal diproses. Silakan coba lagi.';
+            await this.fetch();
+        } finally {
+            this.actionBusy = '';
         }
     },
     tick() {

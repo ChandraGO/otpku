@@ -303,7 +303,9 @@ class OtpOrderStatusService
             $value = Arr::get($payload, $key);
             if ($value) {
                 try {
-                    return Carbon::parse($value);
+                    // Normalize timestamp provider to the application timezone
+                    // before Eloquent serializes it into a timezone-less DATETIME.
+                    return Carbon::parse($value)->setTimezone((string) config('app.timezone', 'Asia/Makassar'));
                 } catch (Throwable) {}
             }
         }
