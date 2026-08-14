@@ -11,16 +11,9 @@ return [
         'client_secret' => env('GITHUB_CLIENT_SECRET'),
         'redirect' => env('GITHUB_REDIRECT_URI'),
     ],
-    'duitku' => [
-        'environment' => env('DUITKU_ENVIRONMENT', 'production'),
-        'merchant_code' => env('DUITKU_MERCHANT_CODE'),
-        'api_key' => env('DUITKU_API_KEY'),
-        'payment_method' => env('DUITKU_PAYMENT_METHOD', 'NQ'),
-    ],
-    'pakasir' => [
-        'base_url' => env('PAKASIR_BASE_URL', 'https://app.pakasir.com'),
-        'project' => env('PAKASIR_PROJECT'),
-        'api_key' => env('PAKASIR_API_KEY'),
-        'method' => env('PAKASIR_PAYMENT_METHOD', 'qris'),
+    'paykita' => [
+        'base_url' => env('PAYKITA_BASE_URL', 'https://paykita.biz.id'),
+        'api_key' => env('PAYKITA_API_KEY'),
+        'ttl_seconds' => (int) env('PAYKITA_TTL_SECONDS', 600),
     ],
 ];

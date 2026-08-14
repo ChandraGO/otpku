@@ -59,6 +59,36 @@ class WalletService
         );
     }
 
+
+    public function refundOrderPayment(\App\Models\OtpOrder $order, string $description, array $meta = []): ?WalletTransaction
+    {
+        $existing = WalletTransaction::query()->where('reference_key', 'order-refund:'.$order->id)->first();
+        if ($existing) return $existing;
+
+        if ($order->payment_channel === 'paykita' && $order->payment_status === 'paid') {
+            return $this->credit(
+                $order->user,
+                (float) $order->sell_price,
+                'order_refund',
+                'order-refund:'.$order->id,
+                $description,
+                \App\Models\OtpOrder::class,
+                $order->id,
+                [...$meta, 'original_payment_channel' => 'paykita'],
+            );
+        }
+
+        return $this->refundDebit(
+            $order->user,
+            'order-debit:'.$order->id,
+            'order-refund:'.$order->id,
+            $description,
+            \App\Models\OtpOrder::class,
+            $order->id,
+            $meta,
+        );
+    }
+
     private function mutate(User $user, float $amount, string $direction, string $category, string $referenceKey, string $description, ?string $referenceType, ?string $referenceId, array $meta): WalletTransaction
     {
         if ($amount <= 0) {
@@ -75,7 +105,7 @@ class WalletService
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
             $before = (float) $locked->balance;
             if ($direction === 'debit' && $before < $amount) {
-                throw ValidationException::withMessages(['balance' => 'Saldo tidak mencukupi. Silakan top up terlebih dahulu.']);
+                throw ValidationException::withMessages(['balance' => 'Saldo tidak mencukupi. Pilih pembayaran PayKita atau isi saldo terlebih dahulu.']);
             }
             $after = $direction === 'credit' ? $before + $amount : $before - $amount;
             $locked->forceFill(['balance' => $after])->save();

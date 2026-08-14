@@ -3,7 +3,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Topup;
-use App\Services\PaymentGatewayManager;
 use App\Services\TopupService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,18 +20,16 @@ class TopupController extends Controller
             ->latest()->paginate(30)->withQueryString();
         return view('admin.topups.index', compact('topups'));
     }
-    public function show(Topup $topup, PaymentGatewayManager $gateways, TopupService $service): View
+
+    public function show(Topup $topup, TopupService $service): View
     {
         $topup = $service->normalizeStatus($topup)->load('user');
-
-        return view('admin.topups.show', [
-            'topup' => $topup,
-            'gatewayLabel' => $gateways->label($topup->gateway ?: 'pakasir'),
-        ]);
+        return view('admin.topups.show', ['topup' => $topup, 'gatewayLabel' => 'PayKita']);
     }
+
     public function verify(Topup $topup, TopupService $service): RedirectResponse
     {
-        try { $service->verify($topup, force: true); return back()->with('success', 'Status pembayaran berhasil diverifikasi.'); }
+        try { $service->verify($topup, force: true); return back()->with('success', 'Status pembayaran PayKita berhasil diverifikasi.'); }
         catch (Throwable $e) { return back()->withErrors(['topup' => $e->getMessage()]); }
     }
 }

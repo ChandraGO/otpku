@@ -8,7 +8,7 @@
 </div>
 <form class="card mt-6 grid gap-3 p-4 sm:grid-cols-2" method="get" data-auto-filter>
     <select class="input" name="status"><option value="">Semua status</option>@foreach($statusLabels as $status=>$label)<option value="{{ $status }}" @selected(request('status')===$status)>{{ $label }}</option>@endforeach</select>
-    <select class="input" name="gateway"><option value="">Semua penyedia pembayaran</option><option value="pakasir" @selected(request('gateway')==='pakasir')>Pakasir</option><option value="duitku" @selected(request('gateway')==='duitku')>Duitku</option></select>
+    <select class="input" name="gateway"><option value="">Semua penyedia pembayaran</option><option value="paykita" @selected(request('gateway')==='paykita')>PayKita</option></select>
 </form>
 <div class="mt-6 table-wrap">
     <table class="table">
@@ -19,7 +19,7 @@
                     <td>{{ $topup->order_id }}</td>
                     <td>{{ $topup->user?->email }}</td>
                     <td>Rp {{ number_format((float)$topup->amount,0,',','.') }}</td>
-                    <td>{{ ucfirst($topup->gateway ?: 'pakasir') }}</td>
+                    <td>{{ ucfirst($topup->gateway ?: 'paykita') }}</td>
                     <td>{{ strtoupper(str_replace('_',' ',$topup->payment_method)) }}</td>
                     <td><x-status :value="$topup->status" /></td>
                     <td class="min-w-52 text-xs leading-5 text-slate-500">

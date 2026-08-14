@@ -5,8 +5,13 @@
     $terminal = $order->isTerminal();
     $hasOtp = $order->hasOtp();
     $canCancelLocally = ! $hasActivation && in_array($order->status, ['processing', 'provider_pending'], true);
+    $canCancelPayment = $order->payment_channel === 'paykita' && $order->payment_status === 'pending' && $order->status === 'awaiting_payment' && filled($order->paykita_order_id);
     $initialPayload = [
         'status' => $order->status,
+        'payment_channel' => $order->payment_channel,
+        'payment_status' => $order->payment_status,
+        'payment_pay_amount' => $order->payment_pay_amount,
+        'payment_expires_at' => $order->payment_expires_at?->toIso8601String(),
         'phone_number' => $order->phone_number,
         'otp_code' => $order->otp_code,
         'message' => $order->provider_message,
@@ -17,12 +22,14 @@
             'ready' => $hasActivation && ! $terminal,
             'resend' => $hasActivation && ! $terminal,
             'complete' => $hasActivation && ! $terminal,
-            'cancel' => $canCancelLocally || ($hasActivation && ! $terminal && ! $hasOtp),
+            'cancel' => $canCancelPayment || $canCancelLocally || ($hasActivation && ! $terminal && ! $hasOtp),
             'reactivate' => $hasActivation && in_array($order->status, ['cancelled', 'expired', 'failed'], true),
         ],
     ];
     $initialPayloadEncoded = base64_encode(json_encode($initialPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}');
     $initialStatusLabel = match ($order->status) {
+        'awaiting_payment' => 'Menunggu pembayaran',
+        'payment_failed' => 'Pembayaran gagal',
         'processing' => 'Diproses',
         'provider_pending' => 'Menunggu penyedia',
         'pending' => 'Menunggu',
@@ -50,6 +57,29 @@
         </div>
         <span class="badge bg-sky-500/10 text-sky-600 dark:text-sky-300" x-text="statusLabel">{{ $initialStatusLabel }}</span>
     </div>
+
+    @if($order->payment_channel === 'paykita' && $order->payment_status !== 'paid')
+        <section class="card mt-6 p-6">
+            <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <div class="text-xs font-black uppercase tracking-wider text-violet-600 dark:text-violet-300">Pembayaran PayKita</div>
+                    <h2 class="mt-1 text-xl font-black">Bayar pesanan ini langsung, tanpa top up</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">Harga produk Rp {{ number_format((float) $order->sell_price,0,',','.') }}. Nominal final mengikuti <strong>pay_amount</strong> PayKita.</p>
+                    <div class="mt-4 text-3xl font-black text-violet-700 dark:text-violet-300">Rp {{ number_format((float) ($order->payment_pay_amount ?: $order->sell_price),0,',','.') }}</div>
+                    @if($order->payment_expires_at)<p class="mt-2 text-xs text-slate-500">Batas bayar: {{ $order->payment_expires_at->format('d M Y H:i:s') }}</p>@endif
+                    @if(filled($order->payment_checkout_url) && $order->payment_status === 'pending')
+                        <a class="btn-secondary mt-4 inline-flex" href="{{ $order->payment_checkout_url }}" target="_blank" rel="noopener noreferrer">Buka halaman bayar PayKita</a>
+                    @endif
+                </div>
+                @if(filled($order->payment_qris) && $order->payment_status === 'pending')
+                    <div x-data="qrCode(@js($order->payment_qris))" class="text-center">
+                        <img x-show="src" :src="src" class="mx-auto w-56 rounded-2xl bg-white p-3" alt="QRIS PayKita">
+                        <div class="mt-2 text-xs font-bold text-slate-500">Scan QRIS PayKita</div>
+                    </div>
+                @endif
+            </div>
+        </section>
+    @endif
 
     <div class="mt-6 grid gap-6 lg:grid-cols-3">
         <section class="card p-6 lg:col-span-2">

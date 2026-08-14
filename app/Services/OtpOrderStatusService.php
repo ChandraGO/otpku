@@ -78,13 +78,9 @@ class OtpOrderStatusService
                 && (bool) $this->settings->get('orders.refund_on_expired', false);
 
             if (($providerRefunded || $providerCancelled || $autoRefundExpired) && ! $locked->refunded_at) {
-                $refund = $this->wallet->refundDebit(
-                    $locked->user,
-                    'order-debit:'.$locked->id,
-                    'order-refund:'.$locked->id,
+                $refund = $this->wallet->refundOrderPayment(
+                    $locked,
                     'Refund pesanan '.$locked->service_name,
-                    OtpOrder::class,
-                    $locked->id,
                     [
                         'provider_status' => $providerStatus,
                         'automatic_expiry_refund' => $autoRefundExpired,
@@ -168,13 +164,9 @@ class OtpOrderStatusService
                 throw new \RuntimeException('Pesanan ini sudah tidak dapat dibatalkan sebelum aktivasi.');
             }
 
-            $refund = $this->wallet->refundDebit(
-                $locked->user,
-                'order-debit:'.$locked->id,
-                'order-refund:'.$locked->id,
+            $refund = $this->wallet->refundOrderPayment(
+                $locked,
                 'Refund pesanan dibatalkan sebelum nomor tersedia '.$locked->service_name,
-                OtpOrder::class,
-                $locked->id,
                 ['reason' => 'cancelled_before_provider_activation'],
             );
 

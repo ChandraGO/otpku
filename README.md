@@ -1,3 +1,5 @@
+git status && git add . && git commit -m "Update Fitur" && git push origin master
+
 # KodeOTP Platform
 
 Marketplace penerimaan OTP berbasis **Laravel 13, Blade, Tailwind CSS 4, Alpine.js, PostgreSQL, Redis, SMS Virtuals, dan Pakasir**. Tema awal dark, light mode tersedia, tampilan responsif, halaman publik SEO-friendly, serta panel admin lengkap.

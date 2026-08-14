@@ -56,7 +56,7 @@
                 <div class="mx-auto grid min-h-48 place-items-center rounded-xl border border-amber-300 bg-amber-50 p-6 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
                     <div>
                         <div class="font-black">Data pembayaran belum tersedia</div>
-                        <p class="mt-2 text-sm leading-6">Buat invoice baru. Tautan pembayaran asli penyedia tidak dikirim ke browser.</p>
+                        <p class="mt-2 text-sm leading-6">Buat invoice baru. QRIS PayKita belum tersedia. Silakan buat invoice baru atau hubungi admin.</p>
                     </div>
                 </div>
             @endif

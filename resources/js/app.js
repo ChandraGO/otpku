@@ -162,6 +162,10 @@ Alpine.data('orderStatus', () => ({
     url: '',
     data: {
         status: 'processing',
+        payment_channel: 'balance',
+        payment_status: 'paid',
+        payment_pay_amount: null,
+        payment_expires_at: null,
         phone_number: null,
         otp_code: null,
         message: null,
@@ -223,7 +227,7 @@ Alpine.data('orderStatus', () => ({
             ready: hasActivation && !terminal,
             resend: hasActivation && !terminal,
             complete: hasActivation && !terminal,
-            cancel: (!hasActivation && ['processing', 'provider_pending'].includes(status)) || (hasActivation && !terminal && !hasOtp),
+            cancel: (payload.payment_channel === 'paykita' && payload.payment_status === 'pending' && status === 'awaiting_payment') || (!hasActivation && ['processing', 'provider_pending'].includes(status)) || (hasActivation && !terminal && !hasOtp),
             reactivate: hasActivation && ['cancelled', 'expired', 'failed'].includes(status),
         };
     },
@@ -242,10 +246,17 @@ Alpine.data('orderStatus', () => ({
         }
     },
     tick() {
+        if (this.data.payment_channel === 'paykita' && this.data.payment_status === 'pending' && this.data.payment_expires_at) {
+            const remaining = Math.max(0, Math.floor((new Date(this.data.payment_expires_at).getTime() - Date.now()) / 1000));
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            this.countdown = remaining > 0 ? `Bayar dalam ${minutes}m ${String(seconds).padStart(2, '0')}s` : 'Pembayaran kedaluwarsa';
+            return;
+        }
         if (!this.data.expires_at) {
             this.countdown = this.data.provider_activation_id
                 ? 'Menunggu durasi dari penyedia'
-                : 'Menunggu nomor dari penyedia';
+                : (this.data.payment_status === 'pending' ? 'Menunggu pembayaran PayKita' : 'Menunggu nomor dari penyedia');
             return;
         }
 
@@ -271,6 +282,8 @@ Alpine.data('orderStatus', () => ({
             active: 'Aktif',
             ready: 'Siap',
             pending: 'Menunggu',
+            awaiting_payment: 'Menunggu pembayaran',
+            payment_failed: 'Pembayaran gagal',
             processing: 'Diproses',
             provider_pending: 'Menunggu penyedia',
             creating: 'Membuat transaksi',

@@ -22,8 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.key' => AuthenticateApiKey::class,
         ]);
         $middleware->validateCsrfTokens(except: [
-            'webhooks/pakasir',
-            'webhooks/duitku',
+            'webhooks/paykita',
             'webhooks/sms-virtual/*',
         ]);
     })

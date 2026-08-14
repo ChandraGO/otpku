@@ -9,7 +9,6 @@ use App\Models\SmsCountry;
 use App\Models\SmsService;
 use App\Models\SmsServicePrice;
 use App\Services\OtpOrderStatusService;
-use App\Services\PaymentGatewayManager;
 use App\Services\PricingService;
 use App\Services\WalletService;
 use Illuminate\Database\Eloquent\Builder;
@@ -136,7 +135,7 @@ class CustomerApiController extends Controller
         return $this->success($orders);
     }
 
-    public function createOrder(Request $request, PricingService $pricing, WalletService $wallet, PaymentGatewayManager $gateways): JsonResponse
+    public function createOrder(Request $request, PricingService $pricing, WalletService $wallet): JsonResponse
     {
         $data = $request->validate([
             'price_id' => ['required', 'integer', Rule::exists('sms_service_prices', 'id')->where('is_active', true)],
@@ -165,41 +164,25 @@ class CustomerApiController extends Controller
         $price->update(['sell_price' => $sellPrice]);
 
         try {
-            $order = $gateways->withSwitchLock(function () use ($request, $data, $price, $sellPrice, $pricing, $wallet, $gateways): OtpOrder {
-                if ($gateways->pendingGateway()) {
-                    throw ValidationException::withMessages([
-                        'order' => 'Pergantian penyedia pembayaran sedang diproses. Pemesanan API baru ditahan sementara sampai pergantian selesai.',
-                    ]);
-                }
-
-                return DB::transaction(function () use ($request, $data, $price, $sellPrice, $pricing, $wallet): OtpOrder {
-                    $order = OtpOrder::query()->create([
-                        'user_id' => $request->user()->id,
-                        'sms_service_price_id' => $price->id,
-                        'idempotency_key' => $data['idempotency_key'],
-                        'provider_price_id' => $price->provider_price_id,
-                        'provider_operator_id' => $price->provider_operator_id,
-                        'service_name' => $price->service->name,
-                        'country_name' => $price->country->name,
-                        'operator_name' => $price->operator_name,
-                        'provider_cost' => $pricing->providerCostIdr($price->provider_price),
-                        'sell_price' => $sellPrice,
-                        'status' => 'processing',
-                    ]);
-
-                    $wallet->debit(
-                        $request->user(),
-                        $sellPrice,
-                        'otp_order',
-                        'order-debit:'.$order->id,
-                        'Pembelian OTP '.$order->service_name.' — '.$order->country_name,
-                        OtpOrder::class,
-                        $order->id,
-                    );
-
-                    return $order;
-                }, 3);
-            });
+            $order = DB::transaction(function () use ($request, $data, $price, $sellPrice, $pricing, $wallet): OtpOrder {
+                $order = OtpOrder::query()->create([
+                    'user_id' => $request->user()->id,
+                    'sms_service_price_id' => $price->id,
+                    'idempotency_key' => $data['idempotency_key'],
+                    'provider_price_id' => $price->provider_price_id,
+                    'provider_operator_id' => $price->provider_operator_id,
+                    'service_name' => $price->service->name,
+                    'country_name' => $price->country->name,
+                    'operator_name' => $price->operator_name,
+                    'provider_cost' => $pricing->providerCostIdr($price->provider_price),
+                    'sell_price' => $sellPrice,
+                    'payment_channel' => 'balance',
+                    'payment_status' => 'paid',
+                    'status' => 'processing',
+                ]);
+                $wallet->debit($request->user(), $sellPrice, 'otp_order', 'order-debit:'.$order->id, 'Pembelian OTP '.$order->service_name.' — '.$order->country_name, OtpOrder::class, $order->id);
+                return $order;
+            }, 3);
         } catch (ValidationException $exception) {
             return $this->error(
                 collect($exception->errors())->flatten()->first() ?: 'Data pesanan tidak valid.',

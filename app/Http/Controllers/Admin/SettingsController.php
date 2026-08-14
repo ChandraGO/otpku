@@ -6,12 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\SiteMedia;
 use App\Notifications\EmailOtpNotification;
 use App\Services\AuditService;
+use App\Services\CatalogSyncService;
 use App\Jobs\RepriceSmsVirtualCatalog;
-use App\Services\DuitkuClient;
 use App\Services\MailSettingsConfigurator;
-use App\Services\PakasirClient;
-use App\Services\PaymentGatewayManager;
 use App\Services\ProviderBalanceService;
+use App\Services\PayKitaClient;
 use App\Support\Settings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,76 +47,9 @@ class SettingsController extends Controller
             $tab = '';
         }
 
-        // Halaman /admin/settings hanya menampilkan perpustakaan kategori.
-        // Jangan melakukan query transaksi/gateway pada halaman indeks supaya
-        // satu masalah pada provider atau tabel transaksi tidak membuat seluruh
-        // halaman Pengaturan Sistem berakhir 500. Data provider baru dibaca
-        // ketika kategori Penyedia Pembayaran benar-benar dibuka.
-        $values = [];
-        $pakasirValues = [];
-        $duitkuValues = [];
-        $activeGateway = 'pakasir';
-        $pendingGateway = null;
-        $gatewayBlockers = ['topups' => 0, 'orders' => 0];
-        $duitkuMethods = [];
+        $values = $tab === 'payments' ? $settings->group('paykita') : ($tab !== '' ? $settings->group($tab) : []);
 
-        if ($tab !== '' && $tab !== 'payments') {
-            $values = $settings->group($tab);
-        }
-
-        if ($tab === 'payments') {
-            $pakasirValues = $settings->group('pakasir');
-            $duitkuValues = $settings->group('duitku');
-
-            try {
-                $gateways = app(PaymentGatewayManager::class);
-                $activeGateway = $gateways->activeGateway();
-                $pendingGateway = $gateways->pendingGateway();
-                $gatewayBlockers = $gateways->blockingCounts();
-                $duitkuMethods = $gateways->duitkuMethodOptions();
-            } catch (Throwable $e) {
-                report($e);
-
-                // Tetap render form agar admin masih bisa memperbaiki konfigurasi.
-                $activeGateway = strtolower((string) $settings->get('payments.active_gateway', 'pakasir'));
-                if (! in_array($activeGateway, ['pakasir', 'duitku'], true)) {
-                    $activeGateway = 'pakasir';
-                }
-
-                $pending = strtolower(trim((string) $settings->get('payments.pending_gateway', '')));
-                $pendingGateway = in_array($pending, ['pakasir', 'duitku'], true) ? $pending : null;
-                $duitkuMethods = [
-                    'NQ' => 'QRIS Nobu',
-                    'GQ' => 'QRIS Gudang Voucher',
-                    'SQ' => 'QRIS Nusapay',
-                    'SP' => 'QRIS ShopeePay',
-                    'BC' => 'BCA Virtual Account',
-                    'M2' => 'Mandiri Virtual Account',
-                    'VA' => 'Maybank Virtual Account',
-                    'I1' => 'BNI Virtual Account',
-                    'B1' => 'CIMB Niaga Virtual Account',
-                    'BT' => 'Permata Virtual Account',
-                    'A1' => 'ATM Bersama',
-                    'AG' => 'Bank Artha Graha',
-                    'NC' => 'Bank Neo Commerce / BNC',
-                    'BR' => 'BRIVA',
-                    'S1' => 'Bank Sahabat Sampoerna',
-                    'DM' => 'Danamon Virtual Account',
-                    'BV' => 'BSI Virtual Account',
-                ];
-            }
-        }
-
-        return view('admin.settings.index', compact(
-            'tab',
-            'values',
-            'pakasirValues',
-            'duitkuValues',
-            'activeGateway',
-            'pendingGateway',
-            'gatewayBlockers',
-            'duitkuMethods',
-        ));
+        return view('admin.settings.index', compact('tab', 'values'));
     }
 
     public function update(
@@ -135,9 +67,8 @@ class SettingsController extends Controller
                     'orders',
                     'pricing',
                     'topup',
+                    'paykita',
                     'sms_virtual',
-                    'pakasir',
-                    'duitku',
                     'mail',
                     'security',
                 ]),
@@ -275,106 +206,13 @@ class SettingsController extends Controller
         );
     }
 
-    public function testPakasir(PakasirClient $client): RedirectResponse
+    public function testPayKita(PayKitaClient $client): RedirectResponse
     {
         try {
-            $configuration = $client->assertConfigured();
-
-            return back()->with(
-                'success',
-                'Konfigurasi Pakasir siap: '.$configuration['base_url'].' · project '.$configuration['project'].'. Tes transaksi sebenarnya dilakukan saat invoice dibuat.',
-            );
+            $result = $client->probe();
+            return back()->with('success', $result['message'] ?? 'Koneksi PayKita berhasil.');
         } catch (Throwable $e) {
             return back()->withErrors(['settings' => $e->getMessage()]);
-        }
-    }
-
-    public function testDuitku(DuitkuClient $client, Settings $settings): RedirectResponse
-    {
-        try {
-            $configuration = $client->assertConfigured();
-            $amount = max(10000, (int) $settings->get('topup.minimum', 10000));
-            $methods = $client->paymentMethods($amount);
-            $configured = strtoupper((string) $configuration['payment_method']);
-            $active = collect($methods)->contains(fn ($item) => is_array($item)
-                && strtoupper((string) ($item['paymentMethod'] ?? '')) === $configured);
-
-            return back()->with(
-                'success',
-                'Koneksi Duitku berhasil ('.$configuration['environment'].'). Metode aktif terdeteksi: '.count($methods).'. Metode bawaan '.$configured.($active ? ' tersedia.' : ' belum aktif pada proyek merchant.'),
-            );
-        } catch (Throwable $e) {
-            return back()->withErrors(['settings' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Satu form untuk memilih provider sekaligus menyimpan konfigurasi provider
-     * yang dipilih. Provider yang menyala setelah penyimpanan adalah provider
-     * yang dipakai untuk invoice baru (kecuali sedang menunggu drain transaksi).
-     */
-    public function switchPaymentGateway(
-        Request $request,
-        PaymentGatewayManager $gateways,
-        PakasirClient $pakasir,
-        DuitkuClient $duitku,
-        AuditService $audit,
-        Settings $settings,
-    ): RedirectResponse {
-        $target = $request->validate([
-            'active_gateway' => ['required', Rule::in(['pakasir', 'duitku'])],
-        ])['active_gateway'];
-        $providerData = $request->validate($this->paymentRules($target));
-
-        try {
-            $config = $providerData[$target] ?? [];
-            $mapped = [];
-
-            foreach ($config as $key => $value) {
-                if ($key === 'api_key' && ($value === null || $value === '')) {
-                    continue;
-                }
-                $mapped[$target.'.'.$key] = $value;
-            }
-
-            $settings->setMany($mapped);
-
-            if ($target === 'duitku') {
-                $configuration = $duitku->assertConfigured();
-                $amount = max(10000, (int) $settings->get('topup.minimum', 10000));
-                $methods = $duitku->paymentMethods($amount);
-                $configuredMethod = strtoupper((string) $configuration['payment_method']);
-                $methodActive = collect($methods)->contains(fn ($item) => is_array($item)
-                    && strtoupper((string) ($item['paymentMethod'] ?? '')) === $configuredMethod);
-
-                if (! $methodActive) {
-                    throw new \RuntimeException('Metode Duitku '.$configuredMethod.' belum aktif pada proyek merchant. Pilih channel yang aktif lalu coba lagi.');
-                }
-            } else {
-                $pakasir->assertConfigured();
-            }
-
-            $result = $gateways->requestSwitch($target, $request->user());
-            $audit->record('payment_gateway.settings_update', 'payment_gateway', [], [
-                'gateway' => $target,
-                'keys' => array_keys($mapped),
-                'switch' => $result,
-            ]);
-
-            if ($result['state'] === 'scheduled') {
-                return back()->with(
-                    'success',
-                    'Konfigurasi '.$gateways->label($target).' tersimpan. Peralihan dijadwalkan setelah '.(int) $result['blockers']['topups'].' isi saldo dan '.(int) $result['blockers']['orders'].' pesanan aktif selesai.',
-                );
-            }
-
-            if ($result['state'] === 'unchanged') {
-                return back()->with('success', 'Konfigurasi '.$gateways->label($target).' tersimpan dan provider tersebut tetap aktif.');
-            }
-
-            return back()->with('success', 'Konfigurasi tersimpan. Penyedia pembayaran aktif sekarang: '.$gateways->label($target).'.');
-        } catch (Throwable $e) {
-            return back()->withErrors(['settings' => $e->getMessage()])->withInput();
         }
     }
 
@@ -465,18 +303,10 @@ class SettingsController extends Controller
                 'low_balance_threshold' => ['required', 'numeric', 'min:0', 'max:1000000000000'],
                 'reserve_buffer_percent' => ['required', 'numeric', 'min:0', 'max:500'],
             ],
-            'pakasir' => [
+            'paykita' => [
                 'base_url' => ['required', 'url'],
-                'project' => ['required', 'string', 'max:100'],
                 'api_key' => ['nullable', 'string', 'max:500'],
-                'payment_method' => ['required', 'string', 'max:40'],
-            ],
-            'duitku' => [
-                'environment' => ['required', Rule::in(['sandbox', 'production'])],
-                'merchant_code' => ['required', 'string', 'max:100'],
-                'api_key' => ['nullable', 'string', 'max:500'],
-                'payment_method' => ['required', Rule::in(array_keys(app(PaymentGatewayManager::class)->duitkuMethodOptions()))],
-                'expiry_minutes' => ['required', 'integer', 'min:5', 'max:1440'],
+                'ttl_seconds' => ['required', 'integer', 'min:60', 'max:86400'],
             ],
             'mail' => [
                 'mailer' => ['required', Rule::in(['smtp', 'log'])],
@@ -492,26 +322,6 @@ class SettingsController extends Controller
                 'provider_webhook_secret' => ['nullable', 'string', 'min:24'],
             ],
         };
-    }
-
-    private function paymentRules(string $gateway): array
-    {
-        if ($gateway === 'duitku') {
-            return [
-                'duitku.environment' => ['required', Rule::in(['sandbox', 'production'])],
-                'duitku.merchant_code' => ['required', 'string', 'max:100'],
-                'duitku.api_key' => ['nullable', 'string', 'max:500'],
-                'duitku.payment_method' => ['required', Rule::in(array_keys(app(PaymentGatewayManager::class)->duitkuMethodOptions()))],
-                'duitku.expiry_minutes' => ['required', 'integer', 'min:5', 'max:1440'],
-            ];
-        }
-
-        return [
-            'pakasir.base_url' => ['required', 'url'],
-            'pakasir.project' => ['required', 'string', 'max:100'],
-            'pakasir.api_key' => ['nullable', 'string', 'max:500'],
-            'pakasir.payment_method' => ['required', 'string', 'max:40'],
-        ];
     }
 
     private function storeSiteImage(

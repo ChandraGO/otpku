@@ -16,8 +16,7 @@
     </select>
     <select class="input" name="gateway">
         <option value="">Semua penyedia pembayaran</option>
-        <option value="pakasir" @selected(request('gateway')==='pakasir')>Pakasir</option>
-        <option value="duitku" @selected(request('gateway')==='duitku')>Duitku</option>
+        <option value="paykita" @selected(request('gateway')==='paykita')>PayKita</option>
     </select>
     <select class="input" name="status">
         <option value="">Semua status</option>

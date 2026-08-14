@@ -36,6 +36,7 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
     {
         $order = OtpOrder::query()->with('user')->find($this->orderId);
         if (! $order || $order->provider_activation_id || $order->refunded_at || in_array($order->status, ['completed', 'cancelled', 'refunded'], true)) return;
+        if (($order->payment_status ?? 'paid') !== 'paid') return;
 
         if (! $order->provider_price_id) {
             $this->terminalFailure($order, 'Referensi harga provider tidak tersedia.', $wallet);
@@ -207,13 +208,9 @@ class PlaceOtpOrder implements ShouldQueue, ShouldBeUnique
         DB::transaction(function () use ($order, $message, $wallet): void {
             $locked = OtpOrder::query()->with('user')->lockForUpdate()->findOrFail($order->id);
             if ($locked->provider_activation_id || $locked->refunded_at) return;
-            $refund = $wallet->refundDebit(
-                $locked->user,
-                'order-debit:'.$locked->id,
-                'order-refund:'.$locked->id,
+            $refund = $wallet->refundOrderPayment(
+                $locked,
                 'Refund pesanan gagal '.$locked->service_name,
-                OtpOrder::class,
-                $locked->id,
                 ['reason' => str($message)->limit(500)->toString()],
             );
             $locked->update([

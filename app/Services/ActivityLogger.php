@@ -18,7 +18,7 @@ class ActivityLogger
             'event' => 'topup.created',
             'subject_type' => 'topup',
             'subject_id' => (string) $topup->id,
-            'gateway' => $topup->gateway ?: 'pakasir',
+            'gateway' => $topup->gateway ?: 'paykita',
             'status' => $topup->status,
             'amount' => $topup->amount,
             'description' => sprintf(
@@ -41,7 +41,7 @@ class ActivityLogger
             'event' => 'topup.'.$to,
             'subject_type' => 'topup',
             'subject_id' => (string) $topup->id,
-            'gateway' => $topup->gateway ?: 'pakasir',
+            'gateway' => $topup->gateway ?: 'paykita',
             'status' => $to,
             'amount' => $topup->amount,
             'description' => sprintf(
@@ -172,8 +172,8 @@ class ActivityLogger
     private function gatewayLabel(?string $gateway): string
     {
         return match (strtolower((string) $gateway)) {
-            'duitku' => 'Duitku',
-            default => 'Pakasir',
+            'paykita' => 'PayKita',
+            default => ucfirst($gateway ?: 'PayKita'),
         };
     }
 

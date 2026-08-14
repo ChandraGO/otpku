@@ -18,15 +18,14 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DuitkuWebhookController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OtpOrderController;
-use App\Http\Controllers\PakasirWebhookController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\SeoImageController;
 use App\Http\Controllers\SmsVirtualWebhookController;
 use App\Http\Controllers\TopupController;
+use App\Http\Controllers\PayKitaWebhookController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
 
@@ -106,9 +105,7 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
         Route::get('/settings', [AdminSettingsController::class, 'index'])->name('settings.index');
         Route::put('/settings', [AdminSettingsController::class, 'update'])->name('settings.update');
         Route::post('/settings/test-sms', [AdminSettingsController::class, 'testSms'])->name('settings.test-sms');
-        Route::post('/settings/test-pakasir', [AdminSettingsController::class, 'testPakasir'])->name('settings.test-pakasir');
-        Route::post('/settings/test-duitku', [AdminSettingsController::class, 'testDuitku'])->name('settings.test-duitku');
-        Route::post('/settings/payment-gateway', [AdminSettingsController::class, 'switchPaymentGateway'])->name('settings.payment-gateway');
+        Route::post('/settings/test-paykita', [AdminSettingsController::class, 'testPayKita'])->name('settings.test-paykita');
         Route::post('/settings/test-mail', [AdminSettingsController::class, 'testMail'])->name('settings.test-mail');
         Route::post('/settings/sync-catalog', [AdminSettingsController::class, 'syncCatalog'])->name('settings.sync-catalog');
         Route::get('/backups', [AdminBackupController::class, 'index'])->name('backups.index');
@@ -123,6 +120,5 @@ Route::middleware(['auth', 'active', 'verified'])->group(function (): void {
     });
 });
 
-Route::post('/webhooks/pakasir', PakasirWebhookController::class)->middleware('throttle:60,1')->name('webhooks.pakasir');
-Route::post('/webhooks/duitku', DuitkuWebhookController::class)->middleware('throttle:120,1')->name('webhooks.duitku');
+Route::post('/webhooks/paykita', PayKitaWebhookController::class)->middleware('throttle:120,1')->name('webhooks.paykita');
 Route::post('/webhooks/sms-virtual/{secret}', SmsVirtualWebhookController::class)->middleware('throttle:120,1')->name('webhooks.sms-virtual');
