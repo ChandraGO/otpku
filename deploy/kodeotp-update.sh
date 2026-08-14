@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-DEPLOY_SCRIPT_VERSION="2026.08.09-v22-shared-media-fix"
+DEPLOY_SCRIPT_VERSION="2026.08.14-v23-composer-metadata-safe"
 
 APP_DIR="${APP_DIR:-/opt/kodeotp/app}"
 STACK_DIR="${STACK_DIR:-/opt/kodeotp}"
@@ -187,9 +187,48 @@ classify_changes() {
     && NEEDS_RUNTIME_OVERLAY=1 || true
 
   # Full build hanya untuk perubahan yang benar-benar mengubah dependency/runtime
-  # dasar. Ini mencegah deploy entrypoint sederhana menghabiskan >8 menit.
-  grep -Eq '^(Dockerfile$|composer\.json$|composer\.lock$)' "$CHANGED_FILE" \
+  # dasar. Dockerfile/composer.lock selalu dianggap runtime-sensitive.
+  grep -Eq '^(Dockerfile$|composer\.lock$)' "$CHANGED_FILE" \
     && NEEDS_FULL_BUILD=1 || true
+
+  # composer.json sering ikut berubah hanya karena CRLF/LF atau metadata root
+  # (description/keywords). Perubahan seperti itu tidak mengubah dependency dan
+  # tidak boleh memaksa compile seluruh ekstensi PHP yang bisa melewati timeout SSH.
+  if grep -qx 'composer.json' "$CHANGED_FILE"; then
+    old_composer_runtime="$(mktemp)"
+    new_composer_runtime="$(mktemp)"
+
+    normalize_composer_runtime() {
+      local commit="$1"
+      git show "$commit:composer.json" 2>/dev/null \
+        | tr -d '\r' \
+        | awk '
+          BEGIN { in_keywords = 0 }
+          /^[[:space:]]*"description"[[:space:]]*:/ { next }
+          /^[[:space:]]*"keywords"[[:space:]]*:/ { in_keywords = 1; next }
+          in_keywords {
+            if ($0 ~ /^[[:space:]]*\][[:space:]]*,?[[:space:]]*$/) in_keywords = 0
+            next
+          }
+          { sub(/[[:space:]]+$/, ""); print }
+        '
+    }
+
+    normalize_composer_runtime "$DEPLOYED_SHA" > "$old_composer_runtime" || true
+    normalize_composer_runtime "$NEW_SHA" > "$new_composer_runtime" || true
+
+    if [ ! -s "$old_composer_runtime" ] || [ ! -s "$new_composer_runtime" ]; then
+      log 'composer.json tidak dapat dibandingkan aman; full build dipertahankan'
+      NEEDS_FULL_BUILD=1
+    elif cmp -s "$old_composer_runtime" "$new_composer_runtime"; then
+      log 'composer.json hanya berubah pada metadata/line-ending; full build dilewati'
+    else
+      log 'composer.json mengubah konfigurasi/dependency runtime; full build diperlukan'
+      NEEDS_FULL_BUILD=1
+    fi
+
+    rm -f "$old_composer_runtime" "$new_composer_runtime"
+  fi
 
   [ "$NEEDS_ASSETS" -eq 1 ] && NEEDS_RESTART=1
   if [ "$NEEDS_RUNTIME_OVERLAY" -eq 1 ]; then
