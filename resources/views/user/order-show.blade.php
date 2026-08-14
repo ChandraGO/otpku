@@ -11,7 +11,7 @@
         'payment_channel' => $order->payment_channel,
         'payment_status' => $order->payment_status,
         'payment_pay_amount' => $order->payment_pay_amount,
-        'payment_expires_at' => $order->payment_expires_at?->toIso8601String(),
+        'payment_expires_at' => data_get($order->payment_payload, 'expires_at') ?: $order->payment_expires_at?->toIso8601String(),
         'phone_number' => $order->phone_number,
         'otp_code' => $order->otp_code,
         'message' => $order->provider_message,
