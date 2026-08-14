@@ -2,12 +2,12 @@
   "$schema": "https://getcomposer.org/schema.json",
   "name": "kodeotp/platform",
   "type": "project",
-  "description": "Laravel + Blade OTP activation marketplace with SMS Virtuals and PayKita.",
+  "description": "Laravel + Blade OTP activation marketplace with SMS Virtuals and Pakasir.",
   "keywords": [
     "laravel",
     "otp",
     "sms-virtual",
-    "paykita"
+    "pakasir"
   ],
   "license": "proprietary",
   "require": {
