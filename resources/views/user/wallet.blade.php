@@ -1,5 +1,0 @@
-@extends('layouts.app')
-@php($title = 'Mutasi Saldo')
-@section('content')
-<div><h1 class="text-3xl font-black tracking-tight">Mutasi saldo</h1></div><div class="mt-6 table-wrap"><table class="table"><thead><tr><th>Waktu</th><th>Kategori</th><th>Keterangan</th><th>Arah</th><th>Nominal</th><th>Saldo akhir</th></tr></thead><tbody>@forelse($transactions as $tx)<tr><td>{{ $tx->created_at->format('d M Y H:i') }}</td><td>{{ ucwords(str_replace('_',' ',$tx->category)) }}</td><td class="max-w-sm whitespace-normal">{{ $tx->description }}</td><td><x-status :value="$tx->direction" /></td><td class="font-bold {{ $tx->direction==='credit'?'text-emerald-500':'text-rose-500' }}">{{ $tx->direction==='credit'?'+':'-' }} Rp {{ number_format((float)$tx->amount,0,',','.') }}</td><td>Rp {{ number_format((float)$tx->balance_after,0,',','.') }}</td></tr>@empty<tr><td colspan="6" class="py-10 text-center text-slate-500">Belum ada mutasi.</td></tr>@endforelse</tbody></table></div><div class="mt-6">{{ $transactions->links() }}</div>
-@endsection

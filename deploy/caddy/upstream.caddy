@@ -1,6 +1,0 @@
-reverse_proxy app_blue:8080 {
-  header_up Host {http.request.host}
-  header_up X-Forwarded-Host {http.request.host}
-  header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
-  health_uri /healthz
-}

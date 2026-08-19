@@ -1,39 +1,41 @@
-name: Deploy KodeOTP
+name: Deploy dapetOTP ke VPS
 
-"on":
+on:
   push:
-    branches: [main, master]
-  workflow_dispatch:
+    branches:
+      - main
+      - master
 
 concurrency:
-  group: kodeotp-production
+  group: dapetotp-production
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    permissions:
+      contents: read
 
     steps:
-      - name: Incremental deploy via SSH
-        uses: appleboy/ssh-action@v1.2.5
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          command_timeout: 8m
-          script: |
-            set -euo pipefail
-            cd /opt/kodeotp/app
-            git fetch --prune origin "${{ github.ref_name }}"
+      - name: Siapkan SSH
+        shell: bash
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s
+' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s
+' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
-            git show "origin/${{ github.ref_name }}:deploy/kodeotp-update.sh" \
-              | tr -d '\r' \
-              > /usr/local/bin/kodeotp-update
-            chmod 0755 /usr/local/bin/kodeotp-update
-
-            APP_DIR=/opt/kodeotp/app \
-            STACK_DIR=/opt/kodeotp \
-            BRANCH="${{ github.ref_name }}" \
-            /usr/local/bin/kodeotp-update
+      - name: Deploy
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519             -p "${VPS_PORT:-22}"             "${VPS_USER:-root}@${VPS_HOST}"             "BRANCH='${GITHUB_REF_NAME}' /usr/local/bin/dapetotp-deploy"

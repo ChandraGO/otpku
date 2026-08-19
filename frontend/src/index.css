@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 210 40% 98%;
+        --foreground: 222 47% 11%;
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 11%;
+        --primary: 217 91% 55%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 214 32% 93%;
+        --secondary-foreground: 222 47% 15%;
+        --muted: 214 32% 94%;
+        --muted-foreground: 215 20% 40%;
+        --accent: 214 32% 92%;
+        --accent-foreground: 222 47% 15%;
+        --destructive: 0 72% 51%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 214 25% 86%;
+        --input: 214 25% 86%;
+        --ring: 217 91% 55%;
+        --radius: 0.9rem;
+        --elev: 0 10px 30px -12px hsl(222 47% 30% / 0.22);
+    }
+    .dark {
+        --background: 222 47% 7%;
+        --foreground: 213 40% 96%;
+        --card: 221 41% 11%;
+        --card-foreground: 213 40% 96%;
+        --popover: 221 44% 9%;
+        --popover-foreground: 213 40% 96%;
+        --primary: 217 91% 60%;
+        --primary-foreground: 222 47% 8%;
+        --secondary: 220 33% 17%;
+        --secondary-foreground: 213 40% 96%;
+        --muted: 220 30% 16%;
+        --muted-foreground: 215 25% 68%;
+        --accent: 220 33% 19%;
+        --accent-foreground: 213 40% 96%;
+        --destructive: 0 62% 48%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 220 28% 20%;
+        --input: 220 28% 20%;
+        --ring: 217 91% 60%;
+        --elev: 0 18px 50px -20px hsl(217 91% 40% / 0.45);
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+    body {
+        @apply bg-background text-foreground;
+        margin: 0;
+        font-family: 'Archivo', system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, .display { font-family: 'Bricolage Grotesque', 'Archivo', sans-serif; letter-spacing: -0.02em; }
+    code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+    ::selection { background: hsl(var(--primary) / 0.35); }
+}
+
+.grain::before {
+    content: '';
+    position: absolute; inset: 0; pointer-events: none; opacity: .35;
+    background-image: radial-gradient(hsl(var(--primary) / .18) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse at 50% 0%, #000 20%, transparent 75%);
+}
+.glass {
+    background: hsl(var(--card) / 0.72);
+    backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid hsl(var(--border));
+}
+.brand-glow { box-shadow: var(--elev); }
+.rise { animation: rise .6s cubic-bezier(.22,1,.36,1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.hover-lift { transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease, border-color .25s ease; }
+.hover-lift:hover { transform: translateY(-3px); box-shadow: var(--elev); border-color: hsl(var(--primary) / .55); }
+
+@layer base {
+    [data-debug-wrapper="true"] { display: contents !important; }
+}
