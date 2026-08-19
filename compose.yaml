@@ -35,7 +35,7 @@ services:
         REACT_APP_BACKEND_URL: https://dapetotp.jagoanproject.com
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3281:80"
+      - "127.0.0.1:3280:80"
     depends_on:
       - backend
     networks:

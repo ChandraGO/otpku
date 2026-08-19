@@ -110,3 +110,38 @@ html, body, * {
     scrollbar-gutter: stable;
     overscroll-behavior: contain;
 }
+
+/* Chrome/Edge/Safari: selector eksplisit untuk setiap area yang bisa discroll. */
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.themed-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+*::-webkit-scrollbar-track,
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.themed-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb,
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.themed-scrollbar::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    background: hsl(var(--primary) / .78);
+    border: 2px solid hsl(var(--muted));
+    border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover,
+.themed-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
+}
+*::-webkit-scrollbar-button,
+.themed-scrollbar::-webkit-scrollbar-button {
+    width: 0;
+    height: 0;
+    display: none;
+}

@@ -6,8 +6,8 @@ ENV_FILE="${ENV_FILE:-/opt/dapetotp/production.env}"
 STATE_DIR="${STATE_DIR:-/opt/dapetotp/.deploy-state}"
 COMPOSE_FILE="${COMPOSE_FILE:-$APP_DIR/compose.yaml}"
 PROJECT_NAME="${PROJECT_NAME:-dapetotp}"
-WEB_HEALTH_URL="${WEB_HEALTH_URL:-http://127.0.0.1:3281/}"
-API_HEALTH_URL="${API_HEALTH_URL:-http://127.0.0.1:3281/api/public/settings}"
+WEB_HEALTH_URL="${WEB_HEALTH_URL:-http://127.0.0.1:3280/}"
+API_HEALTH_URL="${API_HEALTH_URL:-http://127.0.0.1:3280/api/public/settings}"
 
 exec 9>/var/lock/dapetotp-deploy.lock
 if ! flock -n 9; then
@@ -129,14 +129,25 @@ build_services=()
 (( backend_changed )) && build_services+=(backend)
 (( web_changed )) && build_services+=(web)
 
-if ((${#build_services[@]})); then
-  echo "Build service: ${build_services[*]}"
+if (( backend_changed )); then
+  echo "Build backend"
   DOCKER_BUILDKIT=1 docker compose \
     --env-file "$ENV_FILE" \
     -p "$PROJECT_NAME" \
     -f "$COMPOSE_FILE" \
-    build --pull "${build_services[@]}"
-else
+    build --pull backend
+fi
+
+if (( web_changed )); then
+  echo "Build frontend tanpa cache agar bundle lama tidak tertinggal"
+  DOCKER_BUILDKIT=1 docker compose \
+    --env-file "$ENV_FILE" \
+    -p "$PROJECT_NAME" \
+    -f "$COMPOSE_FILE" \
+    build --pull --no-cache web
+fi
+
+if (( ! backend_changed && ! web_changed )); then
   echo "Tidak ada source backend/web yang berubah; build dilewati."
 fi
 

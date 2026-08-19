@@ -1,49 +1,63 @@
-# dapetOTP - Deploy Pack
+# dapetOTP - Deploy Production
 
-Asumsi struktur repository:
+Struktur repository utama:
 
-- frontend/
-- backend/
-- deploy/
-- compose.yaml
-- .github/workflows/deploy.yml
+- `.github/workflows/deploy.yml`
+- `frontend/`
+- `backend/`
+- `deploy/`
+- `compose.yaml`
 
-Pack ini menjalankan stack baru di 127.0.0.1:3281 agar stack lama pada 3280 dapat tetap hidup selama pengujian.
+Stack web menggunakan bind lokal `127.0.0.1:3280` agar sesuai dengan deployment aktif yang sedang dipakai reverse proxy.
 
 ## Environment VPS
 
-Buat `/opt/dapetotp/production.env` (chmod 600) dengan:
+Simpan environment production di `/opt/dapetotp/production.env` dan beri permission `600`:
 
+```env
 MONGO_ROOT_USERNAME=dapetotp
-MONGO_ROOT_PASSWORD=<hex-random>
+MONGO_ROOT_PASSWORD=<password-mongo-yang-sudah-dipakai-volume>
 DB_NAME=dapetotp
 JWT_SECRET=<hex-random>
 FRONTEND_URL=https://dapetotp.jagoanproject.com
 ADMIN_EMAIL=<email-admin>
 ADMIN_PASSWORD=<password-admin-kuat>
+```
 
-## Install deploy command
+> Jangan mengganti `MONGO_ROOT_PASSWORD` sembarangan setelah volume Mongo sudah terbentuk. Environment `MONGO_INITDB_*` hanya dipakai saat inisialisasi database pertama kali.
 
-`install -m 0755 /opt/dapetotp/app/deploy/deploy.sh /usr/local/bin/dapetotp-deploy`
+## Reverse proxy
 
-## Caddy setelah pengujian
+Contoh Caddy:
 
-Ubah site domain menjadi:
-
+```caddy
 dapetotp.jagoanproject.com {
     encode zstd gzip
-    reverse_proxy 127.0.0.1:3281
+    reverse_proxy 127.0.0.1:3280
 }
+```
 
 Validasi dan reload:
 
+```bash
 caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy
+```
 
-## Catatan keamanan penting
+## Auto deploy GitHub
 
-Source backend saat ini memiliki kode startup yang otomatis membuat akun demo
-`user@dapetotp.com` dengan password hardcoded jika akun itu belum ada.
-Hapus/nonaktifkan blok demo tersebut sebelum production.
+Workflow `.github/workflows/deploy.yml` akan menjalankan deploy setiap push ke branch `main` atau `master`.
 
-Backend baru menggunakan MongoDB. Data Laravel/PostgreSQL lama tidak otomatis berpindah.
+Secrets GitHub yang diperlukan:
+
+- `VPS_HOST`
+- `VPS_USER`
+- `VPS_PORT`
+- `VPS_SSH_KEY`
+- `VPS_KNOWN_HOSTS`
+
+Detail setup ada di `AUTO_DEPLOY_GITHUB.md`.
+
+## Cache frontend
+
+`index.html` dikirim dengan `no-store/no-cache`, sedangkan asset JS/CSS ber-hash boleh di-cache lama. Saat source frontend berubah, script deploy membangun image web dengan `--no-cache` supaya bundle lama tidak tertinggal.
