@@ -5,6 +5,10 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: dapetotp-production
@@ -12,30 +16,84 @@ concurrency:
 
 jobs:
   deploy:
+    name: Sync, build, dan restart
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 30
 
     steps:
-      - name: Siapkan SSH
-        shell: bash
-        env:
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s
-' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          printf '%s
-' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
+      - name: Checkout source
+        uses: actions/checkout@v6
 
-      - name: Deploy
+      - name: Siapkan koneksi SSH
         shell: bash
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          : "${VPS_HOST:?Secret VPS_HOST belum diisi}"
+          : "${VPS_USER:?Secret VPS_USER belum diisi}"
+          : "${VPS_SSH_KEY:?Secret VPS_SSH_KEY belum diisi}"
+          : "${VPS_KNOWN_HOSTS:?Secret VPS_KNOWN_HOSTS belum diisi}"
+
+          VPS_PORT="${VPS_PORT:-22}"
+          echo "VPS_PORT=$VPS_PORT" >> "$GITHUB_ENV"
+
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/dapetotp_deploy_key"
+          chmod 600 "$HOME/.ssh/dapetotp_deploy_key"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Pastikan folder aplikasi tersedia
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          ssh -i ~/.ssh/id_ed25519             -p "${VPS_PORT:-22}"             "${VPS_USER:-root}@${VPS_HOST}"             "BRANCH='${GITHUB_REF_NAME}' /usr/local/bin/dapetotp-deploy"
+          set -Eeuo pipefail
+          ssh \
+            -i "$HOME/.ssh/dapetotp_deploy_key" \
+            -p "$VPS_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            'mkdir -p /opt/dapetotp/app && command -v docker >/dev/null && docker compose version >/dev/null && command -v rsync >/dev/null'
+
+      - name: Sinkronkan source GitHub ke VPS
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -Eeuo pipefail
+
+          rsync -az --delete-delay \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='production.env' \
+            --exclude='node_modules/' \
+            --exclude='__pycache__/' \
+            --exclude='*.pyc' \
+            -e "ssh -i $HOME/.ssh/dapetotp_deploy_key -p $VPS_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            ./ "$VPS_USER@$VPS_HOST:/opt/dapetotp/app/"
+
+      - name: Build dan deploy di VPS
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -Eeuo pipefail
+          ssh \
+            -i "$HOME/.ssh/dapetotp_deploy_key" \
+            -p "$VPS_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            'APP_DIR=/opt/dapetotp/app ENV_FILE=/opt/dapetotp/production.env STATE_DIR=/opt/dapetotp/.deploy-state bash /opt/dapetotp/app/deploy/deploy.sh'
