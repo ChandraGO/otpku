@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { SiteProvider } from "@/context/SiteContext";
 import { Navbar } from "@/components/Navbar";
 import Landing from "@/pages/Landing";
 import Docs from "@/pages/Docs";
@@ -26,6 +27,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <I18nProvider>
+        <SiteProvider>
         <BrowserRouter>
           <AuthProvider>
             <div className="min-h-screen bg-background">
@@ -45,6 +47,7 @@ export default function App() {
             <Toaster position="top-right" richColors />
           </AuthProvider>
         </BrowserRouter>
+        </SiteProvider>
       </I18nProvider>
     </ThemeProvider>
   );

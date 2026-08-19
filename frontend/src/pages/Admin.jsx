@@ -6,6 +6,7 @@ import { AdminSettings, CATEGORIES } from "@/components/AdminSettings";
 import { AdminReport } from "@/components/AdminReport";
 import { AdminServicePricing } from "@/components/AdminServicePricing";
 import { AdminAnnouncements } from "@/components/AdminAnnouncements";
+import { useSite } from "@/context/SiteContext";
 
 const Card = ({ children, className = "", ...rest }) => (
   <div {...rest} className={`rounded-3xl border border-border bg-card p-6 ${className}`}>{children}</div>
@@ -24,6 +25,7 @@ const SECTIONS = [
 ];
 
 export default function Admin() {
+  const { site, applySite } = useSite();
   const [section, setSection] = useState("overview");
   const [stats, setStats] = useState(null);
   const [settings, setSettings] = useState(null);
@@ -67,12 +69,12 @@ export default function Admin() {
 
   return (
     <div data-testid="admin-page" className="mx-auto max-w-7xl px-6 py-10">
-      <h1 className="text-3xl font-extrabold sm:text-4xl">Admin dapetOTP</h1>
+      <h1 className="text-3xl font-extrabold sm:text-4xl">Admin {site?.site_name || "dapetOTP"}</h1>
       <p className="mt-2 text-sm text-muted-foreground">Pilih kategori pengaturan atau kelola data operasional.</p>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[280px_1fr]">
         <aside className="h-fit rounded-3xl border border-border bg-card p-3 lg:sticky lg:top-24">
-          <nav className="max-h-[70vh] space-y-1 overflow-y-auto">
+          <nav className="themed-scrollbar max-h-[70vh] space-y-1 overflow-y-auto pr-1">
             {SECTIONS.map((s, i) => (
               <React.Fragment key={s.key}>
                 {s.group && SECTIONS[i - 1] && !SECTIONS[i - 1].group && (
@@ -96,7 +98,10 @@ export default function Admin() {
               <AdminSettings
                 category={section.slice(4)}
                 values={settings[section.slice(4)]}
-                onSaved={(cat, data) => setSettings({ ...settings, [cat]: data })}
+                onSaved={(cat, data) => {
+                  setSettings((prev) => ({ ...prev, [cat]: data }));
+                  if (cat === "site") applySite(data);
+                }}
               />
             </Card>
           )}

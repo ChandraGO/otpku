@@ -85,3 +85,28 @@
 @layer base {
     [data-debug-wrapper="true"] { display: contents !important; }
 }
+
+
+/* Scrollbar mengikuti palet tema di seluruh halaman (body, sidebar, tabel, code block). */
+html, body, * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary) / .78) hsl(var(--muted) / .72);
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / .72);
+    border-radius: 999px;
+}
+::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / .72);
+    border: 2px solid hsl(var(--muted) / .72);
+    border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / .95); }
+::-webkit-scrollbar-corner { background: hsl(var(--background)); }
+
+.themed-scrollbar {
+    scrollbar-gutter: stable;
+    overscroll-behavior: contain;
+}

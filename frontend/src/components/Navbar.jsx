@@ -4,20 +4,28 @@ import { Home, BookOpen, Tag, HelpCircle, LayoutDashboard, ShieldCheck, LogOut, 
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/lib/i18n";
+import { useSite } from "@/context/SiteContext";
 
-const Brand = () => (
-  <Link to="/" data-testid="brand-logo" className="flex items-center gap-3">
-    <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-lg font-extrabold text-primary-foreground brand-glow">
-      d
-    </span>
-    <span className="display text-xl font-extrabold">
-      dapet<span className="text-primary">OTP</span>
-    </span>
-  </Link>
-);
+const Brand = ({ name = "dapetOTP" }) => {
+  const clean = String(name || "dapetOTP").trim() || "dapetOTP";
+  const otpMatch = clean.match(/^(.*?)(otp)$/i);
+  const initial = clean.charAt(0).toUpperCase();
+
+  return (
+    <Link to="/" data-testid="brand-logo" className="flex min-w-0 items-center gap-3">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary text-lg font-extrabold text-primary-foreground brand-glow">
+        {initial}
+      </span>
+      <span className="display max-w-[190px] truncate text-xl font-extrabold" title={clean}>
+        {otpMatch ? <>{otpMatch[1]}<span className="text-primary">{otpMatch[2]}</span></> : clean}
+      </span>
+    </Link>
+  );
+};
 
 export const Navbar = () => {
   const { t } = useI18n();
+  const { site } = useSite();
   const { user, logout } = useAuth();
   const loc = useLocation();
   const nav = useNavigate();
@@ -34,7 +42,7 @@ export const Navbar = () => {
   return (
     <header className={`sticky top-0 z-[60] border-b border-border/70 glass ${appShell ? "hidden lg:block" : ""}`}>
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-5 py-3">
-        <Brand />
+        <Brand name={site?.site_name} />
         <nav className="ml-6 hidden items-center gap-1 lg:flex">
           {links.map(({ to, label, icon: Icon }) => {
             const active = loc.pathname === to;

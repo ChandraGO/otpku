@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, Save, Send, Mail } from "lucide-react";
+import { PasswordInput } from "@/components/ui/password-input";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { http, errMsg } from "@/lib/api";
 
@@ -7,20 +9,20 @@ export const CATEGORIES = [
   { key: "site", label: "Situs & SEO", desc: "Identitas bisnis, favicon, thumbnail berbagi, dan metadata mesin pencarian." },
   { key: "verification", label: "Verifikasi", desc: "Atur masa berlaku OTP email dan jeda kirim ulang." },
   { key: "orders", label: "Pesanan", desc: "Atur batas kedaluwarsa dan kebijakan pengembalian pesanan." },
-  { key: "pricing", label: "Harga", desc: "Markup global, biaya tetap, dan pembulatan. Bisa dioverride per layanan di menu Harga per Layanan." },
+  { key: "pricing", label: "Harga", desc: "Markup global untuk semua layanan, biaya tetap, dan pembulatan. Markup level akun ditambahkan di atas nilai ini; override layanan dapat mengganti nilai global untuk layanan tertentu." },
   { key: "smtp", label: "SMTP", desc: "Pengiriman email sistem dan konfigurasi server SMTP." },
   { key: "topup", label: "Isi Saldo", desc: "Batas minimum dan maksimum isi saldo pelanggan." },
   { key: "paykita", label: "Gateway Pembayaran", desc: "Kredensial gateway QRIS untuk checkout dan isi saldo (tidak terlihat oleh pengguna)." },
   { key: "smsvirtual", label: "Provider Nomor", desc: "Koneksi provider nomor, timeout, dan pengawasan saldo penyedia." },
   { key: "security", label: "Keamanan", desc: "Rahasia webhook dan pengamanan integrasi backend." },
   { key: "notifications", label: "Notifikasi & Telegram", desc: "Bot Telegram dan email tujuan untuk tiket bantuan." },
-  { key: "tiers", label: "Level Akun & Markup", desc: "Markup harga untuk Member, Reseller, dan VIP serta syarat deposit naik level." },
+  { key: "tiers", label: "Level Akun & Markup", desc: "Tambahan markup untuk Member, Reseller, dan VIP di atas markup global, serta syarat deposit naik level." },
   { key: "backup", label: "Backup Data", desc: "Ekspor seluruh data dan kebijakan retensi backup." },
 ];
 
 const LABELS = {
-  site_name: "Nama situs", tagline: "Tagline", business_email: "Email bisnis", favicon_url: "URL favicon",
-  share_thumbnail_url: "URL thumbnail berbagi", meta_title: "Meta title", meta_description: "Meta description", meta_keywords: "Meta keywords",
+  site_name: "Nama brand / navbar", tagline: "Tagline", business_email: "Email bisnis", favicon_url: "URL favicon",
+  share_thumbnail_url: "URL thumbnail berbagi", meta_title: "Judul tab browser / SEO", meta_description: "Deskripsi SEO", meta_keywords: "Kata kunci SEO",
   otp_length: "Panjang kode OTP", otp_ttl_seconds: "Masa berlaku OTP (detik)", resend_cooldown_seconds: "Jeda kirim ulang (detik)",
   max_attempts: "Maks percobaan", require_email_verification: "Wajib verifikasi email",
   order_expiry_seconds: "Kedaluwarsa pesanan (detik)", auto_refund_on_expire: "Refund otomatis saat kedaluwarsa",
@@ -67,6 +69,13 @@ export const AdminSettings = ({ category, values, onSaved }) => {
     <div data-testid={`settings-panel-${category}`}>
       <h2 className="text-2xl font-extrabold">{meta?.label}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{meta?.desc}</p>
+      {category === "site" && (
+        <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs leading-5 text-muted-foreground">
+          <b className="text-foreground">Nama brand / navbar</b> mengubah tulisan logo di navbar, landing page, footer, dan judul Admin.
+          <br />
+          <b className="text-foreground">Judul tab browser / SEO</b> mengubah judul tab browser secara langsung setelah disimpan. Favicon, deskripsi, dan thumbnail berbagi juga mengikuti pengaturan di sini.
+        </div>
+      )}
 
       <div className="mt-7 grid gap-4 sm:grid-cols-2">
         {entries.map(([k, v]) => {
@@ -77,28 +86,38 @@ export const AdminSettings = ({ category, values, onSaved }) => {
             return (
               <label key={k} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3.5">
                 <span className="text-sm font-semibold">{LABELS[k] || k}</span>
-                <button
+                <Switch
                   data-testid={`setting-${category}-${k}`}
-                  onClick={() => setForm({ ...form, [k]: !v })}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${v ? "bg-primary" : "bg-muted-foreground/40"}`}
-                >
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform duration-200 ${v ? "translate-x-5" : "translate-x-0.5"}`} />
-                </button>
+                  checked={v}
+                  onCheckedChange={(checked) => setForm({ ...form, [k]: checked })}
+                  aria-label={LABELS[k] || k}
+                />
               </label>
             );
           }
           return (
             <label key={k} className="block">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{LABELS[k] || k}</span>
-              <input
-                data-testid={`setting-${category}-${k}`}
-                type={isNum ? "number" : isSecret ? "password" : "text"}
-                autoComplete={isSecret ? "new-password" : "off"}
-                value={v ?? ""}
-                placeholder={isSecret && form[`${k}_set`] ? "tersimpan — isi untuk mengganti" : ""}
-                onChange={(e) => setForm({ ...form, [k]: isNum ? Number(e.target.value) : e.target.value })}
-                className="mono mt-2 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
-              />
+              {isSecret ? (
+                <PasswordInput
+                  data-testid={`setting-${category}-${k}`}
+                  autoComplete="new-password"
+                  value={v === "••••••••" ? "" : (v ?? "")}
+                  placeholder={form[`${k}_set`] ? "tersimpan — isi untuk mengganti" : ""}
+                  onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+                  className="mt-2"
+                  inputClassName="mono rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
+                />
+              ) : (
+                <input
+                  data-testid={`setting-${category}-${k}`}
+                  type={isNum ? "number" : "text"}
+                  autoComplete="off"
+                  value={v ?? ""}
+                  onChange={(e) => setForm({ ...form, [k]: isNum ? Number(e.target.value) : e.target.value })}
+                  className="mono mt-2 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
+                />
+              )}
             </label>
           );
         })}

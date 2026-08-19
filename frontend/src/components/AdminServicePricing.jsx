@@ -50,13 +50,20 @@ export const AdminServicePricing = () => {
 
   const save = async (it) => {
     const d = draft[it.service_code] || {};
+    const ov = overrides[it.service_code];
     setBusy(it.service_code);
     try {
+      const valueFor = (key) => {
+        if (Object.prototype.hasOwnProperty.call(d, key)) {
+          return d[key] === "" ? null : Number(d[key]);
+        }
+        return ov?.[key] ?? null;
+      };
       await http.put(`/admin/service-pricing/${it.service_code}`, {
         service_name: it.service_name,
-        markup_percent: d.markup_percent === "" || d.markup_percent === undefined ? null : Number(d.markup_percent),
-        fixed_fee: d.fixed_fee === "" || d.fixed_fee === undefined ? null : Number(d.fixed_fee),
-        rounding_to: d.rounding_to === "" || d.rounding_to === undefined ? null : Number(d.rounding_to),
+        markup_percent: valueFor("markup_percent"),
+        fixed_fee: valueFor("fixed_fee"),
+        rounding_to: valueFor("rounding_to"),
       });
       toast.success(`Markup ${it.service_name} disimpan`);
       await loadOverrides();
@@ -81,7 +88,7 @@ export const AdminServicePricing = () => {
       <Card>
         <h2 className="text-2xl font-extrabold">Harga per Layanan</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Harga dasar diambil real-time dari provider. Kosongkan kolom untuk memakai markup global; isi untuk markup khusus layanan ini.
+          Harga dasar diambil real-time dari provider. Kosongkan nilai lalu Simpan untuk menghapus override dan kembali memakai markup global. Harga “jual” di bawah adalah hasil kalkulasi backend yang sama dengan katalog pelanggan.
         </p>
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <div className="relative min-w-[220px] flex-1">

@@ -36,6 +36,22 @@ app = FastAPI(title="dapetOTP API")
 api = APIRouter(prefix="/api")
 
 
+@app.middleware("http")
+async def disable_pricing_cache(request: Request, call_next):
+    """Harga katalog harus berubah langsung setelah admin menyimpan markup."""
+    response = await call_next(request)
+    path = request.url.path
+    if (
+        path == "/api/public/stats"
+        or path.startswith("/api/catalog/services")
+        or path.startswith("/api/catalog/tier-prices")
+        or path.startswith("/api/admin/catalog/services")
+    ):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
 def now():
     return datetime.now(timezone.utc)
 
@@ -405,14 +421,21 @@ async def rotate_key(user: dict = Depends(get_current_user)):
 
 # ---------------- public ----------------
 @api.get("/public/settings")
-async def public_settings():
+async def public_settings(response: Response):
+    # Branding/SEO dapat diubah dari Admin, jadi jangan cache agar perubahan
+    # navbar, title browser, favicon, dan metadata langsung terbaca frontend.
+    response.headers["Cache-Control"] = "no-store, max-age=0"
     site = await get_settings("site")
     topup = await get_settings("topup")
     return {"site": site, "topup": {"min_amount": topup["min_amount"], "max_amount": topup["max_amount"], "note": topup.get("note")}}
 
 
 @api.get("/public/stats")
-async def public_stats(request: Request):
+async def public_stats(request: Request, response: Response):
+    # Statistik landing selalu memakai harga publik level Member, bukan tier dari cookie
+    # admin/user yang kebetulan sedang login di browser. Cache juga dimatikan agar
+    # perubahan markup langsung terlihat setelah disimpan.
+    response.headers["Cache-Control"] = "no-store, max-age=0"
     cfg = await get_settings("smsvirtual")
     out = {"countries": 0, "services": 0, "cheapest": 0, "top": []}
     try:
@@ -420,7 +443,7 @@ async def public_stats(request: Request):
         out["countries"] = len(c["items"])
         idn = next((x for x in c["items"] if x["name"] == "Indonesia"), c["items"][0] if c["items"] else None)
         if idn:
-            s = await services(request, idn["id"])
+            s = await services(request, idn["id"], tier_override="member")
             items = s["items"]
             out["services"] = len(items)
             if items:
@@ -1239,9 +1262,29 @@ async def adm_service_pricing():
 
 @adm.put("/service-pricing/{code}")
 async def adm_set_service_pricing(code: str, body: ServicePricingIn):
-    upd = {k: v for k, v in body.model_dump().items() if v is not None and v != ""}
-    await db.service_pricing.update_one({"_id": code}, {"$set": upd}, upsert=True)
-    return {"service_code": code, **upd}
+    # Nilai kosong berarti benar-benar hapus override. Versi sebelumnya hanya
+    # mengabaikan None sehingga override lama (mis. markup 0%) tetap tersimpan
+    # dan dapat menutupi markup global tanpa terlihat dari form.
+    data = body.model_dump()
+    custom_keys = ("markup_percent", "fixed_fee", "rounding_to", "min_profit")
+    to_set = {"service_name": body.service_name}
+    to_unset = {}
+    for key in custom_keys:
+        value = data.get(key)
+        if value is None or value == "":
+            to_unset[key] = ""
+        else:
+            to_set[key] = value
+
+    if not any(k in to_set for k in custom_keys):
+        await db.service_pricing.delete_one({"_id": code})
+        return {"service_code": code, "reset": True}
+
+    update = {"$set": to_set}
+    if to_unset:
+        update["$unset"] = to_unset
+    await db.service_pricing.update_one({"_id": code}, update, upsert=True)
+    return {"service_code": code, **to_set}
 
 
 @adm.delete("/service-pricing/{code}")

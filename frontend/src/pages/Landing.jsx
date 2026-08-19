@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Zap, Wallet, Activity, MousePointerClick, KeyRound, Gauge, Code2, Server, Cpu, Database, Globe2, ShieldCheck, LifeBuoy } from "lucide-react";
+import {
+  ArrowRight, Zap, Wallet, Activity, MousePointerClick, KeyRound, Gauge, Code2,
+  Server, Cpu, Database, Globe2, ShieldCheck, LifeBuoy, Terminal, CheckCircle2,
+  ArrowUpRight, Sparkles, Radio, Layers3
+} from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { http, rupiah } from "@/lib/api";
+import { useSite } from "@/context/SiteContext";
 import { useI18n } from "@/lib/i18n";
 
 const CHIPS = [
@@ -51,120 +56,205 @@ const CODE = `$ curl "${process.env.REACT_APP_BACKEND_URL}/api/v1/orders" \\
 
 export default function Landing() {
   const { t, lang } = useI18n();
-  const [site, setSite] = useState(null);
+  const { site } = useSite();
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    http.get("/public/settings").then(({ data }) => setSite(data.site)).catch(() => {});
     http.get("/public/stats").then(({ data }) => setStats(data)).catch(() => {});
   }, []);
 
   const L = (id, en) => (lang === "id" ? id : en);
 
   return (
-    <div data-testid="landing-page">
+    <div data-testid="landing-page" className="overflow-hidden">
       {/* HERO */}
-      <section className="relative overflow-hidden grain">
-        <div className="pointer-events-none absolute -top-48 left-1/2 h-[560px] w-[900px] -translate-x-1/2 rounded-full bg-primary/25 blur-[140px]" />
-        <div className="relative mx-auto max-w-5xl px-6 py-24 text-center sm:py-28">
-          <span data-testid="hero-badge" className="rise inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-5 py-2 text-xs font-bold tracking-[0.22em] text-primary">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-primary" /> {L("REST API PUBLIK", "PUBLIC REST API")}
-          </span>
-          <h1 data-testid="hero-title" className="rise mt-8 text-4xl font-extrabold leading-[0.95] sm:text-5xl lg:text-6xl" style={{ animationDelay: "80ms" }}>
-            {site?.site_name || "dapetOTP"}.
-            <br />
-            <span className="text-primary">{L("Solusi verifikasi untuk semua layanan.", "Verification for every service.")}</span>
-          </h1>
-          <p data-testid="hero-subtitle" className="rise mx-auto mt-7 max-w-2xl text-sm text-muted-foreground md:text-lg" style={{ animationDelay: "150ms" }}>
-            {L(
-              "Sewa nomor virtual, terima OTP realtime, isi saldo QRIS otomatis, dan otomatiskan semuanya lewat REST API dengan API key pribadi. Daftar, isi saldo, langsung pesan.",
-              "Rent virtual numbers, receive OTPs in realtime, top up via QRIS and automate everything through a REST API with your own key."
-            )}
+      <section className="relative border-b border-border/70">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_15%,hsl(var(--primary)/0.18),transparent_32%),radial-gradient(circle_at_88%_12%,hsl(var(--primary)/0.10),transparent_26%)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(hsl(var(--border)/.35)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.35)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,#000,transparent_85%)]" />
+
+        <div className="relative mx-auto grid max-w-7xl gap-12 px-6 py-20 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:py-28">
+          <div>
+            <span data-testid="hero-badge" className="rise inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-[11px] font-bold tracking-[0.22em] text-primary">
+              <Radio className="h-3.5 w-3.5" /> {L("REST API PUBLIK", "PUBLIC REST API")}
+            </span>
+
+            <h1 data-testid="hero-title" className="rise mt-7 max-w-4xl text-4xl font-extrabold leading-[1.02] sm:text-5xl lg:text-7xl" style={{ animationDelay: "70ms" }}>
+              {site?.site_name || "dapetOTP"}.
+              <span className="mt-2 block text-primary">{L("Solusi verifikasi untuk semua layanan.", "Verification for every service.")}</span>
+            </h1>
+
+            <p data-testid="hero-subtitle" className="rise mt-7 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base lg:text-lg" style={{ animationDelay: "130ms" }}>
+              {L(
+                "Sewa nomor virtual, terima OTP realtime, isi saldo QRIS otomatis, dan otomatiskan semuanya lewat REST API dengan API key pribadi. Daftar, isi saldo, langsung pesan.",
+                "Rent virtual numbers, receive OTPs in realtime, top up via QRIS and automate everything through a REST API with your own key."
+              )}
+            </p>
+
+            <div className="rise mt-9 flex flex-wrap items-center gap-3" style={{ animationDelay: "190ms" }}>
+              <Link data-testid="hero-cta-login" to="/masuk" className="group flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/25">
+                {t("getStarted")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <Link data-testid="hero-cta-pricing" to="/harga" className="rounded-2xl border border-border bg-card/80 px-6 py-3.5 text-sm font-bold backdrop-blur transition-colors hover:border-primary hover:text-primary">
+                {L("Lihat Harga", "See Pricing")}
+              </Link>
+              <Link data-testid="hero-cta-docs" to="/docs" className="group flex items-center gap-1.5 rounded-2xl px-4 py-3.5 text-sm font-bold text-muted-foreground transition-colors hover:text-primary">
+                {t("docs")} <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+
+            <div className="rise mt-9 flex flex-wrap gap-2" style={{ animationDelay: "250ms" }}>
+              {CHIPS.map((c, i) => (
+                <span key={c.id} data-testid={`hero-chip-${i}`} className="flex items-center gap-2 rounded-xl border border-border/80 bg-card/60 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur">
+                  <c.icon className="h-3.5 w-3.5 text-primary" /> {L(c.id, c.en)}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="rise relative" style={{ animationDelay: "180ms" }}>
+            <div className="absolute -inset-8 rounded-[40px] bg-primary/10 blur-3xl" />
+            <div className="relative overflow-hidden rounded-[28px] border border-border bg-card/90 shadow-2xl shadow-black/10 backdrop-blur-xl">
+              <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-5 py-4">
+                <span className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
+                <div className="mono ml-3 flex items-center gap-2 text-[11px] text-muted-foreground"><Terminal className="h-3.5 w-3.5" /> api.dapetotp</div>
+                <span className="ml-auto rounded-lg bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-500">ONLINE</span>
+              </div>
+              <div className="p-5 sm:p-6">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    [CheckCircle2, L("API key per akun", "Per-account API key")],
+                    [Wallet, "QRIS"],
+                    [Activity, "OTP realtime"],
+                    [Layers3, L("Multi server", "Multi server")],
+                  ].map(([Icon, label]) => (
+                    <div key={label} className="flex items-center gap-3 rounded-2xl border border-border bg-background/70 p-4">
+                      <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="h-4 w-4" /></span>
+                      <span className="text-xs font-bold sm:text-sm">{label}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 rounded-2xl border border-border bg-background p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{L("Mulai dari", "Starting at")}</p>
+                      <p className="mt-1 text-3xl font-extrabold text-primary">{stats?.cheapest ? rupiah(stats.cheapest) : "—"}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{L("Layanan ID", "ID services")}</p>
+                      <p className="mt-1 text-3xl font-extrabold">{stats?.services ?? "—"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SAMPLE REQUEST */}
+      <section className="relative bg-muted/30">
+        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-20 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
+          <div>
+            <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("CONTOH REQUEST", "SAMPLE REQUEST")}</p>
+            <h2 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl">{L("Satu request, langsung jalan.", "One request, ready to go.")}</h2>
+            <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">
+              {L("Alur API dibuat sederhana: autentikasi dengan API key, kirim ID harga layanan, lalu pantau status dan OTP dari endpoint yang sama.", "The API flow stays simple: authenticate, send a service price ID, then monitor status and OTP from the same API.")}
+            </p>
+            <div className="mt-6 space-y-3 text-sm">
+              {[L("Header sederhana", "Simple headers"), L("Respons JSON konsisten", "Consistent JSON responses"), L("Siap dipakai dari backend apa pun", "Works from any backend")].map((x) => (
+                <div key={x} className="flex items-center gap-3 font-semibold"><CheckCircle2 className="h-4 w-4 text-primary" /> {x}</div>
+              ))}
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-[28px] border border-border bg-[hsl(222_47%_6%)] text-slate-100 shadow-xl">
+            <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/5 px-5 py-3.5">
+              <span className="mono rounded-lg bg-emerald-400/15 px-2 py-1 text-[11px] font-bold text-emerald-300">POST</span>
+              <code className="mono text-xs text-slate-300">/api/v1/orders</code>
+              <span className="mono ml-auto rounded-lg bg-blue-400/15 px-2 py-1 text-[11px] font-bold text-blue-300">200 OK</span>
+            </div>
+            <pre data-testid="sample-code" className="themed-scrollbar mono overflow-x-auto p-5 text-xs leading-relaxed text-slate-300 sm:p-6">{CODE}</pre>
+          </div>
+        </div>
+      </section>
+
+      {/* WHY */}
+      <section className="mx-auto max-w-7xl px-6 py-20">
+        <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr] lg:items-end">
+          <div>
+            <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("KENAPA DAPETOTP", "WHY DAPETOTP")}</p>
+            <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("API yang rapi untuk dipakai sehari-hari.", "A tidy API for everyday use.")}</h2>
+          </div>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground lg:justify-self-end">
+            {L("Fokusnya bukan hanya membeli nomor, tetapi membuat seluruh alur verifikasi lebih mudah dipantau: harga, saldo, transaksi, OTP, dan integrasi API berada di satu tempat.", "More than buying numbers: pricing, balance, transactions, OTP and API integration stay visible in one place.")}
           </p>
-          <div className="rise mt-10 flex flex-wrap items-center justify-center gap-3" style={{ animationDelay: "220ms" }}>
-            <Link data-testid="hero-cta-login" to="/masuk" className="group flex items-center gap-2 rounded-2xl bg-primary px-7 py-4 text-sm font-bold text-primary-foreground transition-transform duration-200 hover:scale-[1.03] brand-glow">
-              {t("getStarted")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <Link data-testid="hero-cta-pricing" to="/harga" className="rounded-2xl border border-border bg-card px-7 py-4 text-sm font-bold transition-colors duration-200 hover:border-primary hover:text-primary">
-              {L("Lihat Harga", "See Pricing")}
-            </Link>
-            <Link data-testid="hero-cta-docs" to="/docs" className="rounded-2xl px-5 py-4 text-sm font-bold text-muted-foreground transition-colors hover:text-primary">
-              {t("docs")} →
-            </Link>
-          </div>
-          <div className="rise mt-12 flex flex-wrap items-center justify-center gap-2" style={{ animationDelay: "300ms" }}>
-            {CHIPS.map((c, i) => (
-              <span key={c.id} data-testid={`hero-chip-${i}`} className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-bold text-muted-foreground">
-                <c.icon className="h-3.5 w-3.5 text-primary" /> {L(c.id, c.en)}
-              </span>
-            ))}
-          </div>
         </div>
-      </section>
 
-      {/* CONTOH REQUEST */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
-        <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("CONTOH REQUEST", "SAMPLE REQUEST")}</p>
-        <h2 className="mt-3 text-2xl font-extrabold sm:text-3xl">{L("Satu request, langsung jalan.", "One request, ready to go.")}</h2>
-        <div className="mt-7 overflow-hidden rounded-3xl border border-border bg-card">
-          <div className="flex flex-wrap items-center gap-3 border-b border-border bg-muted/50 px-5 py-3">
-            <span className="mono rounded-lg bg-emerald-500/15 px-2 py-1 text-[11px] font-bold text-emerald-500">POST</span>
-            <code className="mono text-xs">/api/v1/orders</code>
-            <span className="mono ml-auto rounded-lg bg-primary/15 px-2 py-1 text-[11px] font-bold text-primary">200 OK</span>
-          </div>
-          <pre data-testid="sample-code" className="mono overflow-x-auto p-5 text-xs leading-relaxed">{CODE}</pre>
-        </div>
-      </section>
-
-      {/* KENAPA */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
-        <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("KENAPA DAPETOTP", "WHY DAPETOTP")}</p>
-        <h2 className="mt-3 text-2xl font-extrabold sm:text-3xl">{L("API yang rapi untuk dipakai sehari-hari.", "A tidy API for everyday use.")}</h2>
-        <div className="mt-8 grid gap-5 md:grid-cols-3">
+        <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {WHY.map((w, i) => (
-            <article key={w.t_id} data-testid={`why-card-${i}`} className="hover-lift rounded-3xl border border-border bg-card p-7">
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/15 text-primary"><w.icon className="h-5 w-5" /></span>
-              <h3 className="mt-5 text-base font-bold md:text-lg">{L(w.t_id, w.t_en)}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{L(w.d_id, w.d_en)}</p>
+            <article key={w.t_id} data-testid={`why-card-${i}`} className={`group relative overflow-hidden rounded-[28px] border border-border p-7 transition-all hover:-translate-y-1 hover:border-primary/50 ${i === 0 ? "bg-primary text-primary-foreground" : "bg-card"}`}>
+              <div className={`absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full blur-3xl ${i === 0 ? "bg-white/20" : "bg-primary/15"}`} />
+              <span className={`relative grid h-12 w-12 place-items-center rounded-2xl ${i === 0 ? "bg-white/15" : "bg-primary/10 text-primary"}`}><w.icon className="h-5 w-5" /></span>
+              <h3 className="relative mt-8 text-xl font-extrabold">{L(w.t_id, w.t_en)}</h3>
+              <p className={`relative mt-3 text-sm leading-6 ${i === 0 ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{L(w.d_id, w.d_en)}</p>
+              <div className={`relative mt-7 h-px w-full ${i === 0 ? "bg-white/20" : "bg-border"}`} />
+              <p className={`relative mt-4 text-xs font-bold uppercase tracking-wider ${i === 0 ? "text-primary-foreground/70" : "text-primary"}`}>0{i + 1}</p>
             </article>
           ))}
         </div>
       </section>
 
       {/* RUNTIME */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
-        <p className="text-xs font-bold tracking-[0.22em] text-primary">RUNTIME</p>
-        <h2 className="mt-3 text-2xl font-extrabold sm:text-3xl">{L("Dibuat untuk akses ringan dan stabil.", "Built for light, stable access.")}</h2>
-        <div className="mt-8 grid gap-5 md:grid-cols-3">
-          {RUNTIME.map((r, i) => (
-            <article key={r.t} data-testid={`runtime-card-${i}`} className="hover-lift rounded-3xl border border-border bg-card p-7">
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/15 text-primary"><r.icon className="h-5 w-5" /></span>
-              <h3 className="mt-5 text-base font-bold md:text-lg">{r.t}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{L(r.d_id, r.d_en)}</p>
-            </article>
-          ))}
+      <section className="border-y border-border bg-card/50">
+        <div className="mx-auto max-w-7xl px-6 py-20">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold tracking-[0.22em] text-primary">RUNTIME</p>
+              <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("Dibuat untuk akses ringan dan stabil.", "Built for light, stable access.")}</h2>
+            </div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-500"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> LIVE STACK</span>
+          </div>
+
+          <div className="relative mt-10 grid gap-4 lg:grid-cols-3">
+            <div className="pointer-events-none absolute left-[16.6%] right-[16.6%] top-7 hidden h-px bg-border lg:block" />
+            {RUNTIME.map((r, i) => (
+              <article key={r.t} data-testid={`runtime-card-${i}`} className="relative rounded-[26px] border border-border bg-background p-6">
+                <div className="relative z-10 flex items-center gap-4">
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><r.icon className="h-5 w-5" /></span>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">STEP 0{i + 1}</p>
+                    <h3 className="mt-1 text-lg font-extrabold">{r.t}</h3>
+                  </div>
+                </div>
+                <p className="mt-5 text-sm leading-6 text-muted-foreground">{L(r.d_id, r.d_en)}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* LIVE STATS */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
-        <div className="rounded-3xl border border-border bg-card p-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-bold text-emerald-500">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> LIVE
-            </span>
-            <p className="text-base font-bold md:text-lg">{L("Katalog langsung dari provider", "Catalog straight from the provider")}</p>
+      <section className="mx-auto max-w-7xl px-6 py-20">
+        <div className="relative overflow-hidden rounded-[34px] border border-primary/20 bg-primary p-7 text-primary-foreground shadow-2xl shadow-primary/15 sm:p-10">
+          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/15 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-black/10 blur-3xl" />
+          <div className="relative flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold"><span className="h-2 w-2 animate-pulse rounded-full bg-white" /> LIVE</span>
+            <p className="text-lg font-extrabold">{L("Katalog langsung dari provider", "Catalog straight from the provider")}</p>
           </div>
-          <div className="mt-7 grid gap-5 sm:grid-cols-3">
+
+          <div className="relative mt-8 grid gap-3 sm:grid-cols-3">
             {[
               [Globe2, L("Negara", "Countries"), stats?.countries ?? "—"],
               [ShieldCheck, L("Layanan Indonesia", "Indonesian services"), stats?.services ?? "—"],
               [Wallet, L("Mulai dari", "Starting at"), stats?.cheapest ? rupiah(stats.cheapest) : "—"],
-            ].map(([Icon, l, v], i) => (
-              <div key={l} data-testid={`live-stat-${i}`} className="rounded-2xl border border-border bg-background p-5">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15 text-primary"><Icon className="h-4 w-4" /></span>
-                <p className="mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">{l}</p>
-                <p className="mt-1 text-3xl font-extrabold">{v}</p>
+            ].map(([Icon, label, value], i) => (
+              <div key={label} data-testid={`live-stat-${i}`} className="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/15"><Icon className="h-4 w-4" /></span>
+                <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.18em] text-primary-foreground/70">{label}</p>
+                <p className="mt-1 text-3xl font-extrabold">{value}</p>
               </div>
             ))}
           </div>
@@ -172,29 +262,33 @@ export default function Landing() {
       </section>
 
       {/* PRICE LIST */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+      <section className="mx-auto max-w-7xl px-6 pb-20">
+        <div className="flex flex-wrap items-end justify-between gap-5">
           <div>
             <p className="text-xs font-bold tracking-[0.22em] text-primary">PRICE LIST</p>
-            <h2 className="mt-3 text-2xl font-extrabold sm:text-3xl">{L("Layanan termurah hari ini.", "Cheapest services today.")}</h2>
+            <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("Layanan termurah hari ini.", "Cheapest services today.")}</h2>
+            <p className="mt-3 text-sm text-muted-foreground">{L("Harga di bawah sudah memakai kalkulasi harga jual untuk pelanggan.", "Prices below already use the customer selling-price calculation.")}</p>
           </div>
-          <Link to="/harga" data-testid="pricelist-all" className="rounded-2xl border border-border px-5 py-3 text-sm font-bold transition-colors hover:border-primary hover:text-primary">
-            {L("Lihat semua harga", "See all prices")} →
+          <Link to="/harga" data-testid="pricelist-all" className="group flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-bold transition-colors hover:border-primary hover:text-primary">
+            {L("Lihat semua harga", "See all prices")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+        <div className="mt-9 grid gap-3 lg:grid-cols-2">
           {(stats?.top || []).map((s, i) => (
-            <div key={s.name + i} data-testid={`pricelist-item-${i}`} className="hover-lift flex items-center gap-4 rounded-3xl border border-border bg-card p-5">
+            <div key={s.name + i} data-testid={`pricelist-item-${i}`} className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+              <span className="mono w-8 text-center text-xs font-bold text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
               {s.logo ? (
-                <img src={s.logo} alt="" className="h-11 w-11 rounded-xl bg-muted object-contain p-1.5" onError={(e) => { e.target.style.display = "none"; }} />
+                <img src={s.logo} alt="" className="h-11 w-11 rounded-xl border border-border bg-muted object-contain p-1.5" onError={(e) => { e.target.style.display = "none"; }} />
               ) : (
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/15 font-bold text-primary">{s.name.slice(0, 2)}</span>
+                <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 font-bold text-primary">{s.name.slice(0, 2)}</span>
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold">{s.name}</p>
-                <p className="text-xs text-muted-foreground">{L("harga", "price")}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{L("harga pelanggan", "customer price")}</p>
               </div>
               <p className="text-lg font-extrabold text-primary">{rupiah(s.price)}</p>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
             </div>
           ))}
           {!stats?.top?.length && <p className="text-sm text-muted-foreground">{L("Katalog belum tersedia.", "Catalog unavailable.")}</p>}
@@ -202,17 +296,24 @@ export default function Landing() {
       </section>
 
       {/* FAQ */}
-      <section className="mx-auto max-w-3xl px-6 py-16">
-        <p className="text-xs font-bold tracking-[0.22em] text-primary">FAQ</p>
-        <h2 className="mt-3 text-2xl font-extrabold sm:text-3xl">{L("Pertanyaan yang sering ditanyakan.", "Frequently asked questions.")}</h2>
-        <Accordion type="single" collapsible className="mt-8">
-          {FAQ.map(([q, a], i) => (
-            <AccordionItem key={q} value={`f${i}`} className="mb-3 rounded-2xl border border-border bg-card px-5">
-              <AccordionTrigger data-testid={`landing-faq-${i}`} className="text-left text-sm font-bold hover:no-underline">{q}</AccordionTrigger>
-              <AccordionContent className="text-sm text-muted-foreground">{a}</AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+      <section className="border-t border-border bg-muted/25">
+        <div className="mx-auto grid max-w-7xl gap-10 px-6 py-20 lg:grid-cols-[.7fr_1.3fr]">
+          <div>
+            <span className="inline-grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary"><Sparkles className="h-5 w-5" /></span>
+            <p className="mt-6 text-xs font-bold tracking-[0.22em] text-primary">FAQ</p>
+            <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("Pertanyaan yang sering ditanyakan.", "Frequently asked questions.")}</h2>
+            <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">{L("Masih ada yang belum jelas? Masuk ke Docs untuk contoh request lengkap atau hubungi support.", "Need more detail? Open Docs for complete request examples or contact support.")}</p>
+          </div>
+
+          <Accordion type="single" collapsible className="space-y-3">
+            {FAQ.map(([q, a], i) => (
+              <AccordionItem key={q} value={`f${i}`} className="overflow-hidden rounded-2xl border border-border bg-card px-5 data-[state=open]:border-primary/40">
+                <AccordionTrigger data-testid={`landing-faq-${i}`} className="text-left text-sm font-bold hover:no-underline">{q}</AccordionTrigger>
+                <AccordionContent className="text-sm leading-6 text-muted-foreground">{a}</AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
       </section>
 
       <footer className="border-t border-border py-10 text-center text-sm text-muted-foreground">

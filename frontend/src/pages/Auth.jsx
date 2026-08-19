@@ -4,15 +4,26 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { http, errMsg } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { PasswordInput } from "@/components/ui/password-input";
 
-const Field = ({ label, testid, ...rest }) => (
+const Field = ({ label, testid, type, ...rest }) => (
   <label className="block">
     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
-    <input
-      data-testid={testid}
-      {...rest}
-      className="mt-2 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors duration-200 focus:border-primary"
-    />
+    {type === "password" ? (
+      <PasswordInput
+        data-testid={testid}
+        {...rest}
+        className="mt-2"
+        inputClassName="rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors duration-200 focus:border-primary"
+      />
+    ) : (
+      <input
+        data-testid={testid}
+        type={type}
+        {...rest}
+        className="mt-2 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors duration-200 focus:border-primary"
+      />
+    )}
   </label>
 );
 
