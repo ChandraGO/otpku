@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
+import { motion, useInView, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
 import {
   ArrowRight, Zap, Wallet, Activity, MousePointerClick, KeyRound, Gauge, Code2,
   Server, Cpu, Database, Globe2, ShieldCheck, LifeBuoy, Terminal, CheckCircle2,
@@ -55,6 +55,177 @@ const CODE = `$ curl "${process.env.REACT_APP_BACKEND_URL}/api/v1/orders" \\
   }
 }`;
 
+function TypewriterText({ text = "", speed = 18, delay = 0, active = true, inline = false, className = "" }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.12, margin: "0px 0px -6% 0px" });
+  const reducedMotion = useReducedMotion();
+  const [visibleLength, setVisibleLength] = useState(reducedMotion ? text.length : 0);
+  const started = useRef(false);
+
+  useEffect(() => {
+    started.current = false;
+    setVisibleLength(reducedMotion ? text.length : 0);
+  }, [text, reducedMotion]);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setVisibleLength(text.length);
+      return undefined;
+    }
+    if (!active || !inView || started.current || !text) return undefined;
+
+    started.current = true;
+    let intervalId;
+    const timerId = window.setTimeout(() => {
+      let cursor = 0;
+      const step = Math.max(1, text.length > 180 ? 3 : text.length > 90 ? 2 : 1);
+      intervalId = window.setInterval(() => {
+        cursor = Math.min(text.length, cursor + step);
+        setVisibleLength(cursor);
+        if (cursor >= text.length) window.clearInterval(intervalId);
+      }, Math.max(8, speed));
+    }, Math.max(0, delay));
+
+    return () => {
+      window.clearTimeout(timerId);
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [active, delay, inView, reducedMotion, speed, text]);
+
+  return (
+    <span ref={ref} className={`${inline ? "inline-grid" : "grid"} ${className}`} aria-label={text}>
+      <span aria-hidden="true" className="invisible col-start-1 row-start-1">{text}</span>
+      <span aria-hidden="true" className="col-start-1 row-start-1">{text.slice(0, visibleLength)}</span>
+    </span>
+  );
+}
+
+function CountUp({ value, format = (n) => Math.round(n).toLocaleString("id-ID"), duration = 1150 }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.55 });
+  const reducedMotion = useReducedMotion();
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || !inView) return undefined;
+    if (reducedMotion) {
+      setCurrent(numericValue);
+      return undefined;
+    }
+
+    let frameId;
+    const startedAt = performance.now();
+    const tick = (now) => {
+      const elapsed = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - elapsed, 3);
+      setCurrent(numericValue * eased);
+      if (elapsed < 1) frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [duration, inView, reducedMotion, value]);
+
+  const numericValue = Number(value);
+  return <span ref={ref}>{Number.isFinite(numericValue) ? format(current) : "—"}</span>;
+}
+
+function highlightCodeLine(line, index) {
+  if (line.startsWith("$ curl")) {
+    const match = line.match(/^(\$ )(curl)(.*)$/);
+    return (
+      <React.Fragment key={`code-${index}`}>
+        <span className="text-slate-500">{match?.[1]}</span>
+        <span className="font-semibold text-emerald-300">{match?.[2]}</span>
+        <span className="text-sky-300">{match?.[3]}</span>
+      </React.Fragment>
+    );
+  }
+  if (line.trimStart().startsWith("-H")) {
+    const marker = line.indexOf("-H");
+    const indent = line.slice(0, marker);
+    const rest = line.slice(marker + 2);
+    return (
+      <React.Fragment key={`code-${index}`}>
+        {indent}<span className="font-semibold text-violet-300">-H</span><span className="text-amber-200">{rest}</span>
+      </React.Fragment>
+    );
+  }
+  if (line.trimStart().startsWith("-d")) {
+    const marker = line.indexOf("-d");
+    const indent = line.slice(0, marker);
+    const rest = line.slice(marker + 2);
+    return (
+      <React.Fragment key={`code-${index}`}>
+        {indent}<span className="font-semibold text-violet-300">-d</span><span className="text-fuchsia-200">{rest}</span>
+      </React.Fragment>
+    );
+  }
+  if (line.trim() === "200 OK") return <span key={`code-${index}`} className="font-bold text-emerald-300">{line}</span>;
+
+  const jsonMatch = line.match(/^(\s*)("[^"]+")(\s*:\s*)(.*)$/);
+  if (jsonMatch) {
+    const [, indent, key, colon, tail] = jsonMatch;
+    let tailClass = "text-slate-300";
+    if (/^"/.test(tail.trim())) tailClass = "text-emerald-200";
+    else if (/^\d/.test(tail.trim())) tailClass = "text-amber-300";
+    else if (/^\[/.test(tail.trim())) tailClass = "text-fuchsia-300";
+    return (
+      <React.Fragment key={`code-${index}`}>
+        {indent}<span className="text-sky-300">{key}</span><span className="text-slate-500">{colon}</span><span className={tailClass}>{tail}</span>
+      </React.Fragment>
+    );
+  }
+
+  return <span key={`code-${index}`} className="text-slate-400">{line}</span>;
+}
+
+function HighlightedTypewriterCode({ code }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.22 });
+  const reducedMotion = useReducedMotion();
+  const [visibleLength, setVisibleLength] = useState(reducedMotion ? code.length : 0);
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setVisibleLength(code.length);
+      return undefined;
+    }
+    if (!inView || started.current) return undefined;
+    started.current = true;
+    let intervalId;
+    const timerId = window.setTimeout(() => {
+      let cursor = 0;
+      intervalId = window.setInterval(() => {
+        cursor = Math.min(code.length, cursor + 4);
+        setVisibleLength(cursor);
+        if (cursor >= code.length) window.clearInterval(intervalId);
+      }, 13);
+    }, 180);
+    return () => {
+      window.clearTimeout(timerId);
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [code, inView, reducedMotion]);
+
+  const visibleCode = code.slice(0, visibleLength);
+  return (
+    <div ref={ref} className="themed-scrollbar mono grid overflow-x-auto text-xs leading-relaxed sm:text-[13px]">
+      <pre aria-hidden="true" className="invisible col-start-1 row-start-1 min-w-max p-5 sm:p-6">{code}</pre>
+      <pre data-testid="sample-code" aria-label={code} className="col-start-1 row-start-1 min-w-max p-5 sm:p-6">
+        {visibleCode.split("\n").map((line, index, lines) => (
+          <React.Fragment key={`line-${index}`}>
+            {highlightCodeLine(line, index)}
+            {index < lines.length - 1 ? "\n" : null}
+          </React.Fragment>
+        ))}
+      </pre>
+    </div>
+  );
+}
+
+
 /*
  * V11 scroll scene — komposisi dibuat seperti referensi MEGA:
  * - copy hero rata tengah dan menjadi fokus utama.
@@ -69,7 +240,7 @@ const ASSEMBLY_PIECES = [
     finalDesktop: "left-[24%] top-[22%]",
     finalMobile: "left-[8%] top-[24%]",
     desktop: [-150, -90, -12],
-    mobile: [-42, -95, -10],
+    mobile: [-38, -172, -10],
   },
   {
     icon: Activity,
@@ -77,7 +248,7 @@ const ASSEMBLY_PIECES = [
     finalDesktop: "right-[24%] top-[22%]",
     finalMobile: "right-[8%] top-[24%]",
     desktop: [150, -85, 12],
-    mobile: [42, -90, 10],
+    mobile: [4, -168, 10],
   },
   {
     icon: Wallet,
@@ -125,12 +296,22 @@ function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
       <span className={`grid place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary ${mobile ? "h-6 w-6 sm:h-7 sm:w-7" : "h-8 w-8"}`}>
         <item.icon className={mobile ? "h-3 w-3" : "h-3.5 w-3.5"} />
       </span>
-      {item.label}
+      <TypewriterText text={item.label} speed={32} delay={520} inline />
     </motion.div>
   );
 }
 
 function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
+  const [assemblyTypingReady, setAssemblyTypingReady] = useState(Boolean(reducedMotion));
+
+  useMotionValueEvent(progress, "change", (latest) => {
+    if (latest >= 0.24) setAssemblyTypingReady(true);
+  });
+
+  useEffect(() => {
+    if (reducedMotion) setAssemblyTypingReady(true);
+  }, [reducedMotion]);
+
   // V12: final dinaikkan sedikit dari V11 agar komposisinya lebih pas di tengah viewport.
   // Clipping tetap dimatikan, jadi seluruh kartu tetap utuh. Gerak vertikal dibuat lebih landai
   // agar rakitan terasa mengalir saat scroll, bukan meloncat di fase akhir.
@@ -182,9 +363,9 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
             <div className={`mono ml-2 flex items-center gap-2 text-muted-foreground ${mobile ? "text-[9px]" : "text-[11px]"}`}>
-              <Terminal className="h-3.5 w-3.5" /> api.dapetotp
+              <Terminal className="h-3.5 w-3.5" /> <TypewriterText text="api.dapetotp" speed={26} active={assemblyTypingReady} inline />
             </div>
-            <span className={`ml-auto rounded-lg bg-emerald-500/10 font-bold text-emerald-500 ${mobile ? "px-1.5 py-1 text-[8px]" : "px-2 py-1 text-[10px]"}`}>ONLINE</span>
+            <span className={`ml-auto rounded-lg bg-emerald-500/10 font-bold text-emerald-500 ${mobile ? "px-1.5 py-1 text-[8px]" : "px-2 py-1 text-[10px]"}`}><TypewriterText text="ONLINE" speed={32} delay={160} active={assemblyTypingReady} inline /></span>
           </div>
           <div className={mobile ? "p-3.5" : "p-5 sm:p-6"}>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -196,18 +377,18 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
               ].map(([Icon, label]) => (
                 <div key={label} className={`flex items-center rounded-2xl border border-border bg-background/70 ${mobile ? "gap-2 p-2" : "gap-2.5 p-3"}`}>
                   <span className={`grid shrink-0 place-items-center rounded-xl bg-primary/10 text-primary ${mobile ? "h-6 w-6" : "h-8 w-8"}`}><Icon className={mobile ? "h-3.5 w-3.5" : "h-4 w-4"} /></span>
-                  <span className={`${mobile ? "text-[9px] leading-3" : "text-xs sm:text-sm"} font-bold`}>{label}</span>
+                  <span className={`${mobile ? "text-[9px] leading-3" : "text-xs sm:text-sm"} font-bold`}><TypewriterText text={label} speed={24} delay={180} active={assemblyTypingReady} /></span>
                 </div>
               ))}
             </div>
             <div className={`rounded-2xl border border-border bg-background ${mobile ? "mt-2 p-3" : "mt-3 p-4"}`}>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className={`font-bold uppercase tracking-[0.18em] text-muted-foreground ${mobile ? "text-[8px]" : "text-[10px]"}`}>{L("Mulai dari", "Starting at")}</p>
+                  <p className={`font-bold uppercase tracking-[0.18em] text-muted-foreground ${mobile ? "text-[8px]" : "text-[10px]"}`}><TypewriterText text={L("Mulai dari", "Starting at")} speed={28} delay={320} active={assemblyTypingReady} /></p>
                   <p className={`mt-1 font-extrabold text-primary ${mobile ? "text-lg" : "text-2xl"}`}>{stats?.cheapest ? rupiah(stats.cheapest) : "—"}</p>
                 </div>
                 <div className="text-right">
-                  <p className={`font-bold uppercase tracking-[0.18em] text-muted-foreground ${mobile ? "text-[8px]" : "text-[10px]"}`}>{L("Layanan ID", "ID services")}</p>
+                  <p className={`font-bold uppercase tracking-[0.18em] text-muted-foreground ${mobile ? "text-[8px]" : "text-[10px]"}`}><TypewriterText text={L("Layanan ID", "ID services")} speed={28} delay={360} active={assemblyTypingReady} /></p>
                   <p className={`mt-1 font-extrabold ${mobile ? "text-lg" : "text-2xl"}`}>{stats?.services ?? "—"}</p>
                 </div>
               </div>
@@ -223,37 +404,41 @@ function HeroCopy({ site, t, L }) {
   return (
     <div className="mx-auto w-full max-w-5xl text-center">
       <span data-testid="hero-badge" className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-[11px] font-bold tracking-[0.22em] text-primary">
-        <Radio className="h-3.5 w-3.5" /> {L("REST API PUBLIK", "PUBLIC REST API")}
+        <Radio className="h-3.5 w-3.5" /> <TypewriterText text={L("REST API PUBLIK", "PUBLIC REST API")} speed={34} delay={80} inline />
       </span>
 
       <h1 data-testid="hero-title" className="mx-auto mt-7 max-w-5xl text-4xl font-extrabold leading-[1.02] sm:text-5xl md:text-6xl lg:text-7xl">
-        {site?.site_name || "dapetOTP"}.
-        <span className="mt-2 block text-primary">{L("Solusi verifikasi untuk semua layanan.", "Verification for every service.")}</span>
+        <TypewriterText text={`${site?.site_name || "dapetOTP"}.`} speed={32} delay={260} />
+        <span className="mt-2 block text-primary"><TypewriterText text={L("Solusi verifikasi untuk semua layanan.", "Verification for every service.")} speed={28} delay={520} /></span>
       </h1>
 
       <p data-testid="hero-subtitle" className="mx-auto mt-7 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base lg:text-lg">
-        {L(
-          "Sewa nomor virtual, terima OTP realtime, isi saldo otomatis, dan otomatiskan semuanya lewat REST API dengan API key pribadi. Daftar, isi saldo, langsung pesan.",
-          "Rent virtual numbers, receive OTPs in realtime, top up automatically and automate everything through a REST API with your own key."
-        )}
+        <TypewriterText
+          text={L(
+            "Sewa nomor virtual, terima OTP realtime, isi saldo otomatis, dan otomatiskan semuanya lewat REST API dengan API key pribadi. Daftar, isi saldo, langsung pesan.",
+            "Rent virtual numbers, receive OTPs in realtime, top up automatically and automate everything through a REST API with your own key."
+          )}
+          speed={16}
+          delay={920}
+        />
       </p>
 
       <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
         <Link data-testid="hero-cta-login" to="/masuk" className="soft-float group flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/25">
-          {t("getStarted")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          <TypewriterText text={t("getStarted")} speed={28} delay={1480} inline /> <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
         </Link>
         <Link data-testid="hero-cta-pricing" to="/harga" className="soft-float rounded-2xl border border-border bg-card/80 px-6 py-3.5 text-sm font-bold backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:text-primary hover:shadow-lg hover:shadow-primary/5">
-          {L("Lihat Harga", "See Pricing")}
+          <TypewriterText text={L("Lihat Harga", "See Pricing")} speed={28} delay={1580} inline />
         </Link>
         <Link data-testid="hero-cta-docs" to="/docs" className="soft-float group flex items-center gap-1.5 rounded-2xl px-4 py-3.5 text-sm font-bold text-muted-foreground transition-all duration-300 hover:-translate-y-0.5 hover:text-primary">
-          {t("docs")} <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          <TypewriterText text={t("docs")} speed={30} delay={1680} inline /> <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </Link>
       </div>
 
       <div className="mt-3 flex flex-wrap justify-center gap-2 sm:mt-9">
         {CHIPS.map((c, i) => (
           <span key={c.id} data-testid={`hero-chip-${i}`} style={{ "--float-delay": `${i * -0.65}s` }} className="soft-float flex items-center gap-2 rounded-xl border border-border/80 bg-card/60 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur transition-[border-color,color,box-shadow] duration-300 hover:border-primary/50 hover:text-foreground hover:shadow-lg hover:shadow-primary/5">
-            <c.icon className="h-3.5 w-3.5 text-primary" /> {L(c.id, c.en)}
+            <c.icon className="h-3.5 w-3.5 text-primary" /> <TypewriterText text={L(c.id, c.en)} speed={28} delay={1820 + i * 90} inline />
           </span>
         ))}
       </div>
@@ -348,7 +533,7 @@ export default function Landing() {
                   className="mx-auto mt-8 flex w-fit items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground"
                 >
                   <span className="h-7 w-px bg-primary/70" />
-                  {L("Scroll untuk merakit tampilan", "Scroll to assemble")}
+                  <TypewriterText text={L("Scroll untuk merakit tampilan", "Scroll to assemble")} speed={24} delay={2140} inline />
                 </motion.div>
               </div>
             </div>
@@ -375,17 +560,17 @@ export default function Landing() {
           timeline assembly secara ekstrem. Hero tetap z-10 agar final card tampil
           di atas background section berikutnya selama overlap.
       */}
-      <section className="relative z-0 -mt-[28svh] bg-muted/30 sm:-mt-[24svh] lg:-mt-[20vh]">
-        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-14 sm:py-16 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
+      <section className="relative z-0 -mt-[18svh] bg-muted/30 sm:-mt-[20svh] lg:-mt-[20vh]">
+        <div className="mx-auto grid max-w-7xl gap-8 px-6 pb-14 pt-24 sm:py-16 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
           <Reveal reducedMotion={reducedMotion} x={-26}>
-            <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("CONTOH REQUEST", "SAMPLE REQUEST")}</p>
-            <h2 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl">{L("Satu request, langsung jalan.", "One request, ready to go.")}</h2>
+            <p className="text-xs font-bold tracking-[0.22em] text-primary"><TypewriterText text={L("CONTOH REQUEST", "SAMPLE REQUEST")} speed={30} /></p>
+            <h2 className="mt-4 break-words text-3xl font-extrabold leading-tight sm:text-4xl"><TypewriterText text={L("Satu request, langsung jalan.", "One request, ready to go.")} speed={26} delay={180} /></h2>
             <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">
-              {L("Alur API dibuat sederhana: autentikasi dengan API key, kirim ID harga layanan, lalu pantau status dan OTP dari endpoint yang sama.", "The API flow stays simple: authenticate, send a service price ID, then monitor status and OTP from the same API.")}
+              <TypewriterText text={L("Alur API dibuat sederhana: autentikasi dengan API key, kirim ID harga layanan, lalu pantau status dan OTP dari endpoint yang sama.", "The API flow stays simple: authenticate, send a service price ID, then monitor status and OTP from the same API.")} speed={14} delay={420} />
             </p>
             <div className="mt-6 space-y-3 text-sm">
               {[L("Header sederhana", "Simple headers"), L("Respons JSON konsisten", "Consistent JSON responses"), L("Siap dipakai dari backend apa pun", "Works from any backend")].map((x) => (
-                <div key={x} className="flex items-center gap-3 font-semibold"><CheckCircle2 className="h-4 w-4 text-primary" /> {x}</div>
+                <div key={x} className="flex items-center gap-3 font-semibold"><CheckCircle2 className="h-4 w-4 text-primary" /> <TypewriterText text={x} speed={20} delay={680} /></div>
               ))}
             </div>
           </Reveal>
@@ -393,11 +578,11 @@ export default function Landing() {
           <Reveal reducedMotion={reducedMotion} x={26} delay={0.08}>
             <div className="overflow-hidden rounded-[28px] border border-border bg-[hsl(222_47%_6%)] text-slate-100 shadow-xl transition-transform duration-300 hover:-translate-y-1">
             <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/5 px-5 py-3.5">
-              <span className="mono rounded-lg bg-emerald-400/15 px-2 py-1 text-[11px] font-bold text-emerald-300">POST</span>
-              <code className="mono text-xs text-slate-300">/api/v1/orders</code>
-              <span className="mono ml-auto rounded-lg bg-blue-400/15 px-2 py-1 text-[11px] font-bold text-blue-300">200 OK</span>
+              <span className="mono rounded-lg bg-emerald-400/15 px-2 py-1 text-[11px] font-bold text-emerald-300"><TypewriterText text="POST" speed={34} inline /></span>
+              <code className="mono text-xs text-slate-300"><TypewriterText text="/api/v1/orders" speed={26} delay={150} inline /></code>
+              <span className="mono ml-auto rounded-lg bg-blue-400/15 px-2 py-1 text-[11px] font-bold text-blue-300"><TypewriterText text="200 OK" speed={32} delay={300} inline /></span>
             </div>
-              <pre data-testid="sample-code" className="themed-scrollbar mono overflow-x-auto p-5 text-xs leading-relaxed text-slate-300 sm:p-6">{CODE}</pre>
+              <HighlightedTypewriterCode code={CODE} />
             </div>
           </Reveal>
         </div>
@@ -479,15 +664,15 @@ export default function Landing() {
 
           <div className="relative mt-8 grid gap-3 sm:grid-cols-3">
             {[
-              [Globe2, L("Negara", "Countries"), stats?.countries ?? "—"],
-              [ShieldCheck, L("Layanan Indonesia", "Indonesian services"), stats?.services ?? "—"],
-              [Wallet, L("Mulai dari", "Starting at"), stats?.cheapest ? rupiah(stats.cheapest) : "—"],
-            ].map(([Icon, label, value], i) => (
+              [Globe2, L("Negara", "Countries"), stats?.countries, "number"],
+              [ShieldCheck, L("Layanan Indonesia", "Indonesian services"), stats?.services, "number"],
+              [Wallet, L("Mulai dari", "Starting at"), stats?.cheapest, "rupiah"],
+            ].map(([Icon, label, value, kind], i) => (
               <Reveal key={label} reducedMotion={reducedMotion} delay={0.08 + i * 0.07} y={22}>
                 <div data-testid={`live-stat-${i}`} className="rounded-2xl border border-border bg-background/70 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
                   <span className="grid h-10 w-10 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary"><Icon className="h-4 w-4" /></span>
                   <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-                  <p className="mt-1 text-3xl font-extrabold">{value}</p>
+                  <p className="mt-1 text-3xl font-extrabold text-primary"><CountUp value={value} format={kind === "rupiah" ? (n) => rupiah(Math.round(n)) : (n) => Math.round(n).toLocaleString("id-ID")} /></p>
                 </div>
               </Reveal>
             ))}
