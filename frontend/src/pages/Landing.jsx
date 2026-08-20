@@ -82,7 +82,7 @@ const ASSEMBLY_PIECES = [
   {
     icon: Wallet,
     label: "SALDO",
-    finalDesktop: "left-[17%] top-[49%]",
+    finalDesktop: "left-[13%] top-[54%]",
     finalMobile: "left-[2%] top-[49%]",
     desktop: [-125, 40, 10],
     mobile: [-38, 28, 8],
@@ -242,22 +242,38 @@ function HeroCopy({ site, t, L }) {
         <Link data-testid="hero-cta-login" to="/masuk" className="soft-float group flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/25">
           {t("getStarted")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
         </Link>
-        <Link data-testid="hero-cta-pricing" to="/harga" className="soft-float rounded-2xl border border-border bg-card/80 px-6 py-3.5 text-sm font-bold backdrop-blur transition-colors hover:border-primary hover:text-primary">
+        <Link data-testid="hero-cta-pricing" to="/harga" className="soft-float rounded-2xl border border-border bg-card/80 px-6 py-3.5 text-sm font-bold backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:text-primary hover:shadow-lg hover:shadow-primary/5">
           {L("Lihat Harga", "See Pricing")}
         </Link>
-        <Link data-testid="hero-cta-docs" to="/docs" className="soft-float group flex items-center gap-1.5 rounded-2xl px-4 py-3.5 text-sm font-bold text-muted-foreground transition-colors hover:text-primary">
+        <Link data-testid="hero-cta-docs" to="/docs" className="soft-float group flex items-center gap-1.5 rounded-2xl px-4 py-3.5 text-sm font-bold text-muted-foreground transition-all duration-300 hover:-translate-y-0.5 hover:text-primary">
           {t("docs")} <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </Link>
       </div>
 
-      <div className="mt-9 flex flex-wrap justify-center gap-2">
+      <div className="mt-3 flex flex-wrap justify-center gap-2 sm:mt-9">
         {CHIPS.map((c, i) => (
-          <span key={c.id} data-testid={`hero-chip-${i}`} style={{ "--float-delay": `${i * -0.65}s` }} className="soft-float flex items-center gap-2 rounded-xl border border-border/80 bg-card/60 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur">
+          <span key={c.id} data-testid={`hero-chip-${i}`} style={{ "--float-delay": `${i * -0.65}s` }} className="soft-float flex items-center gap-2 rounded-xl border border-border/80 bg-card/60 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur transition-[border-color,color,box-shadow] duration-300 hover:border-primary/50 hover:text-foreground hover:shadow-lg hover:shadow-primary/5">
             <c.icon className="h-3.5 w-3.5 text-primary" /> {L(c.id, c.en)}
           </span>
         ))}
       </div>
     </div>
+  );
+}
+
+const REVEAL_EASE = [0.22, 1, 0.36, 1];
+
+function Reveal({ children, className = "", delay = 0, x = 0, y = 28, amount = 0.18, reducedMotion = false }) {
+  return (
+    <motion.div
+      initial={reducedMotion ? false : { opacity: 0, x, y, scale: 0.985, filter: "blur(5px)" }}
+      whileInView={reducedMotion ? undefined : { opacity: 1, x: 0, y: 0, scale: 1, filter: "blur(0px)" }}
+      viewport={{ once: true, amount, margin: "0px 0px -7% 0px" }}
+      transition={{ duration: 0.62, delay, ease: REVEAL_EASE }}
+      className={className}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -359,9 +375,9 @@ export default function Landing() {
           timeline assembly secara ekstrem. Hero tetap z-10 agar final card tampil
           di atas background section berikutnya selama overlap.
       */}
-      <section className="scroll-reveal relative z-0 -mt-[28svh] bg-muted/30 sm:-mt-[24svh] lg:-mt-[20vh]">
+      <section className="relative z-0 -mt-[28svh] bg-muted/30 sm:-mt-[24svh] lg:-mt-[20vh]">
         <div className="mx-auto grid max-w-7xl gap-8 px-6 py-14 sm:py-16 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
-          <div>
+          <Reveal reducedMotion={reducedMotion} x={-26}>
             <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("CONTOH REQUEST", "SAMPLE REQUEST")}</p>
             <h2 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl">{L("Satu request, langsung jalan.", "One request, ready to go.")}</h2>
             <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">
@@ -372,77 +388,88 @@ export default function Landing() {
                 <div key={x} className="flex items-center gap-3 font-semibold"><CheckCircle2 className="h-4 w-4 text-primary" /> {x}</div>
               ))}
             </div>
-          </div>
+          </Reveal>
 
-          <div className="overflow-hidden rounded-[28px] border border-border bg-[hsl(222_47%_6%)] text-slate-100 shadow-xl">
+          <Reveal reducedMotion={reducedMotion} x={26} delay={0.08}>
+            <div className="overflow-hidden rounded-[28px] border border-border bg-[hsl(222_47%_6%)] text-slate-100 shadow-xl transition-transform duration-300 hover:-translate-y-1">
             <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/5 px-5 py-3.5">
               <span className="mono rounded-lg bg-emerald-400/15 px-2 py-1 text-[11px] font-bold text-emerald-300">POST</span>
               <code className="mono text-xs text-slate-300">/api/v1/orders</code>
               <span className="mono ml-auto rounded-lg bg-blue-400/15 px-2 py-1 text-[11px] font-bold text-blue-300">200 OK</span>
             </div>
-            <pre data-testid="sample-code" className="themed-scrollbar mono overflow-x-auto p-5 text-xs leading-relaxed text-slate-300 sm:p-6">{CODE}</pre>
-          </div>
+              <pre data-testid="sample-code" className="themed-scrollbar mono overflow-x-auto p-5 text-xs leading-relaxed text-slate-300 sm:p-6">{CODE}</pre>
+            </div>
+          </Reveal>
         </div>
       </section>
 
       {/* WHY */}
-      <section className="scroll-reveal mx-auto max-w-7xl px-6 py-20">
+      <section className="mx-auto max-w-7xl px-6 py-20">
         <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr] lg:items-end">
-          <div>
+          <Reveal reducedMotion={reducedMotion} x={-22}>
             <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("KENAPA DAPETOTP", "WHY DAPETOTP")}</p>
             <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("API yang rapi untuk dipakai sehari-hari.", "A tidy API for everyday use.")}</h2>
-          </div>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground lg:justify-self-end">
+          </Reveal>
+          <Reveal reducedMotion={reducedMotion} x={22} delay={0.06} className="lg:justify-self-end">
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
             {L("Fokusnya bukan hanya membeli nomor, tetapi membuat seluruh alur verifikasi lebih mudah dipantau: harga, saldo, transaksi, OTP, dan integrasi API berada di satu tempat.", "More than buying numbers: pricing, balance, transactions, OTP and API integration stay visible in one place.")}
-          </p>
+            </p>
+          </Reveal>
         </div>
 
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {WHY.map((w, i) => (
-            <article key={w.t_id} data-testid={`why-card-${i}`} className="group relative overflow-hidden rounded-[28px] border border-border bg-card p-7 transition-all hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5">
-              <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full bg-primary/12 blur-3xl" />
-              <span className="relative grid h-12 w-12 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><w.icon className="h-5 w-5" /></span>
-              <h3 className="relative mt-8 text-xl font-extrabold">{L(w.t_id, w.t_en)}</h3>
-              <p className="relative mt-3 text-sm leading-6 text-muted-foreground">{L(w.d_id, w.d_en)}</p>
-              <div className="relative mt-7 h-px w-full bg-border" />
-              <p className="relative mt-4 text-xs font-bold uppercase tracking-wider text-primary">0{i + 1}</p>
-            </article>
+            <Reveal key={w.t_id} reducedMotion={reducedMotion} delay={i * 0.08} y={34} className="h-full">
+              <article data-testid={`why-card-${i}`} className="group relative h-full overflow-hidden rounded-[28px] border border-border bg-card p-7 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5">
+                <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full bg-primary/12 blur-3xl" />
+                <span className="relative grid h-12 w-12 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><w.icon className="h-5 w-5" /></span>
+                <h3 className="relative mt-8 text-xl font-extrabold">{L(w.t_id, w.t_en)}</h3>
+                <p className="relative mt-3 text-sm leading-6 text-muted-foreground">{L(w.d_id, w.d_en)}</p>
+                <div className="relative mt-7 h-px w-full bg-border" />
+                <p className="relative mt-4 text-xs font-bold uppercase tracking-wider text-primary">0{i + 1}</p>
+              </article>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {/* RUNTIME */}
-      <section className="scroll-reveal border-y border-border bg-card/50">
+      <section className="border-y border-border bg-card/50">
         <div className="mx-auto max-w-7xl px-6 py-20">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
+            <Reveal reducedMotion={reducedMotion} x={-22}>
               <p className="text-xs font-bold tracking-[0.22em] text-primary">RUNTIME</p>
               <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("Dibuat untuk akses ringan dan stabil.", "Built for light, stable access.")}</h2>
-            </div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-500"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> LIVE STACK</span>
+            </Reveal>
+            <Reveal reducedMotion={reducedMotion} x={22} delay={0.06}>
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-500"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> LIVE STACK</span>
+            </Reveal>
           </div>
 
           <div className="relative mt-10 grid gap-4 lg:grid-cols-3">
             <div className="pointer-events-none absolute left-[16.6%] right-[16.6%] top-7 hidden h-px bg-border lg:block" />
             {RUNTIME.map((r, i) => (
-              <article key={r.t} data-testid={`runtime-card-${i}`} className="relative rounded-[26px] border border-border bg-background p-6">
-                <div className="relative z-10 flex items-center gap-4">
-                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><r.icon className="h-5 w-5" /></span>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">STEP 0{i + 1}</p>
-                    <h3 className="mt-1 text-lg font-extrabold">{r.t}</h3>
+              <Reveal key={r.t} reducedMotion={reducedMotion} delay={i * 0.08} y={30} className="h-full">
+                <article data-testid={`runtime-card-${i}`} className="relative h-full rounded-[26px] border border-border bg-background p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+                  <div className="relative z-10 flex items-center gap-4">
+                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><r.icon className="h-5 w-5" /></span>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">STEP 0{i + 1}</p>
+                      <h3 className="mt-1 text-lg font-extrabold">{r.t}</h3>
+                    </div>
                   </div>
-                </div>
-                <p className="mt-5 text-sm leading-6 text-muted-foreground">{L(r.d_id, r.d_en)}</p>
-              </article>
+                  <p className="mt-5 text-sm leading-6 text-muted-foreground">{L(r.d_id, r.d_en)}</p>
+                </article>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
       {/* LIVE STATS */}
-      <section className="scroll-reveal mx-auto max-w-7xl px-6 py-20">
-        <div className="relative overflow-hidden rounded-[34px] border border-border bg-card p-7 shadow-xl shadow-primary/5 sm:p-10">
+      <section className="mx-auto max-w-7xl px-6 py-20">
+        <Reveal reducedMotion={reducedMotion} y={34}>
+          <div className="relative overflow-hidden rounded-[34px] border border-border bg-card p-7 shadow-xl shadow-primary/5 transition-transform duration-300 hover:-translate-y-1 sm:p-10">
           <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-primary/12 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
           <div className="relative flex flex-wrap items-center gap-3">
@@ -456,32 +483,38 @@ export default function Landing() {
               [ShieldCheck, L("Layanan Indonesia", "Indonesian services"), stats?.services ?? "—"],
               [Wallet, L("Mulai dari", "Starting at"), stats?.cheapest ? rupiah(stats.cheapest) : "—"],
             ].map(([Icon, label, value], i) => (
-              <div key={label} data-testid={`live-stat-${i}`} className="rounded-2xl border border-border bg-background/70 p-5 backdrop-blur-sm transition-colors hover:border-primary/50">
-                <span className="grid h-10 w-10 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary"><Icon className="h-4 w-4" /></span>
-                <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-                <p className="mt-1 text-3xl font-extrabold">{value}</p>
-              </div>
+              <Reveal key={label} reducedMotion={reducedMotion} delay={0.08 + i * 0.07} y={22}>
+                <div data-testid={`live-stat-${i}`} className="rounded-2xl border border-border bg-background/70 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+                  <span className="grid h-10 w-10 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary"><Icon className="h-4 w-4" /></span>
+                  <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+                  <p className="mt-1 text-3xl font-extrabold">{value}</p>
+                </div>
+              </Reveal>
             ))}
+            </div>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* PRICE LIST */}
-      <section className="scroll-reveal mx-auto max-w-7xl px-6 pb-20">
+      <section className="mx-auto max-w-7xl px-6 pb-20">
         <div className="flex flex-wrap items-end justify-between gap-5">
-          <div>
+          <Reveal reducedMotion={reducedMotion} x={-22}>
             <p className="text-xs font-bold tracking-[0.22em] text-primary">PRICE LIST</p>
             <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("Layanan termurah hari ini.", "Cheapest services today.")}</h2>
             <p className="mt-3 text-sm text-muted-foreground">{L("Harga di bawah sudah memakai kalkulasi harga jual untuk pelanggan.", "Prices below already use the customer selling-price calculation.")}</p>
-          </div>
-          <Link to="/harga" data-testid="pricelist-all" className="group flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-bold transition-colors hover:border-primary hover:text-primary">
-            {L("Lihat semua harga", "See all prices")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
+          </Reveal>
+          <Reveal reducedMotion={reducedMotion} x={22} delay={0.06}>
+            <Link to="/harga" data-testid="pricelist-all" className="group flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:text-primary hover:shadow-lg hover:shadow-primary/5">
+              {L("Lihat semua harga", "See all prices")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </Reveal>
         </div>
 
         <div className="mt-9 grid gap-3 lg:grid-cols-2">
           {(stats?.top || []).map((s, i) => (
-            <div key={s.name + i} data-testid={`pricelist-item-${i}`} className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+            <Reveal key={s.name + i} reducedMotion={reducedMotion} delay={(i % 6) * 0.045} y={22}>
+              <div data-testid={`pricelist-item-${i}`} className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
               <span className="mono w-8 text-center text-xs font-bold text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
               {s.logo ? (
                 <img src={s.logo} alt="" className="h-11 w-11 rounded-xl border border-border bg-muted object-contain p-1.5" onError={(e) => { e.target.style.display = "none"; }} />
@@ -493,39 +526,44 @@ export default function Landing() {
                 <p className="mt-0.5 text-xs text-muted-foreground">{L("harga pelanggan", "customer price")}</p>
               </div>
               <p className="text-lg font-extrabold text-primary">{rupiah(s.price)}</p>
-              <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
-            </div>
+                <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+              </div>
+            </Reveal>
           ))}
           {!stats?.top?.length && <p className="text-sm text-muted-foreground">{L("Katalog belum tersedia.", "Catalog unavailable.")}</p>}
         </div>
       </section>
 
       {/* FAQ */}
-      <section className="scroll-reveal border-t border-border bg-muted/25">
+      <section className="border-t border-border bg-muted/25">
         <div className="mx-auto grid max-w-7xl gap-10 px-6 py-20 lg:grid-cols-[.7fr_1.3fr]">
-          <div>
+          <Reveal reducedMotion={reducedMotion} x={-22}>
             <span className="inline-grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary"><Sparkles className="h-5 w-5" /></span>
             <p className="mt-6 text-xs font-bold tracking-[0.22em] text-primary">FAQ</p>
             <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("Pertanyaan yang sering ditanyakan.", "Frequently asked questions.")}</h2>
             <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">{L("Masih ada yang belum jelas? Masuk ke Docs untuk contoh request lengkap atau hubungi support.", "Need more detail? Open Docs for complete request examples or contact support.")}</p>
-          </div>
+          </Reveal>
 
-          <Accordion type="single" collapsible className="space-y-3">
+          <Reveal reducedMotion={reducedMotion} x={22} delay={0.06}>
+            <Accordion type="single" collapsible className="space-y-3">
             {FAQ.map(([q, a], i) => (
-              <AccordionItem key={q} value={`f${i}`} className="overflow-hidden rounded-2xl border border-border bg-card px-5 data-[state=open]:border-primary/40">
+              <AccordionItem key={q} value={`f${i}`} className="overflow-hidden rounded-2xl border border-border bg-card px-5 transition-all duration-300 hover:border-primary/35 data-[state=open]:border-primary/40">
                 <AccordionTrigger data-testid={`landing-faq-${i}`} className="text-left text-sm font-bold hover:no-underline">{q}</AccordionTrigger>
                 <AccordionContent className="text-sm leading-6 text-muted-foreground">{a}</AccordionContent>
               </AccordionItem>
             ))}
-          </Accordion>
+            </Accordion>
+          </Reveal>
         </div>
       </section>
 
       <footer className="border-t border-border py-10 text-center text-sm text-muted-foreground">
-        <p className="flex flex-wrap items-center justify-center gap-2">
+        <Reveal reducedMotion={reducedMotion} y={16}>
+          <p className="flex flex-wrap items-center justify-center gap-2">
           <LifeBuoy className="h-4 w-4 text-primary" />
           © {new Date().getFullYear()} {site?.site_name || "dapetOTP"} — {site?.business_email || "support@dapetotp.com"}
-        </p>
+          </p>
+        </Reveal>
       </footer>
     </div>
   );
