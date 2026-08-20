@@ -2,9 +2,8 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
-RUN npm install -g yarn@1.22.22
-
 COPY frontend/package.json frontend/yarn.lock ./
+
 RUN yarn install --frozen-lockfile
 
 COPY frontend/ ./
