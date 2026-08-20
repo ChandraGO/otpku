@@ -1,37 +1,29 @@
-# Revisi Scroll Assembly Home V3
+# Revisi Scroll Assembly Home V4
 
-File yang berubah:
-
-- `frontend/src/pages/Landing.jsx`
+Fokus revisi ini adalah memisahkan **hero text** dan **assembly animation** agar tidak saling menimpa.
 
 ## Perubahan utama
 
-1. Hero tidak lagi memainkan animasi `rise` saat halaman baru direfresh.
-   - Copy hero langsung tampil stabil.
-   - Gerakan assembly baru dimulai setelah user benar-benar mulai scroll.
+- Hero awal tampil normal saat refresh; tidak ada entrance animation otomatis.
+- Saat user mulai scroll, konten hero bergerak naik secara progresif.
+- Konten hero juga semakin blur + redup seperti pola transisi pada referensi MEGA.
+- Scene assembly tidak lagi berada di tengah sejak awal.
+- Assembly baru muncul dari **bagian bawah viewport** setelah hero mulai naik/blur.
+- Badge `API KEY`, `OTP LIVE`, `SALDO`, `200 OK`, dan `MULTI SERVER` tetap mengikuti scroll dan berkumpul ke kartu.
+- State final assembly selesai lebih awal lalu ditahan cukup lama sebelum masuk ke section `Contoh Request`.
+- Layout desktop dan mobile sama-sama mendapat flow dua fase tersebut.
+- Hero scene dibuat sedikit lebih panjang agar fase blur -> assembly -> final punya ruang scroll yang cukup.
 
-2. Alur animasi diubah menjadi **top-to-bottom assembly**.
-   - Badge `API KEY`, `OTP LIVE`, `SALDO`, `200 OK`, dan `MULTI SERVER` mulai dari posisi di atas/tersebar.
-   - Saat scroll turun, badge bergerak turun menuju kartu final.
-   - Kartu API muncul bertahap dan menjadi titik kumpul akhir.
-   - Scroll ke atas membalik progress secara otomatis.
+## File yang berubah
 
-3. State final selesai sekitar 58% progress dan kemudian ditahan sampai hero selesai.
-   - Hasil final tidak lagi baru selesai saat section keburu lepas.
-   - User memiliki area scroll yang cukup panjang untuk melihat rakitan final.
+- `frontend/src/pages/Landing.jsx`
 
-4. Desktop dan mobile memakai konsep scroll-driven yang sama.
-   - Mobile tidak dimatikan.
-   - Ukuran dan jarak badge disesuaikan agar tetap masuk layar HP.
+## Alur baru
 
-5. Section setelah hero tetap memakai reveal ketika masuk viewport.
-
-## Deploy
-
-Timpa file sesuai struktur repo, kemudian:
-
-```bash
-git add frontend/src/pages/Landing.jsx
-git commit -m "revise hero scroll assembly v3"
-git push origin master
-```
+1. Refresh / posisi awal: hero bersih dan stabil.
+2. Mulai scroll: hero naik.
+3. Scroll lanjut: hero blur dan meredup.
+4. Dari bawah: assembly visual naik masuk ke viewport.
+5. Badge berkumpul ke card.
+6. Final card ditahan di layar.
+7. Baru setelah itu section berikutnya masuk.

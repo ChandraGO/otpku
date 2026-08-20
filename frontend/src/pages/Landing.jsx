@@ -56,11 +56,12 @@ const CODE = `$ curl "${process.env.REACT_APP_BACKEND_URL}/api/v1/orders" \\
 }`;
 
 /*
- * V3 scroll scene:
- * - posisi awal sengaja berada DI ATAS target final (nilai Y negatif)
- * - saat user mulai scroll, badge turun menuju kartu
- * - state final selesai sekitar 58%, lalu ditahan sampai hero selesai
- * Dengan ini user sempat melihat hasil rakitan dengan jelas sebelum section berikutnya.
+ * V4 scroll scene — dua fase seperti referensi MEGA:
+ * 1) copy hero tetap bersih saat halaman dibuka.
+ * 2) setelah user scroll, copy naik + blur secara progresif.
+ * 3) scene assembly baru muncul dari BAWAH setelah copy mulai meninggalkan viewport.
+ * 4) badge turun/berkumpul ke kartu, lalu state final ditahan sebelum section berikutnya.
+ * Dengan pemisahan fase ini, scene tidak lagi menimpa teks hero.
  */
 const ASSEMBLY_PIECES = [
   {
@@ -141,7 +142,7 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
   const completeY = useTransform(progress, [0, 0.5, 0.6, 1], [10, 10, 0, 0]);
 
   return (
-    <div className={`relative mx-auto w-full ${mobile ? "h-[520px] max-w-[430px] sm:h-[560px]" : "h-[600px] max-w-[700px]"}`}>
+    <div className={`relative mx-auto w-full ${mobile ? "h-[390px] max-w-[390px] sm:h-[430px] sm:max-w-[430px]" : "h-[500px] max-w-[680px]"}`}>
       <motion.div
         aria-hidden="true"
         style={reducedMotion ? { opacity: 0.35 } : { rotate: haloRotate, scale: haloScale, opacity: haloOpacity }}
@@ -268,14 +269,26 @@ export default function Landing() {
     offset: ["start start", "end end"],
   });
 
-  /* Copy tidak memakai animasi .rise lagi. Ia langsung stabil saat refresh.
-     Gerakan baru dimulai ketika user benar-benar scroll. */
-  const copyY = useTransform(heroProgress, [0, 0.08, 0.3, 0.44, 1], [0, 0, -58, -150, -150]);
-  const copyOpacity = useTransform(heroProgress, [0, 0.1, 0.31, 0.43, 1], [1, 1, 0.72, 0, 0]);
-  const copyScale = useTransform(heroProgress, [0, 0.12, 0.42, 1], [1, 1, 0.97, 0.97]);
-  const assemblyOpacity = useTransform(heroProgress, [0, 0.02, 0.09, 1], [0, 0.18, 1, 1]);
-  const assemblyY = useTransform(heroProgress, [0, 0.18, 0.58, 1], [110, 74, 30, 30]);
-  const scrollHintOpacity = useTransform(heroProgress, [0, 0.025, 0.11, 1], [0.75, 0.75, 0, 0]);
+  /*
+   * Fase 1 (0% -> ~45%): copy hero naik seperti layar MEGA dan semakin blur.
+   * Fase 2 (~24% -> 58%): assembly naik dari bawah, bukan menimpa copy.
+   * Setelah 58%: posisi final ditahan cukup lama agar hasil akhir terlihat.
+   * Semua nilai tetap 0 di awal, jadi refresh tidak memicu entrance animation.
+   */
+  const copyY = useTransform(heroProgress, [0, 0.1, 0.26, 0.42, 0.55, 1], [0, 0, -72, -220, -300, -300]);
+  const copyOpacity = useTransform(heroProgress, [0, 0.1, 0.26, 0.4, 0.54, 1], [1, 1, 0.88, 0.36, 0.14, 0.14]);
+  const copyScale = useTransform(heroProgress, [0, 0.14, 0.42, 1], [1, 1, 0.975, 0.975]);
+  const copyFilter = useTransform(heroProgress, [0, 0.12, 0.28, 0.43, 0.55, 1], [
+    "blur(0px)",
+    "blur(0px)",
+    "blur(1px)",
+    "blur(7px)",
+    "blur(11px)",
+    "blur(11px)",
+  ]);
+  const assemblyOpacity = useTransform(heroProgress, [0, 0.2, 0.28, 0.36, 1], [0, 0, 0.28, 1, 1]);
+  const assemblyY = useTransform(heroProgress, [0, 0.2, 0.34, 0.55, 1], [330, 330, 175, 0, 0]);
+  const scrollHintOpacity = useTransform(heroProgress, [0, 0.055, 0.14, 1], [0.78, 0.78, 0, 0]);
 
   useEffect(() => {
     http.get("/public/stats").then(({ data }) => setStats(data)).catch(() => {});
@@ -286,21 +299,22 @@ export default function Landing() {
   return (
     <div data-testid="landing-page" className="overflow-hidden">
       {/*
-        HERO V3
-        State awal = copy normal, tidak ada entrance animation saat refresh.
-        Begitu scroll dimulai, badge dari atas turun ke target dan kartu berkumpul di tengah.
-        State final selesai lebih awal lalu ditahan sehingga hasilnya terlihat jelas.
+        HERO V4 — dua lapis, seperti pola MEGA:
+        - layar awal hanya menampilkan copy hero.
+        - saat scroll, copy naik ke atas + blur.
+        - assembly datang dari bawah setelah area copy sudah mulai kosong.
+        - state final tetap di layar sebelum section Contoh Request masuk.
       */}
-      <section ref={heroSceneRef} className="relative h-[238svh] border-b border-border/70 sm:h-[225svh] lg:h-[218vh]">
-        <div className="sticky top-[64px] min-h-[calc(100svh-64px)] overflow-hidden sm:top-[69px] sm:min-h-[calc(100svh-69px)]">
+      <section ref={heroSceneRef} className="relative h-[260svh] border-b border-border/70 sm:h-[252svh] lg:h-[248vh]">
+        <div className="sticky top-[64px] h-[calc(100svh-64px)] overflow-hidden sm:top-[69px] sm:h-[calc(100svh-69px)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_15%,hsl(var(--primary)/0.18),transparent_32%),radial-gradient(circle_at_88%_18%,hsl(var(--primary)/0.10),transparent_28%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(hsl(var(--border)/.35)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.35)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,#000,transparent_92%)]" />
 
           <motion.div
-            style={reducedMotion ? undefined : { y: copyY, opacity: copyOpacity, scale: copyScale }}
-            className="absolute inset-0 z-10"
+            style={reducedMotion ? undefined : { y: copyY, opacity: copyOpacity, scale: copyScale, filter: copyFilter }}
+            className="absolute inset-0 z-10 will-change-transform"
           >
-            <div className="mx-auto flex min-h-[calc(100svh-64px)] max-w-7xl items-center px-5 py-8 sm:min-h-[calc(100svh-69px)] sm:px-6 lg:px-8">
+            <div className="mx-auto flex h-full max-w-7xl items-center px-5 pb-[18vh] pt-8 sm:px-6 sm:pb-[15vh] lg:px-8 lg:pb-[13vh]">
               <div className="w-full lg:max-w-[760px]">
                 <HeroCopy site={site} t={t} L={L} />
                 <motion.div
@@ -314,9 +328,13 @@ export default function Landing() {
             </div>
           </motion.div>
 
+          {/*
+            Scene assembly sengaja ditempatkan di bagian BAWAH viewport.
+            Ini mencegah kartu/badge menabrak judul hero saat transisi baru dimulai.
+          */}
           <motion.div
             style={reducedMotion ? { opacity: 1 } : { opacity: assemblyOpacity, y: assemblyY }}
-            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-2 sm:px-5"
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex h-[66%] items-end justify-center px-2 pb-2 sm:h-[68%] sm:px-5 sm:pb-3 lg:h-[72%] lg:pb-4"
           >
             <div className="w-full lg:hidden">
               <AssemblyVisual progress={heroProgress} reducedMotion={reducedMotion} stats={stats} L={L} mobile />
