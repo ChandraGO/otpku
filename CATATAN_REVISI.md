@@ -1,14 +1,20 @@
-# Revisi Scroll Assembly Home V10
+# Revisi Scroll Assembly Home V11
 
-Fokus V10 hanya pada fase akhir animasi. Tampilan awal V9 dipertahankan.
+Fokus revisi ini hanya memperbaiki state final animasi scroll tanpa mengubah tampilan hero awal yang sudah pas.
 
-Perubahan:
-- Final assembly diturunkan lagi agar tidak terseret masuk ke bawah navbar ketika sticky scene selesai.
-- Offset akhir desktop dinaikkan hingga sekitar 208px; mobile sekitar 132px.
-- Tinggi wrapper visual dipadatkan agar seluruh kartu dan badge tetap muat.
-- Assembly selesai lebih cepat (sekitar 64% progress) lalu ditahan.
-- Tinggi hero scroll dipangkas menjadi sekitar 126–130vh supaya jarak kosong bawah jauh berkurang.
-- Section `Contoh Request` masuk lebih cepat setelah final assembly.
+## Penyebab kartu final terpotong
+
+Pada V10, elemen sticky memakai `overflow-hidden`. Ketika sticky mendekati akhir container, sticky mulai ikut bergerak ke atas. Karena clipping ikut bergerak, bagian bawah API card dipotong walaupun posisi card sudah diturunkan.
+
+## Perubahan V11
+
+- `sticky ... overflow-hidden` diubah menjadi `overflow-visible`, sehingga card/badge tidak dipotong saat sticky release.
+- Seluruh assembly final diturunkan sedikit lagi.
+- Tinggi stage internal diperbesar agar area raster/komposisi cukup untuk card + badge.
+- Assembly mencapai state final lebih cepat (sekitar 60% progress).
+- Tinggi scene dipangkas menjadi sekitar 122–126vh agar jarak ke `Contoh Request` lebih pendek.
+- Tampilan awal hero tetap sama seperti V10/V9.
 
 File yang berubah:
+
 - `frontend/src/pages/Landing.jsx`
