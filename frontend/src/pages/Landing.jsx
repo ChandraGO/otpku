@@ -283,11 +283,11 @@ export default function Landing() {
   });
 
   /*
-   * V12 timeline:
+   * V13 timeline:
    * 0–10%   : hero centered + badge tersebar; tidak ada entrance saat refresh.
    * 10–40%  : hero naik, blur, dan redup sehingga panggung tengah terbuka.
    * 10–72%  : badge bergerak perlahan dari tepi menuju pusat dan kartu dirakit.
-   * 72–100% : rakitan final ditahan sedikit lebih tinggi dan tetap utuh sampai section berikutnya masuk.
+   * 72–100% : rakitan final ditahan, sementara section berikutnya mulai naik dari bawah untuk menghilangkan dead-space.
    */
   const copyY = useTransform(smoothHeroProgress, [0, 0.1, 0.24, 0.4, 1], [0, 0, -78, -260, -260]);
   const copyOpacity = useTransform(smoothHeroProgress, [0, 0.1, 0.24, 0.4, 1], [1, 1, 0.78, 0.035, 0.035]);
@@ -311,11 +311,11 @@ export default function Landing() {
   return (
     <div data-testid="landing-page" className="overflow-hidden">
       {/*
-        HERO V12 — komposisi center seperti referensi MEGA.
+        HERO V13 — komposisi center seperti referensi MEGA.
         Sticky memakai top-0 agar tidak menciptakan pita kosong di bawah navbar.
         Navbar tetap berada di atas karena z-index layout, sedangkan isi hero diberi safe padding.
       */}
-      <section ref={heroSceneRef} className="relative h-[144svh] sm:h-[142svh] lg:h-[140vh]">
+      <section ref={heroSceneRef} className="relative z-10 h-[138svh] sm:h-[136svh] lg:h-[134vh]">
         <div className="sticky top-0 h-[100svh] overflow-visible">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,hsl(var(--primary)/0.17),transparent_34%),radial-gradient(circle_at_50%_82%,hsl(var(--primary)/0.07),transparent_30%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(hsl(var(--border)/.35)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.35)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,#000,transparent_94%)]" />
@@ -339,7 +339,7 @@ export default function Landing() {
           </motion.div>
 
           {/*
-            Assembly tetap memenuhi viewport. V12 tetap menghapus overflow-hidden pada sticky karena itulah
+            Assembly tetap memenuhi viewport. V13 mempertahankan overflow-visible pada sticky karena itulah
             yang memotong bagian bawah kartu saat sticky mulai lepas. Titik final juga diturunkan
             sedikit lagi dan scene dipendekkan agar section berikutnya masuk lebih cepat.
           */}
@@ -353,8 +353,13 @@ export default function Landing() {
           </div>
         </div>
       </section>
-      {/* SAMPLE REQUEST */}
-      <section className="scroll-reveal relative bg-muted/30">
+      {/* SAMPLE REQUEST
+          V13: section berikutnya ditarik naik ke fase akhir sticky hero.
+          Ini menghapus dead-space besar (terutama di mobile) tanpa memendekkan
+          timeline assembly secara ekstrem. Hero tetap z-10 agar final card tampil
+          di atas background section berikutnya selama overlap.
+      */}
+      <section className="scroll-reveal relative z-0 -mt-[28svh] bg-muted/30 sm:-mt-[24svh] lg:-mt-[20vh]">
         <div className="mx-auto grid max-w-7xl gap-8 px-6 py-14 sm:py-16 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
           <div>
             <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("CONTOH REQUEST", "SAMPLE REQUEST")}</p>

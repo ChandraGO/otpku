@@ -1,15 +1,21 @@
-# Scroll Assembly Home V12
+# Revisi Scroll Assembly Home V13
 
-Fokus revisi ini hanya pada dua feedback terakhir:
+Fokus revisi ini hanya menghapus ruang kosong besar setelah final assembly, terutama pada tampilan HP.
 
-1. **Final assembly sedikit dinaikkan** dibanding V11 agar komposisinya lebih pas di tengah viewport, tetapi tidak kembali terlalu tinggi/terpotong.
-2. **Gerakan scroll dibuat lebih mulus** dengan `useSpring()` pada progress scroll Framer Motion.
+## Yang diubah
 
-Detail:
-- `useSpring(heroProgress)` dipakai sebagai progress visual agar wheel/trackpad tidak terasa patah per tick.
-- Animasi tetap reversible: scroll ke atas = animasi mundur.
-- Timeline assembly diperpanjang sampai sekitar 72% progress supaya badge menyatu lebih pelan.
-- Jarak scroll scene dibuat sedikit lebih panjang untuk memberi cukup ruang animasi, tetapi state final tetap terlihat sepanjang sisa scene.
-- `overflow-visible` dari V11 tetap dipertahankan supaya kartu tidak terpotong lagi.
-- Posisi final desktop diturunkan maksimal sekitar 175px pada stage (lebih naik daripada V11 yang 258px).
-- Tampilan awal hero tidak diubah.
+- Posisi final card dari V12 dipertahankan.
+- Smooth scroll `useSpring()` dari V12 dipertahankan.
+- Tinggi hero scene sedikit dipangkas:
+  - mobile: `144svh` -> `138svh`
+  - tablet: `142svh` -> `136svh`
+  - desktop: `140vh` -> `134vh`
+- Section **Contoh Request** ditarik naik dengan overlap responsif:
+  - mobile: `-28svh`
+  - tablet: `-24svh`
+  - desktop: `-20vh`
+- Hero diberi `z-10`, section berikutnya `z-0`, sehingga final assembly tetap tampil utuh di atas transisi dan tidak tertutup background section berikutnya.
+
+## Hasil yang diharapkan
+
+Final assembly tetap di posisi V12, tetapi begitu final tercapai, bagian **Contoh Request** sudah mulai masuk dari bawah. Tidak ada lagi blok kosong panjang di HP maupun desktop.
