@@ -110,12 +110,17 @@ export default function Dashboard() {
     go("pesanan");
   };
 
-  const onPayNow = async (item, price) => {
+  const onPayNow = async (item, priceId, price, countryId, countryName) => {
     try {
-      const { data } = await http.post("/topups", { amount: Number(price) });
-      setPayment(data);
-      setPayNote(`Bayar untuk ${item.service_name} · ${rupiah(price)}. Setelah lunas, saldo masuk otomatis dan pesanan bisa dibuat.`);
-      go("saldo");
+      const { data } = await http.post("/order-payments", {
+        service_country_price_id: priceId,
+        country_id: countryId,
+        service_name: item.service_name,
+        country_name: countryName,
+      });
+      setPayment({ ...data, payment_kind: "direct" });
+      setPayNote(`Bayar langsung untuk ${item.service_name} · ${rupiah(data.amount || price)}. Pembayaran ini tidak mengisi saldo; setelah lunas pesanan dibuat otomatis.`);
+      go("beli");
     } catch (e) { toast.error(errMsg(e)); }
   };
 
@@ -218,7 +223,31 @@ export default function Dashboard() {
 
           {tab === "ringkasan" && <Overview summary={summary} onGo={go} />}
 
-          {tab === "beli" && <ServiceCatalog canBuy balance={user?.balance || 0} onBought={onBought} onPayNow={onPayNow} />}
+          {tab === "beli" && (
+            <div className="space-y-5">
+              {payment?.payment_kind === "direct" && (
+                <PaymentPanel
+                  topup={payment}
+                  mode="direct"
+                  note={payNote}
+                  onClose={() => { setPayment(null); setPayNote(""); }}
+                  onChange={(d) => {
+                    const next = { ...d, payment_kind: "direct" };
+                    setPayment(next);
+                    if (d.order_id) {
+                      toast.success("Pembayaran berhasil, pesanan dibuat otomatis");
+                      setPayment(null);
+                      setPayNote("");
+                      setFocusOrder(d.order_id);
+                      load();
+                      go("pesanan");
+                    }
+                  }}
+                />
+              )}
+              <ServiceCatalog canBuy balance={user?.balance || 0} onBought={onBought} onPayNow={onPayNow} />
+            </div>
+          )}
 
           {tab === "pesanan" && (
             <div className="space-y-4">
@@ -240,18 +269,22 @@ export default function Dashboard() {
 
           {tab === "saldo" && (
             <div className="space-y-5">
-              {payment && (
+              {payment && payment?.payment_kind !== "direct" && (
                 <PaymentPanel
                   topup={payment}
                   note={payNote}
                   onClose={() => { setPayment(null); setPayNote(""); load(); }}
-                  onChange={(d) => { setPayment(d); if (d.status === "paid") { toast.success("Saldo bertambah"); load(); } }}
+                  onChange={(d) => {
+                    const next = { ...d, payment_kind: "topup" };
+                    setPayment(next);
+                    if (d.status === "paid") { toast.success("Saldo bertambah"); load(); }
+                  }}
                 />
               )}
               <div className="grid gap-5 lg:grid-cols-2">
                 <Card>
                   <p className="font-bold">Isi Saldo</p>
-                  <div className="mt-4"><TopupForm limits={limits} onCreated={(d) => { setPayment(d); setPayNote(""); setTopups([d, ...topups]); }} /></div>
+                  <div className="mt-4"><TopupForm limits={limits} onCreated={(d) => { setPayment({ ...d, payment_kind: "topup" }); setPayNote(""); setTopups([d, ...topups]); }} /></div>
                 </Card>
                 <Card>
                   <p className="font-bold">Riwayat</p>
@@ -261,8 +294,8 @@ export default function Dashboard() {
                         <span className="mono">{t.reference}</span>
                         <span className="font-bold">{rupiah(t.amount)}</span>
                         <Badge s={t.status} />
-                        {t.status === "pending" && t.qris && (
-                          <button data-testid={`topup-show-${t.id}`} onClick={() => { setPayment(t); setPayNote(""); topRef.current?.scrollIntoView({ behavior: "smooth" }); }} className="rounded-lg bg-primary px-2 py-1 text-xs font-bold text-primary-foreground">Bayar</button>
+                        {t.status === "pending" && (t.payment_code || t.qris) && (
+                          <button data-testid={`topup-show-${t.id}`} onClick={() => { setPayment({ ...t, payment_kind: "topup" }); setPayNote(""); topRef.current?.scrollIntoView({ behavior: "smooth" }); }} className="rounded-lg bg-primary px-2 py-1 text-xs font-bold text-primary-foreground">Bayar</button>
                         )}
                         <button data-testid={`topup-check-${t.id}`} onClick={() => act(() => http.get(`/topups/${t.id}`), "Diperbarui")} className="rounded-lg border border-border px-2 py-1 text-xs font-bold hover:border-primary hover:text-primary">Cek</button>
                       </div>

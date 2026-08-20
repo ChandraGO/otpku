@@ -223,6 +223,14 @@ class TopupIn(BaseModel):
     amount: int
 
 
+class DirectOrderPaymentIn(BaseModel):
+    service_country_price_id: str
+    country_id: str
+    service_name: Optional[str] = ""
+    country_name: Optional[str] = ""
+    operator_id: Optional[str] = None
+
+
 class OrderIn(BaseModel):
     service_country_price_id: str
     service_name: Optional[str] = ""
@@ -595,7 +603,6 @@ async def services(request: Request, country_id: str, page: int = 1, page_size: 
         raise HTTPException(503, "Katalog sementara tidak tersedia. Coba lagi sebentar.")
     items = data if isinstance(data, list) else data.get("data", [])
     overrides = {d["_id"]: d for d in await db.service_pricing.find({}).to_list(2000)}
-    tier_cfg = await get_settings("tiers")
     me = await optional_user(request)
     tier = (tier_override or (me or {}).get("tier") or "member").lower()
     tier_add_pct = float(tier_cfg.get(f"{tier}_markup_percent") or 0)
@@ -648,6 +655,57 @@ async def services(request: Request, country_id: str, page: int = 1, page_size: 
     return {"items": out}
 
 
+async def quote_direct_order(user: dict, body: DirectOrderPaymentIn) -> dict:
+    """Ambil harga pilihan server langsung dari provider lalu terapkan pricing akun.
+
+    Harga dari frontend tidak dipercaya. Ini membuat pembayaran langsung selalu memakai
+    nominal layanan yang benar pada saat QR dibuat, tanpa melewati aturan minimum isi saldo.
+    """
+    cfg = await get_settings("smsvirtual")
+    pricing = await get_settings("pricing")
+    tier_cfg = await get_settings("tiers")
+    try:
+        data = await smsv_request(
+            cfg.get("api_key"),
+            "GET",
+            "/v1/public/services/list",
+            params={"countryId": body.country_id, "page": 1, "pageSize": 500},
+            timeout=int(cfg.get("timeout_seconds") or 30),
+        )
+    except IntegrationError as e:
+        logger.warning("direct payment quote gagal: %s", e)
+        raise HTTPException(503, "Harga layanan sementara tidak dapat dicek. Coba lagi sebentar.")
+
+    items = data if isinstance(data, list) else (data or {}).get("data", [])
+    found = None
+    for it in items:
+        svc = it.get("service") or it
+        for tier_price_row in it.get("prices") or []:
+            if str(tier_price_row.get("id")) == str(body.service_country_price_id):
+                provider_price = (
+                    tier_price_row.get("promoPrice")
+                    or tier_price_row.get("price")
+                    or tier_price_row.get("sellPrice")
+                    or 0
+                )
+                found = {
+                    "provider_price": provider_price,
+                    "service_code": svc.get("code"),
+                    "service_name": (svc.get("name") or body.service_name or "-").strip(),
+                    "country_name": ((it.get("country") or {}).get("name") or body.country_name or "-").strip(),
+                }
+                break
+        if found:
+            break
+
+    if not found or not found["provider_price"]:
+        raise HTTPException(400, "Pilihan harga/server layanan sudah tidak tersedia. Refresh katalog lalu coba lagi.")
+
+    p = await pricing_for(found["service_code"], pricing, user.get("tier") or "member")
+    found["price"] = apply_pricing(found["provider_price"], p)
+    return found
+
+
 # ---------------- orders ----------------
 async def resolve_activation(cfg: dict, provider_order_id: str, attempts: int = 4, activation_id: str = None):
     """Provider hanya mengembalikan envelope order; cari baris activation-nya.
@@ -674,7 +732,16 @@ async def resolve_activation(cfg: dict, provider_order_id: str, attempts: int = 
     return None
 
 
-async def create_number_order(user: dict, body: OrderIn, source: str):
+async def create_number_order(
+    user: dict,
+    body: OrderIn,
+    source: str,
+    *,
+    charge_balance: bool = True,
+    forced_price: Optional[int] = None,
+    payment_method: str = "balance",
+    payment_ref: Optional[str] = None,
+):
     cfg = await get_settings("smsvirtual")
     pricing = await get_settings("pricing")
     ocfg = await get_settings("orders")
@@ -698,15 +765,17 @@ async def create_number_order(user: dict, body: OrderIn, source: str):
     provider_price = detail.get("price") or listing.get("totalPrice") or listing.get("amount") or 0
     svc_code = (detail.get("service") or {}).get("code")
     p = await pricing_for(svc_code, pricing, user.get("tier") or "member")
-    price = apply_pricing(provider_price, p)
-    fresh = await db.users.find_one({"_id": user["_id"]})
-    if (fresh.get("balance") or 0) < price:
-        try:
-            await smsv_request(cfg.get("api_key"), "PUT", f"/v1/public/orders/cancel/{activation_id}")
-        except Exception:
-            pass
-        raise HTTPException(400, "Saldo tidak cukup")
-    await db.users.update_one({"_id": user["_id"]}, {"$inc": {"balance": -price}})
+    calculated_price = apply_pricing(provider_price, p)
+    price = int(forced_price) if forced_price is not None else calculated_price
+    if charge_balance:
+        fresh = await db.users.find_one({"_id": user["_id"]})
+        if (fresh.get("balance") or 0) < price:
+            try:
+                await smsv_request(cfg.get("api_key"), "PUT", f"/v1/public/orders/cancel/{activation_id}")
+            except Exception:
+                pass
+            raise HTTPException(400, "Saldo tidak cukup")
+        await db.users.update_one({"_id": user["_id"]}, {"$inc": {"balance": -price}})
     cooldown = int(ocfg.get("cancel_cooldown_seconds") or 120)
     exp_at = None
     if detail.get("expiredTime"):
@@ -727,7 +796,8 @@ async def create_number_order(user: dict, body: OrderIn, source: str):
         "country_name": (detail.get("country") or {}).get("name") or body.country_name,
         "country_logo": (detail.get("country") or {}).get("imageUrl"),
         "price": price, "provider_price": provider_price, "status": "pending", "otp_codes": [],
-        "source": source, "refunded": False, "created_at": now(),
+        "source": source, "payment_method": payment_method, "payment_ref": payment_ref,
+        "refunded": False, "created_at": now(),
         "cancel_available_at": now() + timedelta(seconds=cooldown),
         "expires_at": exp_at,
     }
@@ -986,6 +1056,163 @@ async def resend_order(order_id: str, user: dict = Depends(get_current_user)):
     return {"ok": True}
 
 
+# ---------------- direct order payment ----------------
+def public_direct_payment(doc: dict) -> dict:
+    d = clean(doc) if "_id" in doc else dict(doc)
+    if "qris" in d:
+        d["payment_code"] = d.pop("qris")
+    for k in ("paykita_id", "checkout_url", "gateway_ref", "user_id", "fulfilling", "provider_price"):
+        d.pop(k, None)
+    return d
+
+
+async def fulfill_direct_payment(payment: dict) -> dict:
+    """Buat pesanan setelah gateway menyatakan pembayaran langsung sudah lunas."""
+    if payment.get("order_id"):
+        return payment
+
+    lock = await db.direct_payments.update_one(
+        {"_id": payment["_id"], "order_id": {"$exists": False}, "fulfilling": {"$ne": True}},
+        {"$set": {"fulfilling": True, "fulfillment_error": None}},
+    )
+    if not lock.modified_count:
+        return await db.direct_payments.find_one({"_id": payment["_id"]}) or payment
+
+    try:
+        user = await db.users.find_one({"_id": oid(payment["user_id"])})
+        if not user:
+            raise HTTPException(404, "Pengguna pembayaran tidak ditemukan")
+        order = await create_number_order(
+            user,
+            OrderIn(
+                service_country_price_id=payment["service_country_price_id"],
+                service_name=payment.get("service_name") or "",
+                country_name=payment.get("country_name") or "",
+                operator_id=payment.get("operator_id"),
+            ),
+            "direct_payment",
+            charge_balance=False,
+            forced_price=int(payment["amount"]),
+            payment_method="direct",
+            payment_ref=str(payment["_id"]),
+        )
+        await db.direct_payments.update_one(
+            {"_id": payment["_id"]},
+            {"$set": {
+                "order_id": order["id"],
+                "fulfilled_at": now(),
+                "fulfilling": False,
+                "fulfillment_error": None,
+            }},
+        )
+    except HTTPException as e:
+        await db.direct_payments.update_one(
+            {"_id": payment["_id"]},
+            {"$set": {
+                "fulfilling": False,
+                "fulfillment_error": str(e.detail),
+                "last_fulfillment_attempt_at": now(),
+            }},
+        )
+    except Exception as e:
+        logger.exception("fulfill direct payment gagal: %s", e)
+        await db.direct_payments.update_one(
+            {"_id": payment["_id"]},
+            {"$set": {
+                "fulfilling": False,
+                "fulfillment_error": "Pesanan belum berhasil dibuat. Sistem akan mencoba lagi.",
+                "last_fulfillment_attempt_at": now(),
+            }},
+        )
+    return await db.direct_payments.find_one({"_id": payment["_id"]}) or payment
+
+
+async def mark_direct_payment_paid(payment: dict) -> dict:
+    if payment.get("status") != "paid":
+        await db.direct_payments.update_one(
+            {"_id": payment["_id"]},
+            {"$set": {"status": "paid", "paid_at": now()}},
+        )
+        payment = await db.direct_payments.find_one({"_id": payment["_id"]}) or payment
+    return await fulfill_direct_payment(payment)
+
+
+@api.post("/order-payments")
+async def create_direct_payment(body: DirectOrderPaymentIn, user: dict = Depends(get_current_user)):
+    quote = await quote_direct_order(user, body)
+    amount = int(quote["price"])
+    if amount <= 0:
+        raise HTTPException(400, "Harga layanan tidak valid")
+
+    pk = await get_settings("paykita")
+    ref = "ORD-" + secrets.token_hex(5).upper()
+    ttl = int(pk.get("order_ttl_seconds") or 900)
+    webhook = f"{os.environ.get('FRONTEND_URL', '')}/api/webhooks/paykita"
+    try:
+        data = await paykita_create_order(pk.get("api_key"), amount, ref, webhook, ttl)
+    except IntegrationError as e:
+        logger.warning("direct payment create gagal: %s", e)
+        raise HTTPException(502, "Pembayaran sementara tidak tersedia. Coba lagi sebentar.")
+
+    doc = {
+        "user_id": str(user["_id"]),
+        "reference": ref,
+        "amount": amount,
+        "pay_amount": data.get("pay_amount"),
+        "paykita_id": data.get("id"),
+        "qris": data.get("qris"),
+        "checkout_url": data.get("checkout_url"),
+        "gateway_ref": data.get("id"),
+        "status": "pending",
+        "service_country_price_id": body.service_country_price_id,
+        "country_id": body.country_id,
+        "service_name": quote.get("service_name") or body.service_name,
+        "country_name": quote.get("country_name") or body.country_name,
+        "operator_id": body.operator_id,
+        "provider_price": quote.get("provider_price"),
+        "created_at": now(),
+        "expires_at": now() + timedelta(seconds=ttl),
+    }
+    res = await db.direct_payments.insert_one(doc)
+    return public_direct_payment({**doc, "_id": res.inserted_id})
+
+
+@api.get("/order-payments/{payment_id}")
+async def get_direct_payment(payment_id: str, user: dict = Depends(get_current_user)):
+    d = await db.direct_payments.find_one({"_id": oid(payment_id), "user_id": str(user["_id"])})
+    if not d:
+        raise HTTPException(404, "Pembayaran tidak ditemukan")
+
+    if d.get("status") == "pending":
+        pk = await get_settings("paykita")
+        try:
+            remote = await paykita_get_order(pk.get("api_key"), d["paykita_id"])
+            remote_status = remote.get("status")
+            if remote_status == "paid":
+                d = await mark_direct_payment_paid(d)
+            elif remote_status in ("expired", "cancelled"):
+                await db.direct_payments.update_one({"_id": d["_id"]}, {"$set": {"status": remote_status}})
+                d["status"] = remote_status
+        except IntegrationError:
+            pass
+    elif d.get("status") == "paid" and not d.get("order_id"):
+        # Retry fulfillment ketika gateway sudah lunas tetapi provider sempat belum siap.
+        d = await fulfill_direct_payment(d)
+
+    return public_direct_payment(d)
+
+
+@api.post("/order-payments/{payment_id}/cancel")
+async def cancel_direct_payment(payment_id: str, user: dict = Depends(get_current_user)):
+    d = await db.direct_payments.find_one({"_id": oid(payment_id), "user_id": str(user["_id"])})
+    if not d:
+        raise HTTPException(404, "Pembayaran tidak ditemukan")
+    if d.get("status") != "pending":
+        raise HTTPException(400, "Pembayaran ini tidak bisa dibatalkan")
+    await db.direct_payments.update_one({"_id": d["_id"]}, {"$set": {"status": "cancelled"}})
+    return {"ok": True}
+
+
 # ---------------- topup ----------------
 async def create_topup(user: dict, amount: int, source: str):
     t = await get_settings("topup")
@@ -1093,6 +1320,11 @@ async def paykita_webhook(request: Request):
     t = await db.topups.find_one({"paykita_id": data.get("order_id")})
     if t and data.get("status") == "paid":
         await credit_topup(t)
+        return {"ok": True}
+
+    direct = await db.direct_payments.find_one({"paykita_id": data.get("order_id")})
+    if direct and data.get("status") == "paid":
+        await mark_direct_payment_paid(direct)
     return {"ok": True}
 
 

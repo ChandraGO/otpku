@@ -204,7 +204,7 @@ export const ServiceCatalog = ({ canBuy = false, onBought, onPayNow, balance = 0
               </button>
               <button
                 data-testid="confirm-pay-now"
-                onClick={() => { onPayNow?.(confirm.item, confirm.price); setConfirm(null); }}
+                onClick={() => { onPayNow?.(confirm.item, confirm.pid, confirm.price, countryId, countryName); setConfirm(null); }}
                 className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border px-4 py-3.5 text-sm font-bold hover:border-primary hover:text-primary"
               >
                 <span className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Bayar sekarang</span>
