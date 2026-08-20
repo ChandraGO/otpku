@@ -1,19 +1,29 @@
-# Revisi Scroll Assembly Home V6
+# Revisi Scroll Assembly Home V7
 
-Fokus revisi ini mengikuti feedback screenshot terakhir.
+Fokus revisi ini adalah menyamakan flow hero dengan referensi MEGA yang diberikan.
 
-## Yang diubah
+## Perubahan
 
-- Badge `API KEY`, `OTP LIVE`, `SALDO`, `200 OK`, dan `MULTI SERVER` sekarang sudah berada di area kosong hero sejak state awal desktop.
-- Refresh tidak menjalankan entrance animation. Badge hanya diam pada posisi scatter; geraknya baru mengikuti scroll.
-- Saat scroll turun, hero text naik + blur, sementara badge ikut bergerak turun/mendekat ke area assembly.
-- API card tidak muncul saat refresh. Card baru naik dari bawah setelah scroll berjalan dan hero mulai meninggalkan layar.
-- Badge merakit ke posisi final secara bertahap sampai sekitar 90% progress scroll.
-- Posisi final diturunkan agar card memenuhi bagian tengah-bawah viewport dan tidak meninggalkan area kosong besar di bawah.
-- Tinggi scroll scene dipangkas dari sekitar 180–190vh menjadi sekitar 160–165svh/vh.
-- State final hanya ditahan sebentar (sekitar 90–100%) lalu section `CONTOH REQUEST` langsung masuk.
-- Mobile tetap memiliki assembly scroll; badge mulai muncul setelah user mulai scroll agar tidak menutupi copy pada layar sempit.
+- Hero utama sekarang rata tengah pada desktop dan mobile.
+- Badge API KEY, OTP LIVE, SALDO, 200 OK, dan MULTI SERVER tersebar di kiri/kanan/atas/bawah mengelilingi hero.
+- Badge tidak memainkan entrance animation saat refresh.
+- Saat user scroll, hero naik + blur + redup dan badge bergerak langsung menuju pusat.
+- Kartu API muncul di pusat lalu badge menyatu mengelilingi kartu final.
+- Final assembly diposisikan di tengah viewport, bukan terdorong ke atas.
+- Menghapus global `assemblyY` yang sebelumnya menyebabkan kartu final naik, tertutup navbar, atau terpotong.
+- Sticky scene sekarang `top-0`; safe-area navbar ditangani di dalam konten sehingga tidak ada pita kosong tambahan di atas hero.
+- Tinggi scene dipendekkan menjadi sekitar 154–158vh. State final hanya ditahan sebentar sebelum section `CONTOH REQUEST`, sehingga ruang kosong bawah berkurang drastis.
+- Halo/glow dipusatkan dengan wrapper flex agar transform Framer Motion tidak bentrok dengan transform Tailwind.
+- Mobile tetap memakai scroll-driven assembly yang sama dengan ukuran/posisi yang disesuaikan.
 
 ## File
 
 - `frontend/src/pages/Landing.jsx`
+
+## Deploy
+
+```bash
+git add frontend/src/pages/Landing.jsx
+git commit -m "center hero and refine scroll assembly v7"
+git push origin master
+```
