@@ -56,12 +56,13 @@ const CODE = `$ curl "${process.env.REACT_APP_BACKEND_URL}/api/v1/orders" \\
 }`;
 
 /*
- * V4 scroll scene — dua fase seperti referensi MEGA:
+ * V5 scroll scene — dua fase seperti referensi MEGA:
  * 1) copy hero tetap bersih saat halaman dibuka.
  * 2) setelah user scroll, copy naik + blur secara progresif.
  * 3) scene assembly baru muncul dari BAWAH setelah copy mulai meninggalkan viewport.
- * 4) badge turun/berkumpul ke kartu, lalu state final ditahan sebelum section berikutnya.
- * Dengan pemisahan fase ini, scene tidak lagi menimpa teks hero.
+ * 4) badge turun/berkumpul ke kartu, lalu state final ditahan di tengah viewport.
+ * 5) mendekati akhir scene, rakitan naik sedikit + fade dan section berikutnya langsung masuk.
+ * Visual assembly tidak lagi diletakkan di wrapper 66–72% tinggi viewport, sehingga tidak terpotong.
  */
 const ASSEMBLY_PIECES = [
   {
@@ -109,10 +110,10 @@ const ASSEMBLY_PIECES = [
 function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
   const [startX, startY, startR] = mobile ? item.mobile : item.desktop;
 
-  const x = useTransform(progress, [0, 0.12, 0.34, 0.58, 1], [startX, startX * 0.9, startX * 0.48, 0, 0]);
-  const y = useTransform(progress, [0, 0.12, 0.34, 0.58, 1], [startY, startY * 0.86, startY * 0.42, 0, 0]);
-  const rotate = useTransform(progress, [0, 0.28, 0.58, 1], [startR, startR * 0.58, 0, 0]);
-  const scale = useTransform(progress, [0, 0.24, 0.58, 1], [mobile ? 0.7 : 0.76, 0.9, 1, 1]);
+  const x = useTransform(progress, [0, 0.1, 0.38, 0.72, 1], [startX, startX * 0.9, startX * 0.48, 0, 0]);
+  const y = useTransform(progress, [0, 0.1, 0.38, 0.72, 1], [startY, startY * 0.86, startY * 0.42, 0, 0]);
+  const rotate = useTransform(progress, [0, 0.34, 0.72, 1], [startR, startR * 0.58, 0, 0]);
+  const scale = useTransform(progress, [0, 0.3, 0.72, 1], [mobile ? 0.72 : 0.78, 0.9, 1, 1]);
   const opacity = useTransform(progress, [0, 0.025, 0.12, 1], [0, 0.2, 1, 1]);
 
   return (
@@ -130,25 +131,22 @@ function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
 }
 
 function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
-  const cardY = useTransform(progress, [0, 0.12, 0.36, 0.58, 1], [mobile ? 150 : 185, mobile ? 132 : 160, 58, 0, 0]);
-  const cardRotate = useTransform(progress, [0, 0.32, 0.58, 1], [mobile ? 5 : 4, 2.2, 0, 0]);
-  const cardScale = useTransform(progress, [0, 0.24, 0.58, 1], [mobile ? 0.82 : 0.84, 0.91, 1, 1]);
-  const cardOpacity = useTransform(progress, [0, 0.08, 0.22, 0.45, 1], [0, 0.08, 0.46, 1, 1]);
-  const haloRotate = useTransform(progress, [0, 0.58, 1], [-20, 24, 24]);
-  const haloScale = useTransform(progress, [0, 0.38, 0.58, 1], [0.72, 1.08, 1, 1]);
-  const haloOpacity = useTransform(progress, [0, 0.16, 0.58, 1], [0, 0.18, 0.4, 0.4]);
-  const progressScaleX = useTransform(progress, [0, 0.58, 1], [0, 1, 1]);
-  const completeOpacity = useTransform(progress, [0, 0.5, 0.6, 1], [0, 0, 1, 1]);
-  const completeY = useTransform(progress, [0, 0.5, 0.6, 1], [10, 10, 0, 0]);
+  const cardY = useTransform(progress, [0, 0.18, 0.48, 0.72, 1], [mobile ? 135 : 155, mobile ? 118 : 138, 46, 0, 0]);
+  const cardRotate = useTransform(progress, [0, 0.38, 0.72, 1], [mobile ? 4.5 : 4, 2, 0, 0]);
+  const cardScale = useTransform(progress, [0, 0.3, 0.72, 1], [mobile ? 0.84 : 0.86, 0.93, 1, 1]);
+  const cardOpacity = useTransform(progress, [0, 0.08, 0.26, 0.5, 1], [0, 0.08, 0.52, 1, 1]);
+  const haloRotate = useTransform(progress, [0, 0.72, 1], [-18, 20, 20]);
+  const haloScale = useTransform(progress, [0, 0.42, 0.72, 1], [0.76, 1.05, 1, 1]);
+  const haloOpacity = useTransform(progress, [0, 0.18, 0.72, 1], [0, 0.16, 0.34, 0.34]);
 
   return (
-    <div className={`relative mx-auto w-full ${mobile ? "h-[390px] max-w-[390px] sm:h-[430px] sm:max-w-[430px]" : "h-[500px] max-w-[680px]"}`}>
+    <div className={`relative mx-auto w-full ${mobile ? "h-[330px] max-w-[365px] sm:h-[350px] sm:max-w-[390px]" : "h-[390px] max-w-[620px]"}`}>
       <motion.div
         aria-hidden="true"
         style={reducedMotion ? { opacity: 0.35 } : { rotate: haloRotate, scale: haloScale, opacity: haloOpacity }}
-        className={`pointer-events-none absolute left-1/2 top-[47%] -translate-x-1/2 -translate-y-1/2 rounded-[38%] border border-primary/35 ${mobile ? "h-[300px] w-[300px] sm:h-[345px] sm:w-[345px]" : "h-[450px] w-[450px]"}`}
+        className={`pointer-events-none absolute left-1/2 top-[50%] -translate-x-1/2 -translate-y-1/2 rounded-[38%] border border-primary/35 ${mobile ? "h-[255px] w-[255px] sm:h-[280px] sm:w-[280px]" : "h-[345px] w-[345px]"}`}
       />
-      <div className={`pointer-events-none absolute left-1/2 top-[47%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl ${mobile ? "h-[260px] w-[300px]" : "h-[390px] w-[520px]"}`} />
+      <div className={`pointer-events-none absolute left-1/2 top-[50%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl ${mobile ? "h-[220px] w-[280px]" : "h-[300px] w-[450px]"}`} />
 
       {ASSEMBLY_PIECES.map((item) => (
         <AssemblyPiece key={item.label} item={item} progress={progress} reducedMotion={reducedMotion} mobile={mobile} />
@@ -156,9 +154,9 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
 
       <motion.div
         style={reducedMotion ? { opacity: 1 } : { y: cardY, rotate: cardRotate, scale: cardScale, opacity: cardOpacity }}
-        className={`absolute z-20 overflow-hidden rounded-[26px] border border-border bg-card/95 shadow-2xl shadow-black/15 backdrop-blur-xl ${mobile ? "left-[5%] right-[5%] top-[18%]" : "left-[7%] right-[7%] top-[16%]"}`}
+        className={`absolute z-20 overflow-hidden rounded-[26px] border border-border bg-card/95 shadow-2xl shadow-black/15 backdrop-blur-xl ${mobile ? "left-[6%] right-[6%] top-[12%]" : "left-[8%] right-[8%] top-[10%]"}`}
       >
-        <div className={`flex items-center gap-2 border-b border-border bg-muted/40 ${mobile ? "px-3.5 py-3" : "px-5 py-4"}`}>
+        <div className={`flex items-center gap-2 border-b border-border bg-muted/40 ${mobile ? "px-3 py-2.5" : "px-4 py-3"}`}>
           <span className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
           <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
@@ -175,42 +173,27 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
               [Activity, "OTP realtime"],
               [Layers3, L("Multi server", "Multi server")],
             ].map(([Icon, label]) => (
-              <div key={label} className={`flex items-center rounded-2xl border border-border bg-background/70 ${mobile ? "gap-2 p-2.5" : "gap-3 p-4"}`}>
-                <span className={`grid shrink-0 place-items-center rounded-xl bg-primary/10 text-primary ${mobile ? "h-7 w-7" : "h-9 w-9"}`}><Icon className={mobile ? "h-3.5 w-3.5" : "h-4 w-4"} /></span>
+              <div key={label} className={`flex items-center rounded-2xl border border-border bg-background/70 ${mobile ? "gap-2 p-2" : "gap-2.5 p-3"}`}>
+                <span className={`grid shrink-0 place-items-center rounded-xl bg-primary/10 text-primary ${mobile ? "h-6 w-6" : "h-8 w-8"}`}><Icon className={mobile ? "h-3.5 w-3.5" : "h-4 w-4"} /></span>
                 <span className={`${mobile ? "text-[9px] leading-3 sm:text-[10px]" : "text-xs sm:text-sm"} font-bold`}>{label}</span>
               </div>
             ))}
           </div>
-          <div className={`rounded-2xl border border-border bg-background ${mobile ? "mt-2.5 p-3.5" : "mt-4 p-5"}`}>
+          <div className={`rounded-2xl border border-border bg-background ${mobile ? "mt-2 p-3" : "mt-3 p-4"}`}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className={`font-bold uppercase tracking-[0.18em] text-muted-foreground ${mobile ? "text-[8px]" : "text-[10px]"}`}>{L("Mulai dari", "Starting at")}</p>
-                <p className={`mt-1 font-extrabold text-primary ${mobile ? "text-xl sm:text-2xl" : "text-3xl"}`}>{stats?.cheapest ? rupiah(stats.cheapest) : "—"}</p>
+                <p className={`mt-1 font-extrabold text-primary ${mobile ? "text-lg sm:text-xl" : "text-2xl"}`}>{stats?.cheapest ? rupiah(stats.cheapest) : "—"}</p>
               </div>
               <div className="text-right">
                 <p className={`font-bold uppercase tracking-[0.18em] text-muted-foreground ${mobile ? "text-[8px]" : "text-[10px]"}`}>{L("Layanan ID", "ID services")}</p>
-                <p className={`mt-1 font-extrabold ${mobile ? "text-xl sm:text-2xl" : "text-3xl"}`}>{stats?.services ?? "—"}</p>
+                <p className={`mt-1 font-extrabold ${mobile ? "text-lg sm:text-xl" : "text-2xl"}`}>{stats?.services ?? "—"}</p>
               </div>
             </div>
           </div>
         </div>
       </motion.div>
 
-      <div className={`pointer-events-none absolute left-1/2 -translate-x-1/2 ${mobile ? "bottom-[3%] w-[88%]" : "bottom-[1%] w-[82%]"}`}>
-        <div className="mb-2 flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.22em] text-muted-foreground sm:text-[9px]">
-          <span>SCATTER</span>
-          <motion.span style={reducedMotion ? { opacity: 1 } : { opacity: completeOpacity, y: completeY }} className="text-primary">ASSEMBLED</motion.span>
-        </div>
-        <div className="h-px overflow-hidden bg-border">
-          <motion.div style={reducedMotion ? { scaleX: 1 } : { scaleX: progressScaleX }} className="h-full origin-left bg-primary" />
-        </div>
-        <motion.p
-          style={reducedMotion ? { opacity: 1 } : { opacity: completeOpacity, y: completeY }}
-          className="mt-3 text-center text-[9px] font-semibold uppercase tracking-[0.16em] text-primary"
-        >
-          {L("Rakitan siap digunakan", "Assembly ready")}
-        </motion.p>
-      </div>
     </div>
   );
 }
@@ -270,24 +253,27 @@ export default function Landing() {
   });
 
   /*
-   * Fase 1 (0% -> ~45%): copy hero naik seperti layar MEGA dan semakin blur.
-   * Fase 2 (~24% -> 58%): assembly naik dari bawah, bukan menimpa copy.
-   * Setelah 58%: posisi final ditahan cukup lama agar hasil akhir terlihat.
-   * Semua nilai tetap 0 di awal, jadi refresh tidak memicu entrance animation.
+   * V5 timeline:
+   * 0–10%   : hero tetap utuh; refresh tidak memainkan entrance.
+   * 10–34%  : hero naik, blur, dan redup.
+   * 22–58%  : assembly muncul dari bawah dan merakit.
+   * 58–100% : state final ditahan penuh agak di bawah tengah viewport.
+   * Saat sticky selesai, section berikutnya langsung masuk dari bawah; tidak ada fade kosong.
    */
-  const copyY = useTransform(heroProgress, [0, 0.1, 0.26, 0.42, 0.55, 1], [0, 0, -72, -220, -300, -300]);
-  const copyOpacity = useTransform(heroProgress, [0, 0.1, 0.26, 0.4, 0.54, 1], [1, 1, 0.88, 0.36, 0.14, 0.14]);
-  const copyScale = useTransform(heroProgress, [0, 0.14, 0.42, 1], [1, 1, 0.975, 0.975]);
-  const copyFilter = useTransform(heroProgress, [0, 0.12, 0.28, 0.43, 0.55, 1], [
+  const copyY = useTransform(heroProgress, [0, 0.08, 0.22, 0.34, 1], [0, 0, -92, -285, -285]);
+  const copyOpacity = useTransform(heroProgress, [0, 0.08, 0.2, 0.34, 1], [1, 1, 0.78, 0.08, 0.08]);
+  const copyScale = useTransform(heroProgress, [0, 0.1, 0.34, 1], [1, 1, 0.975, 0.975]);
+  const copyFilter = useTransform(heroProgress, [0, 0.1, 0.22, 0.34, 1], [
     "blur(0px)",
     "blur(0px)",
-    "blur(1px)",
-    "blur(7px)",
-    "blur(11px)",
-    "blur(11px)",
+    "blur(2px)",
+    "blur(10px)",
+    "blur(10px)",
   ]);
-  const assemblyOpacity = useTransform(heroProgress, [0, 0.2, 0.28, 0.36, 1], [0, 0, 0.28, 1, 1]);
-  const assemblyY = useTransform(heroProgress, [0, 0.2, 0.34, 0.55, 1], [330, 330, 175, 0, 0]);
+  const assemblyProgress = useTransform(heroProgress, [0, 0.22, 0.58, 1], [0, 0, 1, 1]);
+  const assemblyOpacity = useTransform(heroProgress, [0, 0.2, 0.27, 0.36, 1], [0, 0, 0.28, 1, 1]);
+  const assemblyY = useTransform(heroProgress, [0, 0.2, 0.34, 0.58, 1], [240, 240, 120, 34, 34]);
+  const assemblyScale = useTransform(heroProgress, [0, 0.24, 0.58, 1], [0.96, 0.96, 1, 1]);
   const scrollHintOpacity = useTransform(heroProgress, [0, 0.055, 0.14, 1], [0.78, 0.78, 0, 0]);
 
   useEffect(() => {
@@ -299,13 +285,13 @@ export default function Landing() {
   return (
     <div data-testid="landing-page" className="overflow-hidden">
       {/*
-        HERO V4 — dua lapis, seperti pola MEGA:
+        HERO V5 — dua lapis, seperti pola MEGA:
         - layar awal hanya menampilkan copy hero.
         - saat scroll, copy naik ke atas + blur.
         - assembly datang dari bawah setelah area copy sudah mulai kosong.
         - state final tetap di layar sebelum section Contoh Request masuk.
       */}
-      <section ref={heroSceneRef} className="relative h-[260svh] border-b border-border/70 sm:h-[252svh] lg:h-[248vh]">
+      <section ref={heroSceneRef} className="relative h-[190svh] sm:h-[185svh] lg:h-[180vh]">
         <div className="sticky top-[64px] h-[calc(100svh-64px)] overflow-hidden sm:top-[69px] sm:h-[calc(100svh-69px)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_15%,hsl(var(--primary)/0.18),transparent_32%),radial-gradient(circle_at_88%_18%,hsl(var(--primary)/0.10),transparent_28%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(hsl(var(--border)/.35)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.35)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,#000,transparent_92%)]" />
@@ -329,25 +315,26 @@ export default function Landing() {
           </motion.div>
 
           {/*
-            Scene assembly sengaja ditempatkan di bagian BAWAH viewport.
-            Ini mencegah kartu/badge menabrak judul hero saat transisi baru dimulai.
+            Scene assembly memakai seluruh tinggi sticky viewport.
+            Jadi visual 390px tidak pernah dipaksa masuk ke wrapper 66–72% yang lebih pendek.
+            Hasil final selalu muat utuh, termasuk pada viewport desktop yang pendek.
           */}
           <motion.div
-            style={reducedMotion ? { opacity: 1 } : { opacity: assemblyOpacity, y: assemblyY }}
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex h-[66%] items-end justify-center px-2 pb-2 sm:h-[68%] sm:px-5 sm:pb-3 lg:h-[72%] lg:pb-4"
+            style={reducedMotion ? { opacity: 1 } : { opacity: assemblyOpacity, y: assemblyY, scale: assemblyScale }}
+            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-2 sm:px-5 lg:px-8"
           >
             <div className="w-full lg:hidden">
-              <AssemblyVisual progress={heroProgress} reducedMotion={reducedMotion} stats={stats} L={L} mobile />
+              <AssemblyVisual progress={assemblyProgress} reducedMotion={reducedMotion} stats={stats} L={L} mobile />
             </div>
             <div className="hidden w-full lg:block">
-              <AssemblyVisual progress={heroProgress} reducedMotion={reducedMotion} stats={stats} L={L} />
+              <AssemblyVisual progress={assemblyProgress} reducedMotion={reducedMotion} stats={stats} L={L} />
             </div>
           </motion.div>
         </div>
       </section>
       {/* SAMPLE REQUEST */}
       <section className="scroll-reveal relative bg-muted/30">
-        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-20 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-16 sm:py-18 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
           <div>
             <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("CONTOH REQUEST", "SAMPLE REQUEST")}</p>
             <h2 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl">{L("Satu request, langsung jalan.", "One request, ready to go.")}</h2>

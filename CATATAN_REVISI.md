@@ -1,29 +1,29 @@
-# Revisi Scroll Assembly Home V4
+# Revisi Scroll Assembly Home V5
 
-Fokus revisi ini adalah memisahkan **hero text** dan **assembly animation** agar tidak saling menimpa.
+Fokus revisi ini adalah masalah yang terlihat pada screenshot terakhir: kartu final terpotong oleh batas scene dan terdapat area kosong terlalu panjang sebelum section "Contoh Request".
 
-## Perubahan utama
+## Perbaikan
 
-- Hero awal tampil normal saat refresh; tidak ada entrance animation otomatis.
-- Saat user mulai scroll, konten hero bergerak naik secara progresif.
-- Konten hero juga semakin blur + redup seperti pola transisi pada referensi MEGA.
-- Scene assembly tidak lagi berada di tengah sejak awal.
-- Assembly baru muncul dari **bagian bawah viewport** setelah hero mulai naik/blur.
-- Badge `API KEY`, `OTP LIVE`, `SALDO`, `200 OK`, dan `MULTI SERVER` tetap mengikuti scroll dan berkumpul ke kartu.
-- State final assembly selesai lebih awal lalu ditahan cukup lama sebelum masuk ke section `Contoh Request`.
-- Layout desktop dan mobile sama-sama mendapat flow dua fase tersebut.
-- Hero scene dibuat sedikit lebih panjang agar fase blur -> assembly -> final punya ruang scroll yang cukup.
+- Wrapper assembly sekarang memakai **seluruh tinggi sticky viewport**, bukan hanya 66–72% bagian bawah layar.
+- Ukuran visual desktop diperkecil dari 500px menjadi 390px agar muat pada viewport desktop pendek (mis. tinggi sekitar 560px dengan navbar tetap terlihat).
+- Ukuran visual mobile juga dipadatkan agar seluruh kartu tetap terlihat tanpa terpotong.
+- Card, badge, halo, padding, dan typography final dipadatkan secara proporsional.
+- Garis indikator `SCATTER / ASSEMBLED` dihapus karena tidak ada pada referensi MEGA dan ikut membuat komposisi terlihat seperti terpotong.
+- Scene scroll dipendekkan dari sekitar 248vh menjadi 180vh desktop / 185–190svh tablet-mobile sehingga tidak ada scroll kosong panjang.
+- Timeline tetap: hero normal -> scroll -> hero naik + blur -> assembly dari bawah -> final tersusun.
+- State final selesai sekitar 58% progress dan **ditahan sampai scene selesai**. Tidak dibuat fade kosong di ujung.
+- Final assembly ditempatkan sedikit di bawah tengah viewport sehingga lebih mirip komposisi MEGA dan seluruh kartu terlihat.
+- Saat scene sticky selesai, section `Contoh Request` langsung masuk dari bawah.
+- Animasi tetap scroll-linked; refresh tidak memainkan entrance animation.
 
 ## File yang berubah
 
 - `frontend/src/pages/Landing.jsx`
 
-## Alur baru
+## Deploy
 
-1. Refresh / posisi awal: hero bersih dan stabil.
-2. Mulai scroll: hero naik.
-3. Scroll lanjut: hero blur dan meredup.
-4. Dari bawah: assembly visual naik masuk ke viewport.
-5. Badge berkumpul ke card.
-6. Final card ditahan di layar.
-7. Baru setelah itu section berikutnya masuk.
+```bash
+git add frontend/src/pages/Landing.jsx
+git commit -m "fix hero assembly clipping and empty space"
+git push origin master
+```
