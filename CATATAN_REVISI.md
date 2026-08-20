@@ -1,29 +1,26 @@
-# Revisi Scroll Assembly Home V7
+# Revisi Scroll Assembly Home V8
 
-Fokus revisi ini adalah menyamakan flow hero dengan referensi MEGA yang diberikan.
+Fokus V8 hanya memperbaiki fase scroll/final tanpa mengubah komposisi awal V7 yang sudah sesuai.
 
 ## Perubahan
 
-- Hero utama sekarang rata tengah pada desktop dan mobile.
-- Badge API KEY, OTP LIVE, SALDO, 200 OK, dan MULTI SERVER tersebar di kiri/kanan/atas/bawah mengelilingi hero.
-- Badge tidak memainkan entrance animation saat refresh.
-- Saat user scroll, hero naik + blur + redup dan badge bergerak langsung menuju pusat.
-- Kartu API muncul di pusat lalu badge menyatu mengelilingi kartu final.
-- Final assembly diposisikan di tengah viewport, bukan terdorong ke atas.
-- Menghapus global `assemblyY` yang sebelumnya menyebabkan kartu final naik, tertutup navbar, atau terpotong.
-- Sticky scene sekarang `top-0`; safe-area navbar ditangani di dalam konten sehingga tidak ada pita kosong tambahan di atas hero.
-- Tinggi scene dipendekkan menjadi sekitar 154–158vh. State final hanya ditahan sebentar sebelum section `CONTOH REQUEST`, sehingga ruang kosong bawah berkurang drastis.
-- Halo/glow dipusatkan dengan wrapper flex agar transform Framer Motion tidak bentrok dengan transform Tailwind.
-- Mobile tetap memakai scroll-driven assembly yang sama dengan ukuran/posisi yang disesuaikan.
+- Posisi hero awal tetap rata tengah seperti V7.
+- Badge awal tetap tersebar di kiri, kanan, atas, dan bawah.
+- Saat scroll berjalan, **seluruh media assembly (kartu + semua badge) ikut turun bertahap**.
+- Posisi final desktop diturunkan sekitar 78px; mobile sekitar 48px sehingga rakitan final lebih pas berada di tengah-bawah viewport.
+- Tinggi scroll scene dipangkas dari sekitar 154–158vh menjadi sekitar 142–146vh.
+- Hold setelah rakitan selesai menjadi lebih singkat, sehingga section **Contoh Request** masuk lebih cepat.
+- Mengurangi ruang kosong besar di bawah final animation.
+- Tidak mengubah dependency dan tidak menambah library baru.
 
 ## File
 
-- `frontend/src/pages/Landing.jsx`
+`frontend/src/pages/Landing.jsx`
 
 ## Deploy
 
 ```bash
 git add frontend/src/pages/Landing.jsx
-git commit -m "center hero and refine scroll assembly v7"
+git commit -m "lower final assembly and reduce hero scroll gap"
 git push origin master
 ```

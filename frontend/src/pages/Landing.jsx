@@ -131,8 +131,14 @@ function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
 }
 
 function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
-  // Kartu tumbuh dari titik pusat setelah hero mulai blur. Tidak ada lagi translate Y
-  // stage yang membuat kartu terdorong ke bawah/atas dan akhirnya kepotong.
+  // V8: seluruh rakitan ikut turun saat scroll. Posisi awal tetap sama seperti V7,
+  // tetapi semakin mendekati final, kartu + badge bergeser ke area tengah-bawah viewport.
+  // Ini mencegah hasil final terlihat menggantung terlalu tinggi dengan ruang kosong besar di bawah.
+  const stageY = useTransform(
+    progress,
+    [0, 0.28, 0.58, 0.82, 1],
+    [0, 0, mobile ? 16 : 24, mobile ? 48 : 78, mobile ? 48 : 78]
+  );
   const cardY = useTransform(progress, [0, 0.22, 0.46, 0.7, 0.88, 1], [mobile ? 125 : 150, mobile ? 118 : 142, 64, 18, 0, 0]);
   const cardRotate = useTransform(progress, [0, 0.48, 0.88, 1], [mobile ? 4 : 3.5, 1.4, 0, 0]);
   const cardScale = useTransform(progress, [0, 0.25, 0.56, 0.86, 1], [mobile ? 0.76 : 0.78, 0.8, 0.9, 1, 1]);
@@ -143,7 +149,10 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
   const glowOpacity = useTransform(progress, [0, 0.34, 0.62, 1], [0, 0, 0.58, 0.58]);
 
   return (
-    <div className={`relative mx-auto w-full ${mobile ? "h-[390px] max-w-[390px]" : "h-[520px] max-w-[920px]"}`}>
+    <motion.div
+      style={reducedMotion ? undefined : { y: stageY }}
+      className={`relative mx-auto w-full will-change-transform ${mobile ? "h-[390px] max-w-[390px]" : "h-[520px] max-w-[920px]"}`}
+    >
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <motion.div
           aria-hidden="true"
@@ -206,7 +215,7 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
           </div>
         </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -265,11 +274,11 @@ export default function Landing() {
   });
 
   /*
-   * V7 timeline:
+   * V8 timeline:
    * 0–10%   : hero centered + badge tersebar; tidak ada entrance saat refresh.
    * 10–40%  : hero naik, blur, dan redup sehingga panggung tengah terbuka.
    * 10–82%  : badge bergerak dari tepi menuju pusat, kartu ikut muncul dari tengah.
-   * 82–100% : rakitan final ditahan sebentar dan selalu berada di tengah viewport.
+   * 82–100% : rakitan final ditahan singkat di area tengah-bawah viewport.
    */
   const copyY = useTransform(heroProgress, [0, 0.1, 0.24, 0.4, 1], [0, 0, -78, -260, -260]);
   const copyOpacity = useTransform(heroProgress, [0, 0.1, 0.24, 0.4, 1], [1, 1, 0.78, 0.035, 0.035]);
@@ -293,11 +302,11 @@ export default function Landing() {
   return (
     <div data-testid="landing-page" className="overflow-hidden">
       {/*
-        HERO V7 — komposisi center seperti referensi MEGA.
+        HERO V8 — komposisi center seperti referensi MEGA.
         Sticky memakai top-0 agar tidak menciptakan pita kosong di bawah navbar.
         Navbar tetap berada di atas karena z-index layout, sedangkan isi hero diberi safe padding.
       */}
-      <section ref={heroSceneRef} className="relative h-[158svh] sm:h-[156svh] lg:h-[154vh]">
+      <section ref={heroSceneRef} className="relative h-[146svh] sm:h-[144svh] lg:h-[142vh]">
         <div className="sticky top-0 h-[100svh] overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,hsl(var(--primary)/0.17),transparent_34%),radial-gradient(circle_at_50%_82%,hsl(var(--primary)/0.07),transparent_30%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(hsl(var(--border)/.35)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.35)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,#000,transparent_94%)]" />
@@ -321,9 +330,9 @@ export default function Landing() {
           </motion.div>
 
           {/*
-            Assembly memenuhi satu viewport utuh dan SELALU berada di tengah.
+            Assembly memenuhi satu viewport utuh; pada fase akhir seluruh media turun ke area tengah-bawah.
             Tidak ada lagi assemblyY global sehingga final card tidak terdorong ke atas,
-            tidak tertutup navbar, dan tidak terpotong oleh batas sticky scene.
+            tidak tertutup navbar, tidak terpotong, dan tidak meninggalkan ruang kosong bawah berlebihan.
           */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[70px] z-20 flex items-center justify-center px-2 sm:top-[76px] sm:px-5 lg:px-8">
             <div className="w-full lg:hidden">
