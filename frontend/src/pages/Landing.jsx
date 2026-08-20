@@ -182,44 +182,71 @@ function highlightCodeLine(line, index) {
 
 function HighlightedTypewriterCode({ code }) {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, amount: 0.22 });
   const reducedMotion = useReducedMotion();
+  const [started, setStarted] = useState(Boolean(reducedMotion));
   const [visibleLength, setVisibleLength] = useState(reducedMotion ? code.length : 0);
-  const started = useRef(false);
 
+  // Trigger khusus console: mulai ketika bagian atas console benar-benar masuk viewport,
+  // bukan saat section baru sedikit terlihat. Jadi animasinya tidak selesai duluan sebelum
+  // pengguna sempat melihatnya di layar HP.
   useEffect(() => {
     if (reducedMotion) {
+      setStarted(true);
       setVisibleLength(code.length);
       return undefined;
     }
-    if (!inView || started.current) return undefined;
-    started.current = true;
+
+    const node = ref.current;
+    if (!node || started) return undefined;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setStarted(true);
+        observer.disconnect();
+      },
+      { threshold: 0, rootMargin: "0px 0px -28% 0px" }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [code.length, reducedMotion, started]);
+
+  useEffect(() => {
+    if (!started || reducedMotion) return undefined;
+
+    setVisibleLength(0);
     let intervalId;
     const timerId = window.setTimeout(() => {
       let cursor = 0;
       intervalId = window.setInterval(() => {
-        cursor = Math.min(code.length, cursor + 4);
+        // 2 karakter/tick dibuat cukup jelas terlihat, tetapi tetap nyaman dibaca.
+        cursor = Math.min(code.length, cursor + 2);
         setVisibleLength(cursor);
         if (cursor >= code.length) window.clearInterval(intervalId);
-      }, 13);
-    }, 180);
+      }, 18);
+    }, 220);
+
     return () => {
       window.clearTimeout(timerId);
       if (intervalId) window.clearInterval(intervalId);
     };
-  }, [code, inView, reducedMotion]);
+  }, [code, reducedMotion, started]);
 
   const visibleCode = code.slice(0, visibleLength);
+  const typing = started && visibleLength < code.length;
+
   return (
-    <div ref={ref} className="themed-scrollbar mono grid overflow-x-auto text-xs leading-relaxed sm:text-[13px]">
-      <pre aria-hidden="true" className="invisible col-start-1 row-start-1 min-w-max p-5 sm:p-6">{code}</pre>
-      <pre data-testid="sample-code" aria-label={code} className="col-start-1 row-start-1 min-w-max p-5 sm:p-6">
+    <div ref={ref} className="themed-scrollbar mono grid min-w-0 max-w-full overflow-x-auto text-xs leading-relaxed sm:text-[13px]">
+      <pre aria-hidden="true" className="invisible col-start-1 row-start-1 w-max min-w-full p-5 sm:p-6">{code}</pre>
+      <pre data-testid="sample-code" aria-label={code} className="col-start-1 row-start-1 w-max min-w-full p-5 sm:p-6">
         {visibleCode.split("\n").map((line, index, lines) => (
           <React.Fragment key={`line-${index}`}>
             {highlightCodeLine(line, index)}
             {index < lines.length - 1 ? "\n" : null}
           </React.Fragment>
         ))}
+        {typing ? <span aria-hidden="true" className="ml-0.5 inline-block h-[1em] w-[0.55ch] animate-pulse align-[-0.12em] bg-sky-300" /> : null}
       </pre>
     </div>
   );
@@ -455,7 +482,7 @@ function Reveal({ children, className = "", delay = 0, x = 0, y = 28, amount = 0
       whileInView={reducedMotion ? undefined : { opacity: 1, x: 0, y: 0, scale: 1, filter: "blur(0px)" }}
       viewport={{ once: true, amount, margin: "0px 0px -7% 0px" }}
       transition={{ duration: 0.62, delay, ease: REVEAL_EASE }}
-      className={className}
+      className={`min-w-0 ${className}`}
     >
       {children}
     </motion.div>
@@ -561,11 +588,11 @@ export default function Landing() {
           di atas background section berikutnya selama overlap.
       */}
       <section className="relative z-0 -mt-[18svh] bg-muted/30 sm:-mt-[20svh] lg:-mt-[20vh]">
-        <div className="mx-auto grid max-w-7xl gap-8 px-6 pb-14 pt-24 sm:py-16 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
+        <div className="mx-auto grid min-w-0 max-w-7xl gap-8 px-6 pb-14 pt-24 sm:py-16 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
           <Reveal reducedMotion={reducedMotion} x={-26}>
             <p className="text-xs font-bold tracking-[0.22em] text-primary"><TypewriterText text={L("CONTOH REQUEST", "SAMPLE REQUEST")} speed={30} /></p>
-            <h2 className="mt-4 break-words text-3xl font-extrabold leading-tight sm:text-4xl"><TypewriterText text={L("Satu request, langsung jalan.", "One request, ready to go.")} speed={26} delay={180} /></h2>
-            <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">
+            <h2 className="mt-4 max-w-full break-words text-3xl font-extrabold leading-tight sm:text-4xl"><TypewriterText text={L("Satu request, langsung jalan.", "One request, ready to go.")} speed={26} delay={180} /></h2>
+            <p className="mt-4 max-w-full text-sm leading-6 text-muted-foreground sm:max-w-md">
               <TypewriterText text={L("Alur API dibuat sederhana: autentikasi dengan API key, kirim ID harga layanan, lalu pantau status dan OTP dari endpoint yang sama.", "The API flow stays simple: authenticate, send a service price ID, then monitor status and OTP from the same API.")} speed={14} delay={420} />
             </p>
             <div className="mt-6 space-y-3 text-sm">
@@ -576,7 +603,7 @@ export default function Landing() {
           </Reveal>
 
           <Reveal reducedMotion={reducedMotion} x={26} delay={0.08}>
-            <div className="overflow-hidden rounded-[28px] border border-border bg-[hsl(222_47%_6%)] text-slate-100 shadow-xl transition-transform duration-300 hover:-translate-y-1">
+            <div className="w-full min-w-0 max-w-full overflow-hidden rounded-[28px] border border-border bg-[hsl(222_47%_6%)] text-slate-100 shadow-xl transition-transform duration-300 hover:-translate-y-1">
             <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/5 px-5 py-3.5">
               <span className="mono rounded-lg bg-emerald-400/15 px-2 py-1 text-[11px] font-bold text-emerald-300"><TypewriterText text="POST" speed={34} inline /></span>
               <code className="mono text-xs text-slate-300"><TypewriterText text="/api/v1/orders" speed={26} delay={150} inline /></code>
@@ -726,7 +753,7 @@ export default function Landing() {
             <span className="inline-grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary"><Sparkles className="h-5 w-5" /></span>
             <p className="mt-6 text-xs font-bold tracking-[0.22em] text-primary">FAQ</p>
             <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("Pertanyaan yang sering ditanyakan.", "Frequently asked questions.")}</h2>
-            <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">{L("Masih ada yang belum jelas? Masuk ke Docs untuk contoh request lengkap atau hubungi support.", "Need more detail? Open Docs for complete request examples or contact support.")}</p>
+            <p className="mt-4 max-w-full text-sm leading-6 text-muted-foreground sm:max-w-md">{L("Masih ada yang belum jelas? Masuk ke Docs untuk contoh request lengkap atau hubungi support.", "Need more detail? Open Docs for complete request examples or contact support.")}</p>
           </Reveal>
 
           <Reveal reducedMotion={reducedMotion} x={22} delay={0.06}>
