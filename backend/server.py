@@ -594,6 +594,7 @@ async def services(request: Request, country_id: str, page: int = 1, page_size: 
                    tier_override: Optional[str] = None):
     cfg = await get_settings("smsvirtual")
     pricing = await get_settings("pricing")
+    tier_cfg = await get_settings("tiers")
     try:
         data = await smsv_request(cfg.get("api_key"), "GET", "/v1/public/services/list",
                                   params={"countryId": country_id, "page": page, "pageSize": page_size},
