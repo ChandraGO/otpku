@@ -56,13 +56,10 @@ const CODE = `$ curl "${process.env.REACT_APP_BACKEND_URL}/api/v1/orders" \\
 }`;
 
 /*
- * V5 scroll scene — dua fase seperti referensi MEGA:
- * 1) copy hero tetap bersih saat halaman dibuka.
- * 2) setelah user scroll, copy naik + blur secara progresif.
- * 3) scene assembly baru muncul dari BAWAH setelah copy mulai meninggalkan viewport.
- * 4) badge turun/berkumpul ke kartu, lalu state final ditahan di tengah viewport.
- * 5) mendekati akhir scene, rakitan naik sedikit + fade dan section berikutnya langsung masuk.
- * Visual assembly tidak lagi diletakkan di wrapper 66–72% tinggi viewport, sehingga tidak terpotong.
+ * V6 scroll scene — elemen dekoratif sudah terlihat di area kosong HERO.
+ * Saat user mulai scroll, copy hero naik + blur sementara badge bergerak turun/mendekat.
+ * Kartu final baru muncul setelah ruang hero mulai terbuka, kemudian semua badge merakit ke kartu.
+ * Final dicapai mendekati akhir scene supaya tidak ada scroll kosong panjang setelah rakitan selesai.
  */
 const ASSEMBLY_PIECES = [
   {
@@ -70,56 +67,63 @@ const ASSEMBLY_PIECES = [
     label: "API KEY",
     desktopPos: "left-[3%] top-[9%]",
     mobilePos: "left-[1%] top-[8%]",
-    desktop: [-255, -210, -17],
-    mobile: [-88, -185, -14],
+    // posisi awal dibuat jauh di sisi kanan HERO, bukan di atas kartu final
+    desktop: [330, 8, -10],
+    mobile: [-72, -125, -10],
   },
   {
     icon: Activity,
     label: "OTP LIVE",
     desktopPos: "right-[3%] top-[16%]",
     mobilePos: "right-[0%] top-[16%]",
-    desktop: [255, -175, 15],
-    mobile: [92, -160, 12],
+    desktop: [250, -28, 11],
+    mobile: [82, -108, 10],
   },
   {
     icon: Wallet,
     label: "SALDO",
     desktopPos: "left-[0%] bottom-[22%]",
     mobilePos: "left-[0%] bottom-[20%]",
-    desktop: [-205, -130, 11],
-    mobile: [-82, -125, 10],
+    desktop: [400, -16, 9],
+    mobile: [-78, 78, 8],
   },
   {
     icon: CheckCircle2,
     label: "200 OK",
     desktopPos: "right-[0%] bottom-[24%]",
     mobilePos: "right-[0%] bottom-[18%]",
-    desktop: [225, -110, -13],
-    mobile: [86, -112, -10],
+    desktop: [220, 22, -11],
+    mobile: [78, 92, -9],
   },
   {
     icon: Layers3,
     label: "MULTI SERVER",
     desktopPos: "left-[34%] bottom-[3%]",
     mobilePos: "left-[28%] bottom-[2%]",
-    desktop: [0, -265, 9],
-    mobile: [0, -205, 8],
+    desktop: [250, -18, 7],
+    mobile: [0, 112, 7],
   },
 ];
 
 function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
   const [startX, startY, startR] = mobile ? item.mobile : item.desktop;
 
-  const x = useTransform(progress, [0, 0.1, 0.38, 0.72, 1], [startX, startX * 0.9, startX * 0.48, 0, 0]);
-  const y = useTransform(progress, [0, 0.1, 0.38, 0.72, 1], [startY, startY * 0.86, startY * 0.42, 0, 0]);
-  const rotate = useTransform(progress, [0, 0.34, 0.72, 1], [startR, startR * 0.58, 0, 0]);
-  const scale = useTransform(progress, [0, 0.3, 0.72, 1], [mobile ? 0.72 : 0.78, 0.9, 1, 1]);
-  const opacity = useTransform(progress, [0, 0.025, 0.12, 1], [0, 0.2, 1, 1]);
+  // Badge bergerak dari posisi tersebar di hero menuju slot final di sekitar kartu.
+  // Progress dibuat panjang agar pergerakan terus terasa selama scroll, bukan selesai terlalu cepat.
+  const x = useTransform(progress, [0, 0.14, 0.52, 0.88, 1], [startX, startX * 0.93, startX * 0.5, 0, 0]);
+  const y = useTransform(progress, [0, 0.14, 0.52, 0.88, 1], [startY, startY + (mobile ? 18 : 26), startY * 0.5, 0, 0]);
+  const rotate = useTransform(progress, [0, 0.42, 0.88, 1], [startR, startR * 0.55, 0, 0]);
+  const scale = useTransform(progress, [0, 0.24, 0.72, 0.9, 1], [mobile ? 0.76 : 0.82, mobile ? 0.82 : 0.88, 0.96, 1, 1]);
+  const opacity = useTransform(
+    progress,
+    mobile ? [0, 0.05, 0.16, 1] : [0, 0.12, 0.34, 1],
+    mobile ? [0, 0.15, 1, 1] : [0.72, 0.78, 1, 1]
+  );
 
   return (
     <motion.div
       aria-hidden="true"
-      style={reducedMotion ? { opacity: 1 } : { x, y, rotate, scale, opacity }}
+      style={reducedMotion ? { opacity: mobile ? 0 : 0.78 } : { x, y, rotate, scale, opacity }}
       className={`pointer-events-none absolute z-30 flex items-center rounded-2xl border border-border/90 bg-card/95 font-extrabold tracking-[0.08em] shadow-xl shadow-black/10 backdrop-blur-xl ${mobile ? "gap-1.5 px-2.5 py-2 text-[8px] sm:gap-2 sm:px-3 sm:py-2.5 sm:text-[9px]" : "gap-2 px-3.5 py-3 text-[11px]"} ${mobile ? item.mobilePos : item.desktopPos}`}
     >
       <span className={`grid place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary ${mobile ? "h-6 w-6 sm:h-7 sm:w-7" : "h-8 w-8"}`}>
@@ -131,29 +135,35 @@ function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
 }
 
 function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
-  const cardY = useTransform(progress, [0, 0.18, 0.48, 0.72, 1], [mobile ? 135 : 155, mobile ? 118 : 138, 46, 0, 0]);
-  const cardRotate = useTransform(progress, [0, 0.38, 0.72, 1], [mobile ? 4.5 : 4, 2, 0, 0]);
-  const cardScale = useTransform(progress, [0, 0.3, 0.72, 1], [mobile ? 0.84 : 0.86, 0.93, 1, 1]);
-  const cardOpacity = useTransform(progress, [0, 0.08, 0.26, 0.5, 1], [0, 0.08, 0.52, 1, 1]);
-  const haloRotate = useTransform(progress, [0, 0.72, 1], [-18, 20, 20]);
-  const haloScale = useTransform(progress, [0, 0.42, 0.72, 1], [0.76, 1.05, 1, 1]);
-  const haloOpacity = useTransform(progress, [0, 0.18, 0.72, 1], [0, 0.16, 0.34, 0.34]);
+  // Kartu tidak hadir pada refresh. Ia baru naik dari bawah ketika scroll sudah berjalan.
+  const cardY = useTransform(progress, [0, 0.2, 0.48, 0.76, 0.9, 1], [mobile ? 150 : 175, mobile ? 142 : 164, 92, 28, 0, 0]);
+  const cardRotate = useTransform(progress, [0, 0.5, 0.9, 1], [mobile ? 4 : 3.5, 1.5, 0, 0]);
+  const cardScale = useTransform(progress, [0, 0.32, 0.74, 0.9, 1], [mobile ? 0.83 : 0.86, 0.89, 0.97, 1, 1]);
+  const cardOpacity = useTransform(progress, [0, 0.24, 0.38, 0.62, 1], [0, 0, 0.18, 1, 1]);
+  const haloRotate = useTransform(progress, [0, 0.5, 0.9, 1], [-18, -4, 20, 20]);
+  const haloScale = useTransform(progress, [0, 0.5, 0.9, 1], [0.72, 0.9, 1, 1]);
+  const haloOpacity = useTransform(progress, [0, 0.3, 0.58, 0.9, 1], [0, 0, 0.12, 0.32, 0.32]);
+  const glowOpacity = useTransform(progress, [0, 0.34, 0.66, 1], [0, 0, 0.65, 0.65]);
 
   return (
     <div className={`relative mx-auto w-full ${mobile ? "h-[330px] max-w-[365px] sm:h-[350px] sm:max-w-[390px]" : "h-[390px] max-w-[620px]"}`}>
       <motion.div
         aria-hidden="true"
-        style={reducedMotion ? { opacity: 0.35 } : { rotate: haloRotate, scale: haloScale, opacity: haloOpacity }}
+        style={reducedMotion ? { opacity: 0 } : { rotate: haloRotate, scale: haloScale, opacity: haloOpacity }}
         className={`pointer-events-none absolute left-1/2 top-[50%] -translate-x-1/2 -translate-y-1/2 rounded-[38%] border border-primary/35 ${mobile ? "h-[255px] w-[255px] sm:h-[280px] sm:w-[280px]" : "h-[345px] w-[345px]"}`}
       />
-      <div className={`pointer-events-none absolute left-1/2 top-[50%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl ${mobile ? "h-[220px] w-[280px]" : "h-[300px] w-[450px]"}`} />
+      <motion.div
+        aria-hidden="true"
+        style={reducedMotion ? { opacity: 0 } : { opacity: glowOpacity }}
+        className={`pointer-events-none absolute left-1/2 top-[50%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl ${mobile ? "h-[220px] w-[280px]" : "h-[300px] w-[450px]"}`}
+      />
 
       {ASSEMBLY_PIECES.map((item) => (
         <AssemblyPiece key={item.label} item={item} progress={progress} reducedMotion={reducedMotion} mobile={mobile} />
       ))}
 
       <motion.div
-        style={reducedMotion ? { opacity: 1 } : { y: cardY, rotate: cardRotate, scale: cardScale, opacity: cardOpacity }}
+        style={reducedMotion ? { opacity: 0 } : { y: cardY, rotate: cardRotate, scale: cardScale, opacity: cardOpacity }}
         className={`absolute z-20 overflow-hidden rounded-[26px] border border-border bg-card/95 shadow-2xl shadow-black/15 backdrop-blur-xl ${mobile ? "left-[6%] right-[6%] top-[12%]" : "left-[8%] right-[8%] top-[10%]"}`}
       >
         <div className={`flex items-center gap-2 border-b border-border bg-muted/40 ${mobile ? "px-3 py-2.5" : "px-4 py-3"}`}>
@@ -193,7 +203,6 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
           </div>
         </div>
       </motion.div>
-
     </div>
   );
 }
@@ -253,27 +262,27 @@ export default function Landing() {
   });
 
   /*
-   * V5 timeline:
-   * 0–10%   : hero tetap utuh; refresh tidak memainkan entrance.
-   * 10–34%  : hero naik, blur, dan redup.
-   * 22–58%  : assembly muncul dari bawah dan merakit.
-   * 58–100% : state final ditahan penuh agak di bawah tengah viewport.
-   * Saat sticky selesai, section berikutnya langsung masuk dari bawah; tidak ada fade kosong.
+   * V6 timeline:
+   * 0–8%    : hero + badge tersebar diam; refresh tidak menjalankan entrance.
+   * 8–36%   : copy hero naik, blur, dan redup.
+   * 6–90%   : badge terus bergerak dari area kosong hero menuju rakitan final.
+   * 28–90%  : kartu API naik dari bawah dan menjadi tempat badge berkumpul.
+   * 90–100% : final hanya ditahan singkat, lalu section berikutnya langsung masuk.
    */
-  const copyY = useTransform(heroProgress, [0, 0.08, 0.22, 0.34, 1], [0, 0, -92, -285, -285]);
-  const copyOpacity = useTransform(heroProgress, [0, 0.08, 0.2, 0.34, 1], [1, 1, 0.78, 0.08, 0.08]);
-  const copyScale = useTransform(heroProgress, [0, 0.1, 0.34, 1], [1, 1, 0.975, 0.975]);
-  const copyFilter = useTransform(heroProgress, [0, 0.1, 0.22, 0.34, 1], [
+  const copyY = useTransform(heroProgress, [0, 0.08, 0.22, 0.36, 1], [0, 0, -88, -300, -300]);
+  const copyOpacity = useTransform(heroProgress, [0, 0.08, 0.22, 0.36, 1], [1, 1, 0.8, 0.05, 0.05]);
+  const copyScale = useTransform(heroProgress, [0, 0.1, 0.36, 1], [1, 1, 0.975, 0.975]);
+  const copyFilter = useTransform(heroProgress, [0, 0.1, 0.24, 0.36, 1], [
     "blur(0px)",
     "blur(0px)",
     "blur(2px)",
     "blur(10px)",
     "blur(10px)",
   ]);
-  const assemblyProgress = useTransform(heroProgress, [0, 0.22, 0.58, 1], [0, 0, 1, 1]);
-  const assemblyOpacity = useTransform(heroProgress, [0, 0.2, 0.27, 0.36, 1], [0, 0, 0.28, 1, 1]);
-  const assemblyY = useTransform(heroProgress, [0, 0.2, 0.34, 0.58, 1], [240, 240, 120, 34, 34]);
-  const assemblyScale = useTransform(heroProgress, [0, 0.24, 0.58, 1], [0.96, 0.96, 1, 1]);
+  const assemblyProgress = useTransform(heroProgress, [0, 0.06, 0.9, 1], [0, 0, 1, 1]);
+  // Seluruh stage ikut turun sedikit sehingga arah gerak terasa dari hero menuju final di bawah.
+  const assemblyY = useTransform(heroProgress, [0, 0.08, 0.42, 0.9, 1], [0, 0, 24, 76, 76]);
+  const assemblyScale = useTransform(heroProgress, [0, 0.16, 0.72, 0.9, 1], [1, 1, 0.985, 1, 1]);
   const scrollHintOpacity = useTransform(heroProgress, [0, 0.055, 0.14, 1], [0.78, 0.78, 0, 0]);
 
   useEffect(() => {
@@ -285,13 +294,13 @@ export default function Landing() {
   return (
     <div data-testid="landing-page" className="overflow-hidden">
       {/*
-        HERO V5 — dua lapis, seperti pola MEGA:
-        - layar awal hanya menampilkan copy hero.
-        - saat scroll, copy naik ke atas + blur.
-        - assembly datang dari bawah setelah area copy sudah mulai kosong.
-        - state final tetap di layar sebelum section Contoh Request masuk.
+        HERO V6 — badge sudah mengisi area kosong hero sejak awal:
+        - refresh: copy + badge tersebar dalam keadaan diam.
+        - scroll: copy naik + blur, badge bergerak turun dan mendekat.
+        - kartu final muncul dari bawah lalu badge berkumpul di sekelilingnya.
+        - final hanya ditahan singkat agar tidak menyisakan scroll kosong panjang.
       */}
-      <section ref={heroSceneRef} className="relative h-[190svh] sm:h-[185svh] lg:h-[180vh]">
+      <section ref={heroSceneRef} className="relative h-[165svh] sm:h-[162svh] lg:h-[160vh]">
         <div className="sticky top-[64px] h-[calc(100svh-64px)] overflow-hidden sm:top-[69px] sm:h-[calc(100svh-69px)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_15%,hsl(var(--primary)/0.18),transparent_32%),radial-gradient(circle_at_88%_18%,hsl(var(--primary)/0.10),transparent_28%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(hsl(var(--border)/.35)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.35)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,#000,transparent_92%)]" />
@@ -300,7 +309,7 @@ export default function Landing() {
             style={reducedMotion ? undefined : { y: copyY, opacity: copyOpacity, scale: copyScale, filter: copyFilter }}
             className="absolute inset-0 z-10 will-change-transform"
           >
-            <div className="mx-auto flex h-full max-w-7xl items-center px-5 pb-[18vh] pt-8 sm:px-6 sm:pb-[15vh] lg:px-8 lg:pb-[13vh]">
+            <div className="mx-auto flex h-full max-w-7xl items-center px-5 pb-[12vh] pt-6 sm:px-6 sm:pb-[10vh] lg:px-8 lg:pb-[8vh]">
               <div className="w-full lg:max-w-[760px]">
                 <HeroCopy site={site} t={t} L={L} />
                 <motion.div
@@ -315,12 +324,12 @@ export default function Landing() {
           </motion.div>
 
           {/*
-            Scene assembly memakai seluruh tinggi sticky viewport.
-            Jadi visual 390px tidak pernah dipaksa masuk ke wrapper 66–72% yang lebih pendek.
-            Hasil final selalu muat utuh, termasuk pada viewport desktop yang pendek.
+            Stage assembly selalu memenuhi sticky viewport. Badge awal terlihat di ruang kosong HERO,
+            lalu progress scroll menggerakkan semuanya ke kartu final. Final diletakkan lebih rendah
+            dan scene dipendekkan supaya section berikutnya segera masuk setelah rakitan selesai.
           */}
           <motion.div
-            style={reducedMotion ? { opacity: 1 } : { opacity: assemblyOpacity, y: assemblyY, scale: assemblyScale }}
+            style={reducedMotion ? undefined : { y: assemblyY, scale: assemblyScale }}
             className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-2 sm:px-5 lg:px-8"
           >
             <div className="w-full lg:hidden">
@@ -334,7 +343,7 @@ export default function Landing() {
       </section>
       {/* SAMPLE REQUEST */}
       <section className="scroll-reveal relative bg-muted/30">
-        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-16 sm:py-18 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-14 sm:py-16 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
           <div>
             <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("CONTOH REQUEST", "SAMPLE REQUEST")}</p>
             <h2 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl">{L("Satu request, langsung jalan.", "One request, ready to go.")}</h2>
