@@ -56,7 +56,7 @@ const CODE = `$ curl "${process.env.REACT_APP_BACKEND_URL}/api/v1/orders" \\
 }`;
 
 /*
- * V9 scroll scene — komposisi dibuat seperti referensi MEGA:
+ * V10 scroll scene — komposisi dibuat seperti referensi MEGA:
  * - copy hero rata tengah dan menjadi fokus utama.
  * - badge tersebar mengelilingi hero (kiri/kanan/atas/bawah), bukan menumpuk di satu sisi.
  * - saat scroll dimulai copy naik + blur, seluruh badge bergerak menuju pusat.
@@ -131,13 +131,13 @@ function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
 }
 
 function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
-  // V9: posisi awal V7/V8 dipertahankan, tetapi fase akhir dibuat lebih rendah dan lebih rapat.
-  // Wrapper final dipadatkan agar kartu + badge tetap utuh walau seluruh rakitan turun lebih jauh.
-  // Pada 72–100% progress, media terus turun sedikit agar tidak tampak tersangkut di bawah navbar.
+  // V10: tampilan awal tetap sama, tetapi titik final diturunkan dan durasi sticky dipangkas.
+  // Tujuannya: saat sticky mulai lepas, kartu tidak terseret sampai tertutup navbar.
+  // Final selesai lebih awal dan berada di area tengah-bawah viewport.
   const stageY = useTransform(
     progress,
     [0, 0.26, 0.54, 0.72, 0.9, 1],
-    [0, 0, mobile ? 18 : 28, mobile ? 62 : 96, mobile ? 92 : 132, mobile ? 102 : 146]
+    [0, 0, mobile ? 22 : 36, mobile ? 76 : 118, mobile ? 112 : 176, mobile ? 132 : 208]
   );
   const cardY = useTransform(progress, [0, 0.22, 0.46, 0.7, 0.88, 1], [mobile ? 125 : 150, mobile ? 118 : 142, 64, 18, 0, 0]);
   const cardRotate = useTransform(progress, [0, 0.48, 0.88, 1], [mobile ? 4 : 3.5, 1.4, 0, 0]);
@@ -151,7 +151,7 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
   return (
     <motion.div
       style={reducedMotion ? undefined : { y: stageY }}
-      className={`relative mx-auto w-full will-change-transform ${mobile ? "h-[350px] max-w-[390px]" : "h-[440px] max-w-[920px]"}`}
+      className={`relative mx-auto w-full will-change-transform ${mobile ? "h-[330px] max-w-[390px]" : "h-[410px] max-w-[920px]"}`}
     >
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <motion.div
@@ -274,11 +274,11 @@ export default function Landing() {
   });
 
   /*
-   * V9 timeline:
+   * V10 timeline:
    * 0–10%   : hero centered + badge tersebar; tidak ada entrance saat refresh.
    * 10–38%  : hero naik, blur, dan redup sehingga panggung tengah terbuka.
-   * 10–72%  : badge bergerak dari tepi menuju pusat dan kartu dirakit.
-   * 72–100% : rakitan sudah final lalu ikut turun sedikit ke area bawah viewport sebelum section berikutnya masuk.
+   * 10–64%  : badge bergerak dari tepi menuju pusat dan kartu dirakit.
+   * 64–100% : rakitan sudah final di area tengah-bawah; scene segera berakhir agar tidak ada ruang kosong panjang.
    */
   const copyY = useTransform(heroProgress, [0, 0.1, 0.24, 0.4, 1], [0, 0, -78, -260, -260]);
   const copyOpacity = useTransform(heroProgress, [0, 0.1, 0.24, 0.4, 1], [1, 1, 0.78, 0.035, 0.035]);
@@ -290,7 +290,7 @@ export default function Landing() {
     "blur(9px)",
     "blur(9px)",
   ]);
-  const assemblyProgress = useTransform(heroProgress, [0, 0.1, 0.72, 1], [0, 0, 1, 1]);
+  const assemblyProgress = useTransform(heroProgress, [0, 0.085, 0.64, 1], [0, 0, 1, 1]);
   const scrollHintOpacity = useTransform(heroProgress, [0, 0.055, 0.14, 1], [0.72, 0.72, 0, 0]);
 
   useEffect(() => {
@@ -302,11 +302,11 @@ export default function Landing() {
   return (
     <div data-testid="landing-page" className="overflow-hidden">
       {/*
-        HERO V9 — komposisi center seperti referensi MEGA.
+        HERO V10 — komposisi center seperti referensi MEGA.
         Sticky memakai top-0 agar tidak menciptakan pita kosong di bawah navbar.
         Navbar tetap berada di atas karena z-index layout, sedangkan isi hero diberi safe padding.
       */}
-      <section ref={heroSceneRef} className="relative h-[140svh] sm:h-[138svh] lg:h-[136vh]">
+      <section ref={heroSceneRef} className="relative h-[130svh] sm:h-[128svh] lg:h-[126vh]">
         <div className="sticky top-0 h-[100svh] overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,hsl(var(--primary)/0.17),transparent_34%),radial-gradient(circle_at_50%_82%,hsl(var(--primary)/0.07),transparent_30%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(hsl(var(--border)/.35)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.35)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,#000,transparent_94%)]" />
@@ -330,9 +330,9 @@ export default function Landing() {
           </motion.div>
 
           {/*
-            Assembly memenuhi satu viewport utuh. Pada fase akhir seluruh media turun lebih jauh,
-            tetapi wrapper dibuat lebih pendek agar badge bawah tetap muat. Final selesai lebih awal
-            sehingga section berikutnya masuk lebih cepat dan ruang kosong bawah berkurang.
+            Assembly tetap memenuhi viewport. V10 menurunkan titik final dan memendekkan scene.
+            Saat sticky mulai lepas, kompensasi posisi Y menjaga kartu tetap di bawah navbar,
+            lalu section berikutnya masuk lebih cepat tanpa ruang kosong panjang.
           */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[70px] z-20 flex items-center justify-center px-2 sm:top-[76px] sm:px-5 lg:px-8">
             <div className="w-full lg:hidden">

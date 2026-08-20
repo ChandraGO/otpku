@@ -5,6 +5,12 @@ on:
     branches:
       - main
       - master
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'deploy/**'
+      - 'compose.yaml'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -12,23 +18,28 @@ permissions:
 
 concurrency:
   group: dapetotp-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
     name: Sync, build, dan restart
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
 
-      - name: Install SSH password client
+      - name: Pastikan tool deploy tersedia
         shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y sshpass rsync
+          set -Eeuo pipefail
+          if ! command -v sshpass >/dev/null 2>&1 || ! command -v rsync >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y sshpass rsync
+          fi
 
       - name: Siapkan SSH
         shell: bash
@@ -42,22 +53,17 @@ jobs:
 
           : "${VPS_HOST:?VPS_HOST belum diisi}"
           : "${VPS_USER:?VPS_USER belum diisi}"
-          : "${VPS_PORT:?VPS_PORT belum diisi}"
           : "${VPS_PASSWORD:?VPS_PASSWORD belum diisi}"
 
+          VPS_PORT="${VPS_PORT:-22}"
           echo "VPS_PORT=$VPS_PORT" >> "$GITHUB_ENV"
 
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
-
-          ssh-keyscan \
-            -p "$VPS_PORT" \
-            -H "$VPS_HOST" \
-            >> "$HOME/.ssh/known_hosts"
-
+          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/known_hosts"
 
-      - name: Tes koneksi VPS
+      - name: Cek VPS sekali
         shell: bash
         env:
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
@@ -65,32 +71,18 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -Eeuo pipefail
-
           sshpass -e ssh \
             -p "$VPS_PORT" \
             -o StrictHostKeyChecking=yes \
-            "$VPS_USER@$VPS_HOST" \
-            'echo "SSH VPS BERHASIL"'
-
-      - name: Pastikan kebutuhan deploy tersedia
-        shell: bash
-        env:
-          SSHPASS: ${{ secrets.VPS_PASSWORD }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: |
-          set -Eeuo pipefail
-
-          sshpass -e ssh \
-            -p "$VPS_PORT" \
-            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=12 \
             "$VPS_USER@$VPS_HOST" \
             'mkdir -p /opt/dapetotp/app &&
              command -v docker >/dev/null &&
              docker compose version >/dev/null &&
-             command -v rsync >/dev/null'
+             command -v rsync >/dev/null &&
+             echo "VPS siap"'
 
-      - name: Sinkronkan source GitHub ke VPS
+      - name: Sinkronkan hanya file yang berubah
         shell: bash
         env:
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
@@ -98,22 +90,22 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -Eeuo pipefail
-
-          sshpass -e rsync -az --delete-delay \
+          sshpass -e rsync -az --checksum --delete-delay \
             --exclude='.git/' \
             --exclude='.github/' \
             --exclude='.env' \
             --exclude='.env.*' \
             --exclude='production.env' \
             --exclude='node_modules/' \
+            --exclude='build/' \
             --exclude='__pycache__/' \
             --exclude='*.pyc' \
             --exclude='dapetotp_deploy' \
             --exclude='dapetotp_deploy.pub' \
-            -e "ssh -p $VPS_PORT -o StrictHostKeyChecking=yes" \
+            -e "ssh -p $VPS_PORT -o StrictHostKeyChecking=yes -o ConnectTimeout=12" \
             ./ "$VPS_USER@$VPS_HOST:/opt/dapetotp/app/"
 
-      - name: Build dan deploy di VPS
+      - name: Build cerdas dan deploy
         shell: bash
         env:
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
@@ -121,10 +113,10 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -Eeuo pipefail
-
           sshpass -e ssh \
             -p "$VPS_PORT" \
             -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=12 \
             "$VPS_USER@$VPS_HOST" \
             'APP_DIR=/opt/dapetotp/app \
              ENV_FILE=/opt/dapetotp/production.env \

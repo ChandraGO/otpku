@@ -1,15 +1,14 @@
-# Revisi Scroll Assembly Home V9
+# Revisi Scroll Assembly Home V10
 
-Fokus revisi ini hanya pada masalah final assembly dari V8.
+Fokus V10 hanya pada fase akhir animasi. Tampilan awal V9 dipertahankan.
 
-- Tampilan awal hero V8 tetap dipertahankan.
-- Final assembly diturunkan lebih jauh ke area tengah-bawah viewport.
-- Saat progress 72–100%, seluruh media masih bergerak sedikit ke bawah, jadi tidak terasa tersangkut di bawah navbar.
-- Tinggi wrapper assembly dipadatkan dari 520px menjadi 440px pada desktop agar kartu + badge tetap muat walaupun posisi final lebih rendah.
-- Ukuran halo/glow ikut dipadatkan agar proporsional.
-- Assembly sudah selesai sekitar 72% progress, sehingga hasil final sempat terlihat sebelum transisi.
-- Tinggi scene dipangkas menjadi sekitar 136–140vh agar jarak kosong sebelum bagian Contoh Request lebih pendek.
-- Mobile juga ikut diturunkan dan dipadatkan.
+Perubahan:
+- Final assembly diturunkan lagi agar tidak terseret masuk ke bawah navbar ketika sticky scene selesai.
+- Offset akhir desktop dinaikkan hingga sekitar 208px; mobile sekitar 132px.
+- Tinggi wrapper visual dipadatkan agar seluruh kartu dan badge tetap muat.
+- Assembly selesai lebih cepat (sekitar 64% progress) lalu ditahan.
+- Tinggi hero scroll dipangkas menjadi sekitar 126–130vh supaya jarak kosong bawah jauh berkurang.
+- Section `Contoh Request` masuk lebih cepat setelah final assembly.
 
 File yang berubah:
-- frontend/src/pages/Landing.jsx
+- `frontend/src/pages/Landing.jsx`

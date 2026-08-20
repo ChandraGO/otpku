@@ -31,20 +31,9 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -d "$APP_DIR" ]; then
-  echo "Folder aplikasi tidak ditemukan: $APP_DIR" >&2
-  exit 1
-fi
-
-if [ ! -f "$COMPOSE_FILE" ]; then
-  echo "compose.yaml tidak ditemukan: $COMPOSE_FILE" >&2
-  exit 1
-fi
-
-if [ ! -f "$ENV_FILE" ]; then
-  echo "Environment production tidak ditemukan: $ENV_FILE" >&2
-  exit 1
-fi
+[ -d "$APP_DIR" ] || { echo "Folder aplikasi tidak ditemukan: $APP_DIR" >&2; exit 1; }
+[ -f "$COMPOSE_FILE" ] || { echo "compose.yaml tidak ditemukan: $COMPOSE_FILE" >&2; exit 1; }
+[ -f "$ENV_FILE" ] || { echo "Environment production tidak ditemukan: $ENV_FILE" >&2; exit 1; }
 
 chmod 600 "$ENV_FILE" || true
 mkdir -p "$STATE_DIR"
@@ -67,7 +56,7 @@ import os
 import sys
 
 roots = [Path(item) for item in sys.argv[1:]]
-ignore_dirs = {'.git', '.github', 'node_modules', '__pycache__', '.deploy-state'}
+ignore_dirs = {'.git', '.github', 'node_modules', 'build', '__pycache__', '.deploy-state'}
 ignore_names = {'.env', 'production.env'}
 files = []
 
@@ -77,7 +66,6 @@ for root in roots:
     if root.is_file():
         files.append(root)
         continue
-
     for current, dirs, names in os.walk(root):
         current_path = Path(current)
         dirs[:] = [d for d in dirs if d not in ignore_dirs]
@@ -125,38 +113,47 @@ else
   echo "Perubahan terdeteksi: backend=$backend_changed web=$web_changed"
 fi
 
-build_services=()
-(( backend_changed )) && build_services+=(backend)
-(( web_changed )) && build_services+=(web)
-
 if (( backend_changed )); then
-  echo "Build backend"
+  echo "Build backend (pakai Docker cache)"
   DOCKER_BUILDKIT=1 docker compose \
     --env-file "$ENV_FILE" \
     -p "$PROJECT_NAME" \
     -f "$COMPOSE_FILE" \
-    build --pull backend
+    build backend
+else
+  echo "Backend tidak berubah: build SKIP"
 fi
 
 if (( web_changed )); then
-  echo "Build frontend tanpa cache agar bundle lama tidak tertinggal"
+  echo "Build frontend (dependency + webpack cache aktif)"
   DOCKER_BUILDKIT=1 docker compose \
     --env-file "$ENV_FILE" \
     -p "$PROJECT_NAME" \
     -f "$COMPOSE_FILE" \
-    build --pull --no-cache web
+    build web
+else
+  echo "Frontend tidak berubah: build SKIP"
 fi
 
-if (( ! backend_changed && ! web_changed )); then
-  echo "Tidak ada source backend/web yang berubah; build dilewati."
+# Jangan sentuh container jika source aplikasi memang tidak berubah.
+if (( backend_changed || web_changed )); then
+  if (( web_changed )); then
+    # web membawa dependency backend -> mongo bila service tersebut sedang mati.
+    docker compose \
+      --env-file "$ENV_FILE" \
+      -p "$PROJECT_NAME" \
+      -f "$COMPOSE_FILE" \
+      up -d --no-build web
+  else
+    docker compose \
+      --env-file "$ENV_FILE" \
+      -p "$PROJECT_NAME" \
+      -f "$COMPOSE_FILE" \
+      up -d --no-build backend
+  fi
+else
+  echo "Tidak ada perubahan backend/frontend: restart container SKIP"
 fi
-
-# Jalankan/recreate service berdasarkan image terbaru dan pastikan Mongo tetap hidup.
-docker compose \
-  --env-file "$ENV_FILE" \
-  -p "$PROJECT_NAME" \
-  -f "$COMPOSE_FILE" \
-  up -d --no-build --remove-orphans
 
 show_diagnostics() {
   echo >&2
@@ -176,15 +173,12 @@ wait_url() {
   local attempt
 
   echo "Cek $label: $url"
-  for attempt in $(seq 1 45); do
-    if curl -fsS --connect-timeout 3 --max-time 10 "$url" >/dev/null 2>&1; then
+  for attempt in $(seq 1 30); do
+    if curl -fsS --connect-timeout 2 --max-time 5 "$url" >/dev/null 2>&1; then
       echo "$label OK."
       return 0
     fi
-    if (( attempt % 10 == 0 )); then
-      echo "Masih menunggu $label... ($attempt/45)"
-    fi
-    sleep 2
+    sleep 1
   done
 
   echo "$label gagal merespons." >&2
