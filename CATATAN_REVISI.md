@@ -1,20 +1,15 @@
-# Revisi Scroll Assembly Home V11
+# Scroll Assembly Home V12
 
-Fokus revisi ini hanya memperbaiki state final animasi scroll tanpa mengubah tampilan hero awal yang sudah pas.
+Fokus revisi ini hanya pada dua feedback terakhir:
 
-## Penyebab kartu final terpotong
+1. **Final assembly sedikit dinaikkan** dibanding V11 agar komposisinya lebih pas di tengah viewport, tetapi tidak kembali terlalu tinggi/terpotong.
+2. **Gerakan scroll dibuat lebih mulus** dengan `useSpring()` pada progress scroll Framer Motion.
 
-Pada V10, elemen sticky memakai `overflow-hidden`. Ketika sticky mendekati akhir container, sticky mulai ikut bergerak ke atas. Karena clipping ikut bergerak, bagian bawah API card dipotong walaupun posisi card sudah diturunkan.
-
-## Perubahan V11
-
-- `sticky ... overflow-hidden` diubah menjadi `overflow-visible`, sehingga card/badge tidak dipotong saat sticky release.
-- Seluruh assembly final diturunkan sedikit lagi.
-- Tinggi stage internal diperbesar agar area raster/komposisi cukup untuk card + badge.
-- Assembly mencapai state final lebih cepat (sekitar 60% progress).
-- Tinggi scene dipangkas menjadi sekitar 122–126vh agar jarak ke `Contoh Request` lebih pendek.
-- Tampilan awal hero tetap sama seperti V10/V9.
-
-File yang berubah:
-
-- `frontend/src/pages/Landing.jsx`
+Detail:
+- `useSpring(heroProgress)` dipakai sebagai progress visual agar wheel/trackpad tidak terasa patah per tick.
+- Animasi tetap reversible: scroll ke atas = animasi mundur.
+- Timeline assembly diperpanjang sampai sekitar 72% progress supaya badge menyatu lebih pelan.
+- Jarak scroll scene dibuat sedikit lebih panjang untuk memberi cukup ruang animasi, tetapi state final tetap terlihat sepanjang sisa scene.
+- `overflow-visible` dari V11 tetap dipertahankan supaya kartu tidak terpotong lagi.
+- Posisi final desktop diturunkan maksimal sekitar 175px pada stage (lebih naik daripada V11 yang 258px).
+- Tampilan awal hero tidak diubah.

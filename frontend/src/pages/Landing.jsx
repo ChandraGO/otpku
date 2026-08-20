@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
 import {
   ArrowRight, Zap, Wallet, Activity, MousePointerClick, KeyRound, Gauge, Code2,
   Server, Cpu, Database, Globe2, ShieldCheck, LifeBuoy, Terminal, CheckCircle2,
@@ -110,9 +110,9 @@ function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
 
   // Posisi CSS adalah SLOT FINAL. Transform di bawah menggeser badge ke tepi viewport
   // pada progress 0, lalu mengembalikannya ke slot final saat progress mendekati 1.
-  const x = useTransform(progress, [0, 0.08, 0.38, 0.72, 0.9, 1], [startX, startX, startX * 0.68, startX * 0.24, 0, 0]);
-  const y = useTransform(progress, [0, 0.08, 0.38, 0.72, 0.9, 1], [startY, startY, startY * 0.68, startY * 0.24, 0, 0]);
-  const rotate = useTransform(progress, [0, 0.42, 0.9, 1], [startR, startR * 0.55, 0, 0]);
+  const x = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startX, startX, startX * 0.7, startX * 0.3, 0, 0]);
+  const y = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startY, startY, startY * 0.7, startY * 0.3, 0, 0]);
+  const rotate = useTransform(progress, [0, 0.44, 0.88, 1], [startR, startR * 0.52, 0, 0]);
   const scale = useTransform(progress, [0, 0.18, 0.62, 0.9, 1], [mobile ? 0.78 : 0.84, mobile ? 0.8 : 0.86, 0.94, 1, 1]);
   const opacity = useTransform(progress, [0, 0.06, 0.18, 1], [0.76, 0.82, 1, 1]);
 
@@ -131,13 +131,13 @@ function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
 }
 
 function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
-  // V11: hilangkan clipping vertikal dari sticky dan turunkan rakitan final sedikit lagi.
-  // Tujuannya: kartu tetap utuh saat sticky mulai lepas, tanpa dipotong batas overflow sticky.
-  // Final berada di area tengah-bawah viewport dan mengisi ruang sebelum section berikutnya.
+  // V12: final dinaikkan sedikit dari V11 agar komposisinya lebih pas di tengah viewport.
+  // Clipping tetap dimatikan, jadi seluruh kartu tetap utuh. Gerak vertikal dibuat lebih landai
+  // agar rakitan terasa mengalir saat scroll, bukan meloncat di fase akhir.
   const stageY = useTransform(
     progress,
-    [0, 0.26, 0.54, 0.72, 0.9, 1],
-    [0, 0, mobile ? 26 : 42, mobile ? 88 : 138, mobile ? 136 : 214, mobile ? 166 : 258]
+    [0, 0.22, 0.5, 0.7, 0.88, 1],
+    [0, 0, mobile ? 16 : 28, mobile ? 54 : 86, mobile ? 94 : 150, mobile ? 110 : 175]
   );
   const cardY = useTransform(progress, [0, 0.22, 0.46, 0.7, 0.88, 1], [mobile ? 125 : 150, mobile ? 118 : 142, 64, 18, 0, 0]);
   const cardRotate = useTransform(progress, [0, 0.48, 0.88, 1], [mobile ? 4 : 3.5, 1.4, 0, 0]);
@@ -273,25 +273,34 @@ export default function Landing() {
     offset: ["start start", "end end"],
   });
 
+  // Scroll mentah browser bisa bergerak per langkah/wheel tick. Spring ini hanya menghaluskan
+  // progress visual; arah tetap 100% mengikuti scroll dan otomatis mundur saat scroll ke atas.
+  const smoothHeroProgress = useSpring(heroProgress, {
+    stiffness: 115,
+    damping: 30,
+    mass: 0.22,
+    restDelta: 0.0005,
+  });
+
   /*
-   * V11 timeline:
+   * V12 timeline:
    * 0–10%   : hero centered + badge tersebar; tidak ada entrance saat refresh.
-   * 10–38%  : hero naik, blur, dan redup sehingga panggung tengah terbuka.
-   * 10–60%  : badge bergerak dari tepi menuju pusat dan kartu dirakit.
-   * 60–100% : rakitan final turun ke area tengah-bawah dan tetap utuh sampai section berikutnya masuk.
+   * 10–40%  : hero naik, blur, dan redup sehingga panggung tengah terbuka.
+   * 10–72%  : badge bergerak perlahan dari tepi menuju pusat dan kartu dirakit.
+   * 72–100% : rakitan final ditahan sedikit lebih tinggi dan tetap utuh sampai section berikutnya masuk.
    */
-  const copyY = useTransform(heroProgress, [0, 0.1, 0.24, 0.4, 1], [0, 0, -78, -260, -260]);
-  const copyOpacity = useTransform(heroProgress, [0, 0.1, 0.24, 0.4, 1], [1, 1, 0.78, 0.035, 0.035]);
-  const copyScale = useTransform(heroProgress, [0, 0.12, 0.4, 1], [1, 1, 0.97, 0.97]);
-  const copyFilter = useTransform(heroProgress, [0, 0.12, 0.25, 0.4, 1], [
+  const copyY = useTransform(smoothHeroProgress, [0, 0.1, 0.24, 0.4, 1], [0, 0, -78, -260, -260]);
+  const copyOpacity = useTransform(smoothHeroProgress, [0, 0.1, 0.24, 0.4, 1], [1, 1, 0.78, 0.035, 0.035]);
+  const copyScale = useTransform(smoothHeroProgress, [0, 0.12, 0.4, 1], [1, 1, 0.97, 0.97]);
+  const copyFilter = useTransform(smoothHeroProgress, [0, 0.12, 0.25, 0.4, 1], [
     "blur(0px)",
     "blur(0px)",
     "blur(2px)",
     "blur(9px)",
     "blur(9px)",
   ]);
-  const assemblyProgress = useTransform(heroProgress, [0, 0.085, 0.6, 1], [0, 0, 1, 1]);
-  const scrollHintOpacity = useTransform(heroProgress, [0, 0.055, 0.14, 1], [0.72, 0.72, 0, 0]);
+  const assemblyProgress = useTransform(smoothHeroProgress, [0, 0.085, 0.72, 1], [0, 0, 1, 1]);
+  const scrollHintOpacity = useTransform(smoothHeroProgress, [0, 0.055, 0.14, 1], [0.72, 0.72, 0, 0]);
 
   useEffect(() => {
     http.get("/public/stats").then(({ data }) => setStats(data)).catch(() => {});
@@ -302,11 +311,11 @@ export default function Landing() {
   return (
     <div data-testid="landing-page" className="overflow-hidden">
       {/*
-        HERO V11 — komposisi center seperti referensi MEGA.
+        HERO V12 — komposisi center seperti referensi MEGA.
         Sticky memakai top-0 agar tidak menciptakan pita kosong di bawah navbar.
         Navbar tetap berada di atas karena z-index layout, sedangkan isi hero diberi safe padding.
       */}
-      <section ref={heroSceneRef} className="relative h-[126svh] sm:h-[124svh] lg:h-[122vh]">
+      <section ref={heroSceneRef} className="relative h-[144svh] sm:h-[142svh] lg:h-[140vh]">
         <div className="sticky top-0 h-[100svh] overflow-visible">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,hsl(var(--primary)/0.17),transparent_34%),radial-gradient(circle_at_50%_82%,hsl(var(--primary)/0.07),transparent_30%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(hsl(var(--border)/.35)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.35)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,#000,transparent_94%)]" />
@@ -330,7 +339,7 @@ export default function Landing() {
           </motion.div>
 
           {/*
-            Assembly tetap memenuhi viewport. V11 menghapus overflow-hidden pada sticky karena itulah
+            Assembly tetap memenuhi viewport. V12 tetap menghapus overflow-hidden pada sticky karena itulah
             yang memotong bagian bawah kartu saat sticky mulai lepas. Titik final juga diturunkan
             sedikit lagi dan scene dipendekkan agar section berikutnya masuk lebih cepat.
           */}
