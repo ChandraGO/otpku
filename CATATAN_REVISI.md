@@ -1,26 +1,15 @@
-# Revisi Scroll Assembly Home V8
+# Revisi Scroll Assembly Home V9
 
-Fokus V8 hanya memperbaiki fase scroll/final tanpa mengubah komposisi awal V7 yang sudah sesuai.
+Fokus revisi ini hanya pada masalah final assembly dari V8.
 
-## Perubahan
+- Tampilan awal hero V8 tetap dipertahankan.
+- Final assembly diturunkan lebih jauh ke area tengah-bawah viewport.
+- Saat progress 72–100%, seluruh media masih bergerak sedikit ke bawah, jadi tidak terasa tersangkut di bawah navbar.
+- Tinggi wrapper assembly dipadatkan dari 520px menjadi 440px pada desktop agar kartu + badge tetap muat walaupun posisi final lebih rendah.
+- Ukuran halo/glow ikut dipadatkan agar proporsional.
+- Assembly sudah selesai sekitar 72% progress, sehingga hasil final sempat terlihat sebelum transisi.
+- Tinggi scene dipangkas menjadi sekitar 136–140vh agar jarak kosong sebelum bagian Contoh Request lebih pendek.
+- Mobile juga ikut diturunkan dan dipadatkan.
 
-- Posisi hero awal tetap rata tengah seperti V7.
-- Badge awal tetap tersebar di kiri, kanan, atas, dan bawah.
-- Saat scroll berjalan, **seluruh media assembly (kartu + semua badge) ikut turun bertahap**.
-- Posisi final desktop diturunkan sekitar 78px; mobile sekitar 48px sehingga rakitan final lebih pas berada di tengah-bawah viewport.
-- Tinggi scroll scene dipangkas dari sekitar 154–158vh menjadi sekitar 142–146vh.
-- Hold setelah rakitan selesai menjadi lebih singkat, sehingga section **Contoh Request** masuk lebih cepat.
-- Mengurangi ruang kosong besar di bawah final animation.
-- Tidak mengubah dependency dan tidak menambah library baru.
-
-## File
-
-`frontend/src/pages/Landing.jsx`
-
-## Deploy
-
-```bash
-git add frontend/src/pages/Landing.jsx
-git commit -m "lower final assembly and reduce hero scroll gap"
-git push origin master
-```
+File yang berubah:
+- frontend/src/pages/Landing.jsx
