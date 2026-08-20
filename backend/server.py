@@ -708,6 +708,10 @@ async def quote_direct_order(user: dict, body: DirectOrderPaymentIn) -> dict:
 
 
 # ---------------- orders ----------------
+class DirectProviderOrderError(Exception):
+    """Error asli provider saat fulfillment pembayaran langsung (disimpan internal, tidak dibuka ke user biasa)."""
+
+
 async def resolve_activation(cfg: dict, provider_order_id: str, attempts: int = 4, activation_id: str = None):
     """Provider hanya mengembalikan envelope order; cari baris activation-nya.
     Jika activation_id diberikan, kembalikan False bila activation tidak ada lagi di daftar ongoing."""
@@ -755,6 +759,8 @@ async def create_number_order(
                                      timeout=int(cfg.get("timeout_seconds") or 30))
     except IntegrationError as e:
         logger.warning("order create gagal: %s", e)
+        if source == "direct_payment":
+            raise DirectProviderOrderError(str(e))
         raise HTTPException(400, "Layanan sementara tidak tersedia. Coba lagi sebentar.")
     details = listing.get("orderDetail") or []
     detail = details[0] if details else None
@@ -1062,69 +1068,239 @@ def public_direct_payment(doc: dict) -> dict:
     d = clean(doc) if "_id" in doc else dict(doc)
     if "qris" in d:
         d["payment_code"] = d.pop("qris")
-    for k in ("paykita_id", "checkout_url", "gateway_ref", "user_id", "fulfilling", "provider_price"):
+    for k in (
+        "paykita_id", "checkout_url", "gateway_ref", "user_id", "fulfilling", "provider_price",
+        "service_code", "provider_order_id", "provider_error", "selected_service_country_price_id",
+    ):
         d.pop(k, None)
     return d
 
 
+def _as_aware_datetime(value):
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str) and value:
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except Exception:
+            return None
+    return None
+
+
+def _direct_retry_delay(attempts: int) -> int:
+    # Polling frontend boleh sering, tetapi provider jangan dihantam setiap 2-3 detik.
+    return min(45, 5 * (2 ** max(0, min(int(attempts or 1) - 1, 3))))
+
+
+async def direct_payment_live_candidates(payment: dict, user: dict) -> list[dict]:
+    """Cari server/harga live untuk layanan yang SUDAH dibayar.
+
+    Prioritas utama tetap serviceCountryPriceId yang dipilih saat checkout. Bila server itu
+    habis setelah QR dibayar, pilih server lain untuk layanan+negara yang sama selama harga
+    jual hasil kalkulasi tidak melebihi nominal yang sudah dibayar. Dengan begitu pembayaran
+    langsung tidak berubah menjadi topup dan user tidak diminta membayar selisih lagi.
+    """
+    country_id = payment.get("country_id")
+    if not country_id:
+        return []
+
+    cfg = await get_settings("smsvirtual")
+    pricing = await get_settings("pricing")
+    try:
+        data = await smsv_request(
+            cfg.get("api_key"),
+            "GET",
+            "/v1/public/services/list",
+            params={"countryId": country_id, "page": 1, "pageSize": 500},
+            timeout=int(cfg.get("timeout_seconds") or 30),
+        )
+    except IntegrationError as e:
+        logger.warning("direct payment refresh katalog gagal: %s", e)
+        return []
+
+    items = data if isinstance(data, list) else (data or {}).get("data", [])
+    wanted_code = str(payment.get("service_code") or "").strip().lower()
+    wanted_name = str(payment.get("service_name") or "").strip().lower()
+    original_id = str(payment.get("service_country_price_id") or "")
+    paid_amount = int(payment.get("amount") or 0)
+    tier = user.get("tier") or "member"
+
+    candidates = []
+    for it in items:
+        svc = it.get("service") or it
+        code = str(svc.get("code") or "").strip()
+        name = str(svc.get("name") or "").strip()
+        code_match = bool(wanted_code and code.lower() == wanted_code)
+        name_match = bool(wanted_name and name.lower() == wanted_name)
+        if not (code_match or name_match):
+            continue
+
+        p = await pricing_for(code, pricing, tier)
+        for row in it.get("prices") or []:
+            price_id = row.get("id")
+            if not price_id:
+                continue
+            provider_price = row.get("promoPrice") or row.get("price") or row.get("sellPrice") or 0
+            if not provider_price:
+                continue
+            stock = row.get("stock")
+            # stock 0 jelas tidak bisa dipakai; None berarti provider tidak memberi angka stock.
+            if stock is not None:
+                try:
+                    if float(stock) <= 0:
+                        continue
+                except Exception:
+                    pass
+            sale_price = apply_pricing(provider_price, p)
+            if paid_amount and sale_price > paid_amount:
+                continue
+            candidates.append({
+                "id": str(price_id),
+                "provider_price": provider_price,
+                "sale_price": int(sale_price),
+                "service_code": code,
+                "service_name": name,
+                "stock": stock,
+            })
+
+    # Exact server dulu, lalu alternatif dengan harga jual paling dekat ke nominal yang dibayar.
+    candidates.sort(key=lambda x: (
+        0 if x["id"] == original_id else 1,
+        abs(paid_amount - x["sale_price"]) if paid_amount else 0,
+        -int(x["sale_price"]),
+    ))
+
+    seen = set()
+    out = []
+    for row in candidates:
+        if row["id"] in seen:
+            continue
+        seen.add(row["id"])
+        out.append(row)
+    return out
+
+
 async def fulfill_direct_payment(payment: dict) -> dict:
-    """Buat pesanan setelah gateway menyatakan pembayaran langsung sudah lunas."""
+    """Buat pesanan setelah gateway menyatakan pembayaran langsung sudah lunas.
+
+    Pembayaran yang sudah PAID tidak pernah diubah menjadi saldo. Jika server yang dipilih
+    habis sesaat setelah checkout, backend akan mencari server live lain untuk layanan yang
+    sama dengan harga yang masih tertutup nominal pembayaran, lalu mencoba otomatis dengan
+    backoff agar provider tidak dihantam terus-menerus.
+    """
     if payment.get("order_id"):
+        return payment
+
+    next_try = _as_aware_datetime(payment.get("next_fulfillment_attempt_at"))
+    if next_try and next_try > now():
         return payment
 
     lock = await db.direct_payments.update_one(
         {"_id": payment["_id"], "order_id": {"$exists": False}, "fulfilling": {"$ne": True}},
-        {"$set": {"fulfilling": True, "fulfillment_error": None}},
+        {"$set": {"fulfilling": True}},
     )
     if not lock.modified_count:
         return await db.direct_payments.find_one({"_id": payment["_id"]}) or payment
+
+    attempts = int(payment.get("fulfillment_attempts") or 0) + 1
+    last_public_error = "Pesanan belum berhasil dibuat. Sistem akan mencoba lagi otomatis."
+    last_provider_error = None
 
     try:
         user = await db.users.find_one({"_id": oid(payment["user_id"])})
         if not user:
             raise HTTPException(404, "Pengguna pembayaran tidak ditemukan")
-        order = await create_number_order(
-            user,
-            OrderIn(
-                service_country_price_id=payment["service_country_price_id"],
-                service_name=payment.get("service_name") or "",
-                country_name=payment.get("country_name") or "",
-                operator_id=payment.get("operator_id"),
-            ),
-            "direct_payment",
-            charge_balance=False,
-            forced_price=int(payment["amount"]),
-            payment_method="direct",
-            payment_ref=str(payment["_id"]),
-        )
-        await db.direct_payments.update_one(
-            {"_id": payment["_id"]},
-            {"$set": {
-                "order_id": order["id"],
-                "fulfilled_at": now(),
-                "fulfilling": False,
-                "fulfillment_error": None,
-            }},
-        )
+
+        # Refresh katalog setiap attempt. Ini mengatasi serviceCountryPriceId yang masih valid
+        # saat QR dibuat tetapi stok/server-nya habis ketika webhook PAID masuk.
+        candidates = await direct_payment_live_candidates(payment, user)
+        original_id = str(payment.get("service_country_price_id") or "")
+        if not candidates and original_id:
+            # Tetap coba pilihan awal saat endpoint katalog provider sedang bermasalah.
+            candidates = [{"id": original_id, "service_code": payment.get("service_code")}]
+
+        # Maksimal 4 server per siklus; siklus berikutnya akan refresh katalog lagi.
+        for candidate in candidates[:4]:
+            candidate_id = str(candidate.get("id") or "")
+            if not candidate_id:
+                continue
+            try:
+                order = await create_number_order(
+                    user,
+                    OrderIn(
+                        service_country_price_id=candidate_id,
+                        service_name=payment.get("service_name") or "",
+                        country_name=payment.get("country_name") or "",
+                        operator_id=payment.get("operator_id"),
+                    ),
+                    "direct_payment",
+                    charge_balance=False,
+                    forced_price=int(payment["amount"]),
+                    payment_method="direct",
+                    payment_ref=str(payment["_id"]),
+                )
+                await db.direct_payments.update_one(
+                    {"_id": payment["_id"]},
+                    {"$set": {
+                        "order_id": order["id"],
+                        "fulfilled_at": now(),
+                        "fulfilling": False,
+                        "fulfillment_error": None,
+                        "provider_error": None,
+                        "selected_service_country_price_id": candidate_id,
+                        "fulfillment_attempts": attempts,
+                        "last_fulfillment_attempt_at": now(),
+                    }, "$unset": {"next_fulfillment_attempt_at": ""}},
+                )
+                return await db.direct_payments.find_one({"_id": payment["_id"]}) or payment
+            except DirectProviderOrderError as e:
+                last_provider_error = str(e)
+                low = last_provider_error.lower()
+                logger.warning(
+                    "direct payment provider menolak payment=%s candidate=%s: %s",
+                    payment.get("_id"), candidate_id, last_provider_error,
+                )
+                if any(word in low for word in ("balance", "saldo", "credit", "kredit", "insufficient")):
+                    # Ganti server tidak akan menyelesaikan saldo/kredit provider yang habis.
+                    last_public_error = "Provider layanan belum dapat memproses pesanan. Admin perlu memeriksa saldo/kredit provider."
+                    break
+                last_public_error = "Layanan/server yang dipilih sedang tidak tersedia. Sistem mencari server lain otomatis."
+                continue
+            except HTTPException as e:
+                last_public_error = str(e.detail)
+                logger.warning(
+                    "direct payment fulfillment gagal payment=%s candidate=%s: %s",
+                    payment.get("_id"), candidate_id, e.detail,
+                )
+                continue
+            except Exception as e:
+                last_provider_error = str(e)
+                logger.exception(
+                    "direct payment fulfillment exception payment=%s candidate=%s: %s",
+                    payment.get("_id"), candidate_id, e,
+                )
+                continue
+
+        if not candidates:
+            last_public_error = "Layanan yang dibayar sedang kehabisan server/nomor. Menunggu stok live berikutnya."
+
     except HTTPException as e:
-        await db.direct_payments.update_one(
-            {"_id": payment["_id"]},
-            {"$set": {
-                "fulfilling": False,
-                "fulfillment_error": str(e.detail),
-                "last_fulfillment_attempt_at": now(),
-            }},
-        )
+        last_public_error = str(e.detail)
     except Exception as e:
+        last_provider_error = str(e)
         logger.exception("fulfill direct payment gagal: %s", e)
-        await db.direct_payments.update_one(
-            {"_id": payment["_id"]},
-            {"$set": {
-                "fulfilling": False,
-                "fulfillment_error": "Pesanan belum berhasil dibuat. Sistem akan mencoba lagi.",
-                "last_fulfillment_attempt_at": now(),
-            }},
-        )
+
+    delay = _direct_retry_delay(attempts)
+    update = {
+        "fulfilling": False,
+        "fulfillment_error": last_public_error,
+        "fulfillment_attempts": attempts,
+        "last_fulfillment_attempt_at": now(),
+        "next_fulfillment_attempt_at": now() + timedelta(seconds=delay),
+    }
+    if last_provider_error:
+        update["provider_error"] = last_provider_error[:500]
+    await db.direct_payments.update_one({"_id": payment["_id"]}, {"$set": update})
     return await db.direct_payments.find_one({"_id": payment["_id"]}) or payment
 
 
@@ -1168,6 +1344,7 @@ async def create_direct_payment(body: DirectOrderPaymentIn, user: dict = Depends
         "service_country_price_id": body.service_country_price_id,
         "country_id": body.country_id,
         "service_name": quote.get("service_name") or body.service_name,
+        "service_code": quote.get("service_code"),
         "country_name": quote.get("country_name") or body.country_name,
         "operator_id": body.operator_id,
         "provider_price": quote.get("provider_price"),
