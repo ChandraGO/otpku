@@ -9,11 +9,13 @@ import math
 import asyncio
 import secrets
 import logging
+from urllib.parse import urlparse
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Any
 
 import bcrypt
 import jwt
+import httpx
 from bson import ObjectId
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Header
 from pydantic import BaseModel, EmailStr, Field
@@ -34,6 +36,7 @@ db = client[os.environ["DB_NAME"]]
 JWT_ALG = "HS256"
 app = FastAPI(title="dapetOTP API")
 api = APIRouter(prefix="/api")
+SERVICE_LOGO_URLS: dict[str, str] = {}
 
 
 @app.middleware("http")
@@ -225,6 +228,11 @@ class OrderIn(BaseModel):
     service_name: Optional[str] = ""
     country_name: Optional[str] = ""
     operator_id: Optional[str] = None
+
+
+class RatingIn(BaseModel):
+    stars: int = Field(ge=1, le=5)
+    comment: str = Field(default="", max_length=500)
 
 
 class TicketIn(BaseModel):
@@ -430,6 +438,42 @@ async def public_settings(response: Response):
     return {"site": site, "topup": {"min_amount": topup["min_amount"], "max_amount": topup["max_amount"], "note": topup.get("note")}}
 
 
+def public_service_logo(service_code: str, upstream_url: str) -> str:
+    """Simpan URL logo upstream hanya di backend; browser menerima URL domain sendiri."""
+    code = str(service_code or "").strip()
+    url = str(upstream_url or "").strip()
+    if not code or not url:
+        return ""
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in {"minio.sms-virtuals.net"}:
+        return ""
+    SERVICE_LOGO_URLS[code] = url
+    return f"/api/catalog/logo/{code}"
+
+
+@api.get("/catalog/logo/{service_code}")
+async def catalog_logo(service_code: str):
+    url = SERVICE_LOGO_URLS.get(service_code)
+    if not url:
+        rec = await db.orders.find_one({"service_code": service_code, "service_logo_source": {"$exists": True}}, {"service_logo_source": 1})
+        url = (rec or {}).get("service_logo_source")
+        if url:
+            SERVICE_LOGO_URLS[service_code] = url
+    if not url:
+        raise HTTPException(404, "Logo tidak ditemukan")
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as c:
+            r = await c.get(url)
+        content_type = (r.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
+        if r.status_code != 200 or not content_type.startswith("image/"):
+            raise HTTPException(404, "Logo tidak ditemukan")
+        return Response(content=r.content, media_type=content_type, headers={"Cache-Control": "public, max-age=86400"})
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(404, "Logo tidak ditemukan")
+
+
 @api.get("/public/stats")
 async def public_stats(request: Request, response: Response):
     # Statistik landing selalu memakai harga publik level Member, bukan tier dari cookie
@@ -454,7 +498,6 @@ async def public_stats(request: Request, response: Response):
         pass
     except IntegrationError:
         pass
-    out["provider_connected"] = bool(cfg.get("api_key"))
     return out
 
 
@@ -525,9 +568,10 @@ async def countries():
     try:
         data = await smsv_request(cfg.get("api_key"), "GET", "/v1/public/countries", params={"page": 1, "pageSize": 200}, timeout=int(cfg.get("timeout_seconds") or 30))
         items = data if isinstance(data, list) else data.get("data", [])
-        return {"items": [{"id": c.get("id"), "code": c.get("code"), "name": c.get("name"), "imageUrl": c.get("imageUrl")} for c in items if c.get("isActive", True)]}
+        return {"items": [{"id": c.get("id"), "code": c.get("code"), "name": c.get("name")} for c in items if c.get("isActive", True)]}
     except IntegrationError as e:
-        raise HTTPException(503, str(e))
+        logger.warning("catalog countries gagal: %s", e)
+        raise HTTPException(503, "Katalog sementara tidak tersedia. Coba lagi sebentar.")
 
 
 async def optional_user(request: Request):
@@ -547,7 +591,8 @@ async def services(request: Request, country_id: str, page: int = 1, page_size: 
                                   params={"countryId": country_id, "page": page, "pageSize": page_size},
                                   timeout=int(cfg.get("timeout_seconds") or 30))
     except IntegrationError as e:
-        raise HTTPException(503, str(e))
+        logger.warning("catalog services gagal: %s", e)
+        raise HTTPException(503, "Katalog sementara tidak tersedia. Coba lagi sebentar.")
     items = data if isinstance(data, list) else data.get("data", [])
     overrides = {d["_id"]: d for d in await db.service_pricing.find({}).to_list(2000)}
     tier_cfg = await get_settings("tiers")
@@ -582,7 +627,7 @@ async def services(request: Request, country_id: str, page: int = 1, page_size: 
             "service_country_price_id": best.get("id"),
             "service_name": (svc.get("name") or "-").strip(),
             "service_code": code,
-            "logo": svc.get("imageUrl"),
+            "logo": public_service_logo(code, svc.get("imageUrl")),
             "country_name": (it.get("country") or {}).get("name"),
             "stock": best.get("stock") if best.get("stock") is not None else it.get("totalStock"),
             "provider_price": provider_price,
@@ -641,13 +686,14 @@ async def create_number_order(user: dict, body: OrderIn, source: str):
                                                 "autoSearchServer": bool(cfg.get("auto_search_server"))},
                                      timeout=int(cfg.get("timeout_seconds") or 30))
     except IntegrationError as e:
-        raise HTTPException(400, f"Provider: {e}")
+        logger.warning("order create gagal: %s", e)
+        raise HTTPException(400, "Layanan sementara tidak tersedia. Coba lagi sebentar.")
     details = listing.get("orderDetail") or []
     detail = details[0] if details else None
     if not detail or not detail.get("id") or not detail.get("phoneNumber"):
         detail = await resolve_activation(cfg, listing.get("id"))
     if not detail or not detail.get("id") or not detail.get("phoneNumber"):
-        raise HTTPException(400, "Provider tidak memberikan nomor untuk layanan ini. Coba layanan atau tier lain.")
+        raise HTTPException(400, "Nomor belum tersedia untuk layanan ini. Coba layanan atau pilihan server lain.")
     activation_id = detail["id"]
     provider_price = detail.get("price") or listing.get("totalPrice") or listing.get("amount") or 0
     svc_code = (detail.get("service") or {}).get("code")
@@ -670,11 +716,14 @@ async def create_number_order(user: dict, body: OrderIn, source: str):
             exp_at = None
     if not exp_at or exp_at <= now():
         exp_at = now() + timedelta(seconds=int(ocfg.get("order_expiry_seconds") or 900))
+    raw_service_logo = (detail.get("service") or {}).get("imageUrl")
     doc = {
         "user_id": str(user["_id"]), "activation_id": activation_id,
         "invoice_no": detail.get("invoiceNo") or listing.get("invoiceNo"),
         "phone_number": detail.get("phoneNumber"), "service_name": (detail.get("service") or {}).get("name") or body.service_name,
-        "service_logo": (detail.get("service") or {}).get("imageUrl"),
+        "service_code": svc_code,
+        "service_logo_source": raw_service_logo,
+        "service_logo": public_service_logo(svc_code, raw_service_logo),
         "country_name": (detail.get("country") or {}).get("name") or body.country_name,
         "country_logo": (detail.get("country") or {}).get("imageUrl"),
         "price": price, "provider_price": provider_price, "status": "pending", "otp_codes": [],
@@ -789,15 +838,26 @@ async def refresh_order(order: dict) -> dict:
     return order
 
 
+def public_order(doc: dict) -> dict:
+    """Data pesanan untuk pelanggan tanpa detail integrasi internal."""
+    d = clean(doc) if "_id" in doc else dict(doc)
+    for k in ("activation_id", "provider_price", "provider_status", "source", "country_logo", "service_logo_source", "service_code"):
+        d.pop(k, None)
+    logo = str(d.get("service_logo") or "")
+    if logo and not logo.startswith("/api/catalog/logo/"):
+        d["service_logo"] = ""
+    return d
+
+
 @api.post("/orders")
 async def post_order(body: OrderIn, user: dict = Depends(get_current_user)):
-    return await create_number_order(user, body, "web")
+    return public_order(await create_number_order(user, body, "web"))
 
 
 @api.get("/orders")
 async def list_orders(user: dict = Depends(get_current_user)):
     docs = await db.orders.find({"user_id": str(user["_id"])}).sort("created_at", -1).to_list(100)
-    return {"items": [clean(await refresh_order(d)) for d in docs]}
+    return {"items": [public_order(await refresh_order(d)) for d in docs]}
 
 
 @api.get("/orders/{order_id}")
@@ -805,7 +865,7 @@ async def get_order(order_id: str, user: dict = Depends(get_current_user)):
     d = await db.orders.find_one({"_id": oid(order_id), "user_id": str(user["_id"])})
     if not d:
         raise HTTPException(404, "Order tidak ditemukan")
-    return clean(await refresh_order(d))
+    return public_order(await refresh_order(d))
 
 
 @api.post("/orders/{order_id}/cancel")
@@ -833,7 +893,8 @@ async def cancel_order(order_id: str, user: dict = Depends(get_current_user)):
             msg = str(e)
             if "not allow" in msg.lower() or "status" in msg.lower():
                 raise HTTPException(400, "Nomor belum bisa dibatalkan sekarang. Saldo dikembalikan otomatis jika OTP tidak masuk sampai waktu habis.")
-            raise HTTPException(400, msg)
+            logger.warning("order cancel gagal: %s", e)
+            raise HTTPException(400, "Pesanan belum bisa dibatalkan sekarang. Coba lagi sebentar.")
     if not d.get("refunded"):
         await db.users.update_one({"_id": user["_id"]}, {"$inc": {"balance": d["price"]}})
         await db.transactions.insert_one({"user_id": str(user["_id"]), "type": "refund", "amount": d["price"],
@@ -851,7 +912,8 @@ async def ready_order(order_id: str, user: dict = Depends(get_current_user)):
     try:
         await smsv_request(cfg.get("api_key"), "PUT", f"/v1/public/orders/ready/{d['activation_id']}")
     except IntegrationError as e:
-        raise HTTPException(400, str(e))
+        logger.warning("order ready gagal: %s", e)
+        raise HTTPException(400, "Layanan sementara tidak tersedia. Coba lagi sebentar.")
     await db.orders.update_one({"_id": d["_id"]}, {"$set": {"ready": True}})
     return {"ok": True}
 
@@ -865,9 +927,49 @@ async def complete_order(order_id: str, user: dict = Depends(get_current_user)):
     try:
         await smsv_request(cfg.get("api_key"), "PUT", f"/v1/public/orders/complete/{d['activation_id']}")
     except IntegrationError as e:
-        raise HTTPException(400, str(e))
+        logger.warning("order complete gagal: %s", e)
+        raise HTTPException(400, "Layanan sementara tidak tersedia. Coba lagi sebentar.")
     await db.orders.update_one({"_id": d["_id"]}, {"$set": {"status": "success"}})
     return {"ok": True}
+
+
+@api.post("/orders/{order_id}/rating")
+async def rate_order(order_id: str, body: RatingIn, user: dict = Depends(get_current_user)):
+    order_oid = oid(order_id)
+    uid = str(user["_id"])
+    d = await db.orders.find_one({"_id": order_oid, "user_id": uid})
+    if not d:
+        raise HTTPException(404, "Pesanan tidak ditemukan")
+    if d.get("status") != "success":
+        raise HTTPException(400, "Rating hanya tersedia untuk pesanan yang sudah selesai")
+    if d.get("rating"):
+        raise HTTPException(400, "Pesanan ini sudah diberi rating")
+
+    stars = int(body.stars)
+    bonus = stars * 100
+    result = await db.orders.update_one(
+        {"_id": order_oid, "user_id": uid, "status": "success", "rating": {"$exists": False}},
+        {"$set": {
+            "rating": stars,
+            "rating_comment": body.comment.strip(),
+            "rating_bonus": bonus,
+            "rated_at": now(),
+        }},
+    )
+    if not result.modified_count:
+        raise HTTPException(400, "Pesanan ini sudah diberi rating")
+
+    await db.users.update_one({"_id": user["_id"]}, {"$inc": {"balance": bonus}})
+    await db.transactions.insert_one({
+        "user_id": uid,
+        "type": "rating_bonus",
+        "amount": bonus,
+        "ref": order_id,
+        "note": f"Bonus feedback {stars} bintang",
+        "created_at": now(),
+    })
+    await log_activity(user["_id"], "order.rating", {"order_id": order_id, "stars": stars, "bonus": bonus})
+    return {"ok": True, "stars": stars, "bonus": bonus}
 
 
 @api.post("/orders/{order_id}/resend")
@@ -879,7 +981,8 @@ async def resend_order(order_id: str, user: dict = Depends(get_current_user)):
     try:
         await smsv_request(cfg.get("api_key"), "PUT", f"/v1/public/orders/resend/{d['activation_id']}")
     except IntegrationError as e:
-        raise HTTPException(400, f"Provider: {e}")
+        logger.warning("order resend gagal: %s", e)
+        raise HTTPException(400, "Layanan sementara tidak tersedia. Coba lagi sebentar.")
     return {"ok": True}
 
 
@@ -894,7 +997,8 @@ async def create_topup(user: dict, amount: int, source: str):
     try:
         data = await paykita_create_order(pk.get("api_key"), amount, ref, webhook, int(pk.get("order_ttl_seconds") or 900))
     except IntegrationError as e:
-        raise HTTPException(502, str(e))
+        logger.warning("topup create gagal: %s", e)
+        raise HTTPException(502, "Pembayaran sementara tidak tersedia. Coba lagi sebentar.")
     doc = {"user_id": str(user["_id"]), "reference": ref, "amount": amount, "pay_amount": data.get("pay_amount"),
            "paykita_id": data.get("id"), "qris": data.get("qris"), "checkout_url": data.get("checkout_url"),
            "status": "pending", "source": source, "credited": False, "created_at": now(),
@@ -921,8 +1025,10 @@ async def credit_topup(topup: dict):
 
 
 def public_topup(doc: dict) -> dict:
-    """Sembunyikan detail gateway dari pengguna."""
+    """Sembunyikan detail gateway dan nama field internal dari pengguna."""
     d = clean(doc) if "_id" in doc else dict(doc)
+    if "qris" in d:
+        d["payment_code"] = d.pop("qris")
     for k in ("paykita_id", "checkout_url", "source", "gateway_ref", "credited", "user_id"):
         d.pop(k, None)
     return d
@@ -1205,11 +1311,28 @@ class ServicePricingIn(BaseModel):
 
 
 class AnnouncementIn(BaseModel):
-    title: str
-    body: str = ""
+    title: str = Field(min_length=1, max_length=180)
+    body: str = Field(default="", max_length=30000)
     label: str = "INFORMASI"
     color: str = "sky"
     active: bool = True
+    image_url: str = ""
+    image_caption: str = Field(default="", max_length=500)
+
+
+def validate_announcement_image(value: str):
+    v = (value or "").strip()
+    if not v:
+        return
+    if v.startswith("data:image/"):
+        # 4 MB file menjadi sekitar 5,6 MB setelah base64.
+        if len(v) > 5_700_000:
+            raise HTTPException(400, "Ukuran gambar maksimal 4 MB")
+        return
+    if not (v.startswith("https://") or v.startswith("http://")):
+        raise HTTPException(400, "URL gambar harus http(s) atau gambar lokal yang valid")
+    if len(v) > 4096:
+        raise HTTPException(400, "URL gambar terlalu panjang")
 
 
 @adm.get("/announcements")
@@ -1220,14 +1343,16 @@ async def adm_announcements():
 
 @adm.post("/announcements")
 async def adm_create_announcement(body: AnnouncementIn):
-    doc = {**body.model_dump(), "created_at": now()}
+    validate_announcement_image(body.image_url)
+    doc = {**body.model_dump(), "created_at": now(), "updated_at": now()}
     res = await db.announcements.insert_one(doc)
     return clean({**doc, "_id": res.inserted_id})
 
 
 @adm.put("/announcements/{ann_id}")
 async def adm_update_announcement(ann_id: str, body: AnnouncementIn):
-    await db.announcements.update_one({"_id": oid(ann_id)}, {"$set": body.model_dump()})
+    validate_announcement_image(body.image_url)
+    await db.announcements.update_one({"_id": oid(ann_id)}, {"$set": {**body.model_dump(), "updated_at": now()}})
     return {"ok": True}
 
 

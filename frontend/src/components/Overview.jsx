@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Wallet, BadgeCheck, ShoppingBag, PieChart, ShoppingCart, Plus, Megaphone, Crown, ChevronRight } from "lucide-react";
 import { http, rupiah } from "@/lib/api";
+import { AnnouncementContent } from "@/components/AnnouncementContent";
 
 const LABEL_TONE = {
   INFORMASI: "bg-sky-500/15 text-sky-500 border-sky-500/40",
@@ -159,7 +160,7 @@ export const Overview = ({ summary, onGo }) => {
                 <span className="text-[11px] text-muted-foreground">{new Date(a.created_at).toLocaleString("id-ID")}</span>
               </div>
               <p className="mt-2 text-sm font-bold">{a.title}</p>
-              {a.body && <p className="mt-1 text-sm text-muted-foreground">{a.body}</p>}
+              {(a.body || a.image_url) && <AnnouncementContent body={a.body} imageUrl={a.image_url} imageCaption={a.image_caption} className="mt-2" />}
             </div>
           ))}
           {ann.length === 0 && <p className="text-sm text-muted-foreground">—</p>}

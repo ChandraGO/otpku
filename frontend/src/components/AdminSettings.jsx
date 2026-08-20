@@ -43,6 +43,7 @@ const LABELS = {
 };
 
 const SECRET = ["password", "api_key", "webhook_secret", "telegram_bot_token"];
+const LONG_TEXT = new Set(["meta_description", "note"]);
 
 export const AdminSettings = ({ category, values, onSaved }) => {
   const [form, setForm] = useState(values || {});
@@ -107,6 +108,15 @@ export const AdminSettings = ({ category, values, onSaved }) => {
                   onChange={(e) => setForm({ ...form, [k]: e.target.value })}
                   className="mt-2"
                   inputClassName="mono rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
+                />
+              ) : LONG_TEXT.has(k) ? (
+                <textarea
+                  data-testid={`setting-${category}-${k}`}
+                  rows={5}
+                  autoComplete="off"
+                  value={v ?? ""}
+                  onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+                  className="themed-scrollbar mt-2 min-h-[140px] w-full resize-y rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-6 outline-none transition-colors focus:border-primary"
                 />
               ) : (
                 <input

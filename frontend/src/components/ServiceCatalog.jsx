@@ -208,7 +208,7 @@ export const ServiceCatalog = ({ canBuy = false, onBought, onPayNow, balance = 0
                 className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border px-4 py-3.5 text-sm font-bold hover:border-primary hover:text-primary"
               >
                 <span className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Bayar sekarang</span>
-                <span>QRIS</span>
+                <span>Pembayaran otomatis</span>
               </button>
               {balance < confirm.price && (
                 <p className="text-xs font-bold text-amber-500">Saldo kurang {rupiah(confirm.price - balance)} — pilih Bayar sekarang</p>

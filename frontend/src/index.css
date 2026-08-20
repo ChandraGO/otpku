@@ -145,3 +145,47 @@ body::-webkit-scrollbar-thumb,
     height: 0;
     display: none;
 }
+
+/* Landing: gerakan halus untuk CTA/chip tanpa mengganggu hover transform. */
+.soft-float {
+    animation: soft-float 5.2s ease-in-out infinite;
+    animation-delay: var(--float-delay, 0s);
+}
+@keyframes soft-float {
+    0%, 100% { translate: 0 0; }
+    50% { translate: 0 -5px; }
+}
+
+/* Reveal saat section masuk viewport (Chromium modern), fallback tetap tampil normal. */
+@supports (animation-timeline: view()) {
+    .scroll-reveal {
+        animation: scroll-reveal linear both;
+        animation-timeline: view();
+        animation-range: entry 4% cover 24%;
+    }
+    @keyframes scroll-reveal {
+        from { opacity: 0; translate: 0 24px; filter: blur(4px); }
+        to { opacity: 1; translate: 0 0; filter: blur(0); }
+    }
+}
+
+.announcement-spoiler {
+    border-radius: .35rem;
+    background: hsl(var(--foreground) / .18);
+    color: transparent;
+    cursor: pointer;
+    padding: 0 .2rem;
+    text-shadow: 0 0 7px hsl(var(--foreground) / .55);
+    transition: color .18s ease, background .18s ease, text-shadow .18s ease;
+}
+.announcement-spoiler:hover,
+.announcement-spoiler:focus,
+.announcement-spoiler:active {
+    background: hsl(var(--muted));
+    color: inherit;
+    text-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .soft-float, .scroll-reveal { animation: none !important; translate: none !important; filter: none !important; }
+}

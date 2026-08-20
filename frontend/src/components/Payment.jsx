@@ -51,7 +51,7 @@ export const PaymentPanel = ({ topup, onClose, onChange, note }) => {
   };
 
   return (
-    <div data-testid="topup-qris" className="rise rounded-3xl border border-primary/40 bg-card p-5">
+    <div data-testid="topup-payment" className="rise rounded-3xl border border-primary/40 bg-card p-5">
       <div className="flex flex-wrap items-center gap-3">
         <span className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[11px] font-bold uppercase ${st.tone}`} data-testid="payment-status">
           <st.icon className="h-3.5 w-3.5" /> {st.text}
@@ -65,28 +65,28 @@ export const PaymentPanel = ({ topup, onClose, onChange, note }) => {
 
       {note && <p className="mt-4 text-sm font-semibold">{note}</p>}
 
-      {topup.status === "pending" && topup.qris ? (
+      {topup.status === "pending" && topup.payment_code ? (
         <div className="mt-4 text-center">
           <p data-testid="payment-amount" className="text-3xl font-extrabold text-primary">{rupiah(amount)}</p>
           <p className="mt-1 text-xs font-bold text-amber-500">Bayar tepat sesuai nominal di atas</p>
           <div className="mt-4 inline-block rounded-2xl bg-white p-3">
-            <QRCodeCanvas value={topup.qris} size={200} includeMargin={false} />
+            <QRCodeCanvas value={topup.payment_code} size={200} includeMargin={false} />
           </div>
           <p className="mono mt-3 text-xs text-muted-foreground">{topup.reference}</p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <button data-testid="topup-copy-qris" onClick={() => copyText(topup.qris, "Kode QRIS dikopi")} className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-xs font-bold hover:border-primary hover:text-primary">
+            <button data-testid="topup-copy-payment" onClick={() => copyText(topup.payment_code, "Kode pembayaran dikopi")} className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-xs font-bold hover:border-primary hover:text-primary">
               <Copy className="h-3.5 w-3.5" /> Copy kode
             </button>
             <button data-testid="topup-cancel" onClick={cancel} disabled={busy} className="flex items-center gap-2 rounded-xl border border-destructive/60 px-4 py-2.5 text-xs font-bold text-destructive hover:bg-destructive hover:text-destructive-foreground disabled:opacity-60">
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />} Batalkan
             </button>
-            <button data-testid="topup-close-qris" onClick={onClose} className="rounded-xl border border-border px-4 py-2.5 text-xs font-bold hover:border-primary hover:text-primary">Tutup</button>
+            <button data-testid="topup-close-payment" onClick={onClose} className="rounded-xl border border-border px-4 py-2.5 text-xs font-bold hover:border-primary hover:text-primary">Tutup</button>
           </div>
         </div>
       ) : (
         <div className="mt-4 text-center">
           <p className="text-2xl font-extrabold">{rupiah(amount)}</p>
-          <button data-testid="topup-close-qris" onClick={onClose} className="mt-4 rounded-xl border border-border px-4 py-2.5 text-xs font-bold hover:border-primary hover:text-primary">Tutup</button>
+          <button data-testid="topup-close-payment" onClick={onClose} className="mt-4 rounded-xl border border-border px-4 py-2.5 text-xs font-bold hover:border-primary hover:text-primary">Tutup</button>
         </div>
       )}
     </div>

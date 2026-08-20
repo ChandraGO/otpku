@@ -26,14 +26,14 @@ const WHY = [
 const RUNTIME = [
   { icon: Server, t: "Satu origin", d_id: "Frontend dan API berjalan pada satu origin agar jalur request lebih singkat.", d_en: "Frontend and API share one origin for shorter request paths." },
   { icon: Cpu, t: "FastAPI persisten", d_id: "Backend FastAPI berjalan sebagai service persisten di belakang reverse proxy.", d_en: "FastAPI runs as a persistent service behind a reverse proxy." },
-  { icon: Database, t: "Sinkron provider", d_id: "Status pesanan, OTP, dan refund disinkronkan langsung dari provider.", d_en: "Order status, OTP and refunds sync straight from the provider." },
+  { icon: Database, t: "Sinkron otomatis", d_id: "Status pesanan, OTP, dan pengembalian saldo diperbarui otomatis tanpa langkah tambahan.", d_en: "Order status, OTP and balance returns update automatically." },
 ];
 
 const FAQ = [
   ["Apakah semua endpoint wajib pakai API key?", "Ya. Semua endpoint /api/v1 memerlukan header x-api-key milik akunmu. Key bisa diganti kapan saja dari dasbor."],
   ["Kalau OTP tidak masuk, saldo hangus?", "Tidak. Gunakan Kirim ulang (gratis selama masih dalam waktu proses) atau batalkan pesanan; saldo dikembalikan penuh untuk pesanan yang dibatalkan atau kedaluwarsa."],
   ["Bagaimana alur pesan nomor?", "Pilih layanan, klik Beli nomor, tekan Siap agar nomor mulai menerima OTP, lalu tunggu kode masuk dan klik Selesai setelah OTP terpakai."],
-  ["Bagaimana cara isi saldo?", "Scan QRIS yang muncul di dasbor. Setelah pembayaran terdeteksi, saldo bertambah otomatis — bisa juga dibuat langsung dari API."],
+  ["Bagaimana cara isi saldo?", "Buat pembayaran dari dasbor. Setelah pembayaran terdeteksi, saldo bertambah otomatis — bisa juga dibuat langsung dari API."],
   ["Apakah saldo bisa dikembalikan setelah pesanan selesai?", "Tidak. Saldo hanya dikembalikan untuk pesanan yang dibatalkan atau kedaluwarsa; pesanan selesai dianggap terpakai."],
   ["Bisa pilih server?", "Bisa. Setiap layanan punya beberapa pilihan server, pilih sebelum memesan nomor."],
 ];
@@ -85,26 +85,26 @@ export default function Landing() {
 
             <p data-testid="hero-subtitle" className="rise mt-7 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base lg:text-lg" style={{ animationDelay: "130ms" }}>
               {L(
-                "Sewa nomor virtual, terima OTP realtime, isi saldo QRIS otomatis, dan otomatiskan semuanya lewat REST API dengan API key pribadi. Daftar, isi saldo, langsung pesan.",
-                "Rent virtual numbers, receive OTPs in realtime, top up via QRIS and automate everything through a REST API with your own key."
+                "Sewa nomor virtual, terima OTP realtime, isi saldo otomatis, dan otomatiskan semuanya lewat REST API dengan API key pribadi. Daftar, isi saldo, langsung pesan.",
+                "Rent virtual numbers, receive OTPs in realtime, top up automatically and automate everything through a REST API with your own key."
               )}
             </p>
 
             <div className="rise mt-9 flex flex-wrap items-center gap-3" style={{ animationDelay: "190ms" }}>
-              <Link data-testid="hero-cta-login" to="/masuk" className="group flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/25">
+              <Link data-testid="hero-cta-login" to="/masuk" className="soft-float group flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/25">
                 {t("getStarted")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
-              <Link data-testid="hero-cta-pricing" to="/harga" className="rounded-2xl border border-border bg-card/80 px-6 py-3.5 text-sm font-bold backdrop-blur transition-colors hover:border-primary hover:text-primary">
+              <Link data-testid="hero-cta-pricing" to="/harga" className="soft-float rounded-2xl border border-border bg-card/80 px-6 py-3.5 text-sm font-bold backdrop-blur transition-colors hover:border-primary hover:text-primary">
                 {L("Lihat Harga", "See Pricing")}
               </Link>
-              <Link data-testid="hero-cta-docs" to="/docs" className="group flex items-center gap-1.5 rounded-2xl px-4 py-3.5 text-sm font-bold text-muted-foreground transition-colors hover:text-primary">
+              <Link data-testid="hero-cta-docs" to="/docs" className="soft-float group flex items-center gap-1.5 rounded-2xl px-4 py-3.5 text-sm font-bold text-muted-foreground transition-colors hover:text-primary">
                 {t("docs")} <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               </Link>
             </div>
 
             <div className="rise mt-9 flex flex-wrap gap-2" style={{ animationDelay: "250ms" }}>
               {CHIPS.map((c, i) => (
-                <span key={c.id} data-testid={`hero-chip-${i}`} className="flex items-center gap-2 rounded-xl border border-border/80 bg-card/60 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur">
+                <span key={c.id} data-testid={`hero-chip-${i}`} style={{ "--float-delay": `${i * -0.65}s` }} className="soft-float flex items-center gap-2 rounded-xl border border-border/80 bg-card/60 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur">
                   <c.icon className="h-3.5 w-3.5 text-primary" /> {L(c.id, c.en)}
                 </span>
               ))}
@@ -125,7 +125,7 @@ export default function Landing() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
                     [CheckCircle2, L("API key per akun", "Per-account API key")],
-                    [Wallet, "QRIS"],
+                    [Wallet, L("Pembayaran instan", "Instant payment")],
                     [Activity, "OTP realtime"],
                     [Layers3, L("Multi server", "Multi server")],
                   ].map(([Icon, label]) => (
@@ -154,7 +154,7 @@ export default function Landing() {
       </section>
 
       {/* SAMPLE REQUEST */}
-      <section className="relative bg-muted/30">
+      <section className="scroll-reveal relative bg-muted/30">
         <div className="mx-auto grid max-w-7xl gap-8 px-6 py-20 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
           <div>
             <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("CONTOH REQUEST", "SAMPLE REQUEST")}</p>
@@ -181,7 +181,7 @@ export default function Landing() {
       </section>
 
       {/* WHY */}
-      <section className="mx-auto max-w-7xl px-6 py-20">
+      <section className="scroll-reveal mx-auto max-w-7xl px-6 py-20">
         <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr] lg:items-end">
           <div>
             <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("KENAPA DAPETOTP", "WHY DAPETOTP")}</p>
@@ -194,20 +194,20 @@ export default function Landing() {
 
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {WHY.map((w, i) => (
-            <article key={w.t_id} data-testid={`why-card-${i}`} className={`group relative overflow-hidden rounded-[28px] border border-border p-7 transition-all hover:-translate-y-1 hover:border-primary/50 ${i === 0 ? "bg-primary text-primary-foreground" : "bg-card"}`}>
-              <div className={`absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full blur-3xl ${i === 0 ? "bg-white/20" : "bg-primary/15"}`} />
-              <span className={`relative grid h-12 w-12 place-items-center rounded-2xl ${i === 0 ? "bg-white/15" : "bg-primary/10 text-primary"}`}><w.icon className="h-5 w-5" /></span>
+            <article key={w.t_id} data-testid={`why-card-${i}`} className="group relative overflow-hidden rounded-[28px] border border-border bg-card p-7 transition-all hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5">
+              <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full bg-primary/12 blur-3xl" />
+              <span className="relative grid h-12 w-12 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><w.icon className="h-5 w-5" /></span>
               <h3 className="relative mt-8 text-xl font-extrabold">{L(w.t_id, w.t_en)}</h3>
-              <p className={`relative mt-3 text-sm leading-6 ${i === 0 ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{L(w.d_id, w.d_en)}</p>
-              <div className={`relative mt-7 h-px w-full ${i === 0 ? "bg-white/20" : "bg-border"}`} />
-              <p className={`relative mt-4 text-xs font-bold uppercase tracking-wider ${i === 0 ? "text-primary-foreground/70" : "text-primary"}`}>0{i + 1}</p>
+              <p className="relative mt-3 text-sm leading-6 text-muted-foreground">{L(w.d_id, w.d_en)}</p>
+              <div className="relative mt-7 h-px w-full bg-border" />
+              <p className="relative mt-4 text-xs font-bold uppercase tracking-wider text-primary">0{i + 1}</p>
             </article>
           ))}
         </div>
       </section>
 
       {/* RUNTIME */}
-      <section className="border-y border-border bg-card/50">
+      <section className="scroll-reveal border-y border-border bg-card/50">
         <div className="mx-auto max-w-7xl px-6 py-20">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -236,13 +236,13 @@ export default function Landing() {
       </section>
 
       {/* LIVE STATS */}
-      <section className="mx-auto max-w-7xl px-6 py-20">
-        <div className="relative overflow-hidden rounded-[34px] border border-primary/20 bg-primary p-7 text-primary-foreground shadow-2xl shadow-primary/15 sm:p-10">
-          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/15 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-black/10 blur-3xl" />
+      <section className="scroll-reveal mx-auto max-w-7xl px-6 py-20">
+        <div className="relative overflow-hidden rounded-[34px] border border-border bg-card p-7 shadow-xl shadow-primary/5 sm:p-10">
+          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-primary/12 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
           <div className="relative flex flex-wrap items-center gap-3">
-            <span className="flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold"><span className="h-2 w-2 animate-pulse rounded-full bg-white" /> LIVE</span>
-            <p className="text-lg font-extrabold">{L("Katalog langsung dari provider", "Catalog straight from the provider")}</p>
+            <span className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold text-emerald-500"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> LIVE</span>
+            <p className="text-lg font-extrabold">{L("Katalog layanan selalu diperbarui", "Service catalog stays up to date")}</p>
           </div>
 
           <div className="relative mt-8 grid gap-3 sm:grid-cols-3">
@@ -251,9 +251,9 @@ export default function Landing() {
               [ShieldCheck, L("Layanan Indonesia", "Indonesian services"), stats?.services ?? "—"],
               [Wallet, L("Mulai dari", "Starting at"), stats?.cheapest ? rupiah(stats.cheapest) : "—"],
             ].map(([Icon, label, value], i) => (
-              <div key={label} data-testid={`live-stat-${i}`} className="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/15"><Icon className="h-4 w-4" /></span>
-                <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.18em] text-primary-foreground/70">{label}</p>
+              <div key={label} data-testid={`live-stat-${i}`} className="rounded-2xl border border-border bg-background/70 p-5 backdrop-blur-sm transition-colors hover:border-primary/50">
+                <span className="grid h-10 w-10 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary"><Icon className="h-4 w-4" /></span>
+                <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
                 <p className="mt-1 text-3xl font-extrabold">{value}</p>
               </div>
             ))}
@@ -262,7 +262,7 @@ export default function Landing() {
       </section>
 
       {/* PRICE LIST */}
-      <section className="mx-auto max-w-7xl px-6 pb-20">
+      <section className="scroll-reveal mx-auto max-w-7xl px-6 pb-20">
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div>
             <p className="text-xs font-bold tracking-[0.22em] text-primary">PRICE LIST</p>
@@ -296,7 +296,7 @@ export default function Landing() {
       </section>
 
       {/* FAQ */}
-      <section className="border-t border-border bg-muted/25">
+      <section className="scroll-reveal border-t border-border bg-muted/25">
         <div className="mx-auto grid max-w-7xl gap-10 px-6 py-20 lg:grid-cols-[.7fr_1.3fr]">
           <div>
             <span className="inline-grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary"><Sparkles className="h-5 w-5" /></span>

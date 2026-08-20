@@ -18,7 +18,7 @@ const ENDPOINTS = [
   { m: "POST", p: "/api/v1/orders", d: "Beli nomor. Body: { service_country_price_id, service_name, country_name }" },
   { m: "POST", p: "/api/v1/orders/{order_id}/ready", d: "Tandai nomor siap menerima OTP (lakukan sebelum minta OTP di aplikasi tujuan)." },
   { m: "GET", p: "/api/v1/orders/{order_id}", d: "Cek status pesanan dan kode OTP yang masuk." },
-  { m: "POST", p: "/api/v1/topups", d: "Buat permintaan deposit QRIS. Body: { amount }" },
+  { m: "POST", p: "/api/v1/topups", d: "Buat permintaan isi saldo otomatis. Body: { amount }" },
   { m: "GET", p: "/api/v1/topups/{topup_id}", d: "Cek status deposit; saldo otomatis masuk saat paid." },
 ];
 
@@ -96,7 +96,7 @@ export default function Docs() {
   -H "x-api-key: ${shown}" -H "content-type: application/json" \\
   -d '{"amount":50000}'
 
-# response berisi kode QRIS pembayaran`} />
+# response berisi kode pembayaran`} />
     </div>
   );
 }
