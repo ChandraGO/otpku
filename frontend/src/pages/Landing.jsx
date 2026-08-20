@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight, Zap, Wallet, Activity, MousePointerClick, KeyRound, Gauge, Code2,
   Server, Cpu, Database, Globe2, ShieldCheck, LifeBuoy, Terminal, CheckCircle2,
@@ -54,13 +55,68 @@ const CODE = `$ curl "${process.env.REACT_APP_BACKEND_URL}/api/v1/orders" \\
   }
 }`;
 
+const ASSEMBLY_PIECES = [
+  { icon: KeyRound, label: "API KEY", pos: "left-[1%] top-[9%]", x: -170, y: -95, r: -18 },
+  { icon: Activity, label: "OTP LIVE", pos: "right-[2%] top-[17%]", x: 175, y: -125, r: 16 },
+  { icon: Wallet, label: "SALDO", pos: "-left-[3%] bottom-[22%]", x: -210, y: 120, r: 13 },
+  { icon: CheckCircle2, label: "200 OK", pos: "right-[0%] bottom-[27%]", x: 190, y: 145, r: -14 },
+  { icon: Layers3, label: "MULTI SERVER", pos: "left-[31%] -bottom-[2%]", x: -35, y: 190, r: 9 },
+];
+
+function AssemblyPiece({ item, progress, reducedMotion }) {
+  const x = useTransform(progress, [0, 0.18, 0.82, 1], [item.x, item.x * 0.78, item.x * 0.12, 0]);
+  const y = useTransform(progress, [0, 0.18, 0.82, 1], [item.y, item.y * 0.76, item.y * 0.1, 0]);
+  const rotate = useTransform(progress, [0, 0.32, 1], [item.r, item.r * 0.7, 0]);
+  const scale = useTransform(progress, [0, 0.45, 1], [0.82, 0.93, 1]);
+  const opacity = useTransform(progress, [0, 0.08, 0.22, 1], [0.35, 0.8, 1, 1]);
+
+  return (
+    <motion.div
+      aria-hidden="true"
+      style={reducedMotion ? undefined : { x, y, rotate, scale, opacity }}
+      className={`hero-assembly-piece pointer-events-none absolute z-30 hidden items-center gap-2 rounded-2xl border border-border/90 bg-card/90 px-3.5 py-3 text-[11px] font-extrabold tracking-[0.08em] shadow-xl shadow-black/10 backdrop-blur-xl lg:flex ${item.pos}`}
+    >
+      <span className="grid h-8 w-8 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+        <item.icon className="h-3.5 w-3.5" />
+      </span>
+      {item.label}
+    </motion.div>
+  );
+}
+
 export default function Landing() {
   const { t, lang } = useI18n();
   const { site } = useSite();
   const [stats, setStats] = useState(null);
+  const [desktopScrub, setDesktopScrub] = useState(false);
+  const heroRef = useRef(null);
+  const reducedMotion = useReducedMotion();
+
+  const { scrollYProgress: heroProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end end"],
+  });
+
+  const visualX = useTransform(heroProgress, [0, 1], [76, 0]);
+  const visualY = useTransform(heroProgress, [0, 1], [58, 0]);
+  const visualRotate = useTransform(heroProgress, [0, 1], [4.5, 0]);
+  const visualScale = useTransform(heroProgress, [0, 1], [0.9, 1]);
+  const haloRotate = useTransform(heroProgress, [0, 1], [-22, 32]);
+  const haloScale = useTransform(heroProgress, [0, 0.7, 1], [0.82, 1.08, 1]);
+  const copyY = useTransform(heroProgress, [0, 1], [0, -22]);
+  const copyOpacity = useTransform(heroProgress, [0, 0.82, 1], [1, 1, 0.78]);
+  const progressScaleX = useTransform(heroProgress, [0, 1], [0.04, 1]);
 
   useEffect(() => {
     http.get("/public/stats").then(({ data }) => setStats(data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setDesktopScrub(media.matches);
+    sync();
+    media.addEventListener?.("change", sync);
+    return () => media.removeEventListener?.("change", sync);
   }, []);
 
   const L = (id, en) => (lang === "id" ? id : en);
@@ -68,12 +124,12 @@ export default function Landing() {
   return (
     <div data-testid="landing-page" className="overflow-hidden">
       {/* HERO */}
-      <section className="relative border-b border-border/70">
+      <section ref={heroRef} className="relative border-b border-border/70 lg:h-[185vh]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_15%,hsl(var(--primary)/0.18),transparent_32%),radial-gradient(circle_at_88%_12%,hsl(var(--primary)/0.10),transparent_26%)]" />
         <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(hsl(var(--border)/.35)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.35)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,#000,transparent_85%)]" />
 
-        <div className="relative mx-auto grid max-w-7xl gap-12 px-6 py-20 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:py-28">
-          <div>
+        <div className="relative mx-auto grid max-w-7xl gap-12 px-6 py-20 lg:sticky lg:top-[69px] lg:min-h-[calc(100svh-69px)] lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:py-16">
+          <motion.div style={!desktopScrub || reducedMotion ? undefined : { y: copyY, opacity: copyOpacity }}>
             <span data-testid="hero-badge" className="rise inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-[11px] font-bold tracking-[0.22em] text-primary">
               <Radio className="h-3.5 w-3.5" /> {L("REST API PUBLIK", "PUBLIC REST API")}
             </span>
@@ -109,11 +165,24 @@ export default function Landing() {
                 </span>
               ))}
             </div>
-          </div>
+          </motion.div>
 
-          <div className="rise relative" style={{ animationDelay: "180ms" }}>
-            <div className="absolute -inset-8 rounded-[40px] bg-primary/10 blur-3xl" />
-            <div className="relative overflow-hidden rounded-[28px] border border-border bg-card/90 shadow-2xl shadow-black/10 backdrop-blur-xl">
+          <div className="rise relative min-h-[430px] lg:min-h-[540px]" style={{ animationDelay: "180ms" }}>
+            <motion.div
+              aria-hidden="true"
+              style={!desktopScrub || reducedMotion ? undefined : { rotate: haloRotate, scale: haloScale }}
+              className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[430px] w-[430px] -translate-x-1/2 -translate-y-1/2 rounded-[38%] border border-primary/20 lg:block"
+            />
+            <div className="pointer-events-none absolute inset-3 rounded-[40px] bg-primary/10 blur-3xl lg:-inset-8" />
+
+            {ASSEMBLY_PIECES.map((item) => (
+              <AssemblyPiece key={item.label} item={item} progress={heroProgress} reducedMotion={!desktopScrub || reducedMotion} />
+            ))}
+
+            <motion.div
+              style={!desktopScrub || reducedMotion ? undefined : { x: visualX, y: visualY, rotate: visualRotate, scale: visualScale }}
+              className="relative z-20 mx-auto overflow-hidden rounded-[28px] border border-border bg-card/90 shadow-2xl shadow-black/10 backdrop-blur-xl lg:mt-10"
+            >
               <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-5 py-4">
                 <span className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
@@ -147,6 +216,19 @@ export default function Landing() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </motion.div>
+
+            <div className="pointer-events-none absolute bottom-0 left-1/2 hidden w-[82%] -translate-x-1/2 lg:block">
+              <div className="mb-2 flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
+                <span>SCATTER</span>
+                <span>ASSEMBLE</span>
+              </div>
+              <div className="h-px overflow-hidden bg-border">
+                <motion.div
+                  style={!desktopScrub || reducedMotion ? { scaleX: 1 } : { scaleX: progressScaleX }}
+                  className="h-full origin-left bg-primary"
+                />
               </div>
             </div>
           </div>
