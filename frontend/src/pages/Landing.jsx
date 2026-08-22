@@ -164,72 +164,97 @@ const ASSEMBLY_PIECES = [
   {
     icon: KeyRound,
     label: "API KEY",
+    uniformSize: true,
     finalDesktop: "left-[28%] top-[2%]",
     finalMobile: "left-[11%] top-[1%]",
-    desktop: [-150, -90, -12],
-    mobile: [-38, -172, -10],
-    entryDesktopY: 38,
-    entryMobileY: 42,
+    // Start: lebih kecil dan lebih ke kiri/atas, jauh dari headline.
+    desktop: [-180, -100, -12],
+    mobile: [-52, -112, -10],
+    startScaleDesktop: 0.88,
+    startScaleMobile: 0.82,
   },
   {
     icon: Activity,
     label: "OTP LIVE",
+    uniformSize: true,
     finalDesktop: "right-[28%] top-[2%]",
     finalMobile: "right-[11%] top-[1%]",
-    desktop: [150, -85, 12],
-    mobile: [4, -168, 10],
-    entryDesktopY: 95,
-    entryMobileY: 78,
+    // Start: dipindah jauh ke kanan/atas seperti area yang ditandai pada referensi.
+    desktop: [240, -95, 12],
+    mobile: [58, -104, 10],
+    startScaleDesktop: 1.16,
+    startScaleMobile: 1.04,
   },
   {
     icon: Wallet,
     label: "SALDO",
-    finalDesktop: "left-[2%] top-[54%]",
-    finalMobile: "left-[-5%] top-[52%]",
-    desktop: [-125, 40, 10],
-    mobile: [-38, 28, 8],
+    uniformSize: true,
+    // Final: menempel di sisi kiri card, sejajar area row atas.
+    finalDesktop: "left-[10%] top-[31%]",
+    finalMobile: "left-[-1%] top-[32%]",
+    // Start tetap jauh di kiri bawah hero.
+    desktop: [-205, 145, 10],
+    mobile: [-52, 118, 8],
+    startScaleDesktop: 0.96,
+    startScaleMobile: 0.9,
   },
   {
     icon: CheckCircle2,
     label: "200 OK",
-    finalDesktop: "right-[2%] top-[49%]",
-    finalMobile: "right-[-5%] top-[52%]",
-    desktop: [125, 48, -10],
-    mobile: [38, 32, -8],
+    uniformSize: true,
+    // Final: turun ke sudut kanan-bawah card sesuai kotak referensi.
+    finalDesktop: "right-[11%] top-[77%]",
+    finalMobile: "right-[-1%] top-[72%]",
+    // Start tetap jauh di kanan bawah hero.
+    desktop: [210, -75, -10],
+    mobile: [54, -52, -8],
+    startScaleDesktop: 1.08,
+    startScaleMobile: 1.0,
   },
   {
     icon: Layers3,
     label: "MULTI SERVER",
-    finalDesktop: "left-[41%] bottom-[1%]",
-    finalMobile: "left-[29%] bottom-[0%]",
-    desktop: [0, 88, 7],
-    mobile: [0, 72, 7],
+    uniformSize: false,
+    // Final sedikit dinaikkan agar menempel di bawah card, tidak terlalu turun.
+    finalDesktop: "left-[39%] bottom-[10%]",
+    finalMobile: "left-[28%] bottom-[7%]",
+    desktop: [0, 112, 7],
+    mobile: [0, 92, 7],
+    startScaleDesktop: 0.93,
+    startScaleMobile: 0.9,
   },
 ];
 
 function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
   const [startX, startY, startR] = mobile ? item.mobile : item.desktop;
-  const entryY = mobile ? (item.entryMobileY || 0) : (item.entryDesktopY || 0);
+  const startScale = mobile ? (item.startScaleMobile ?? 0.9) : (item.startScaleDesktop ?? 0.94);
 
-  // Posisi CSS adalah SLOT FINAL. Saat load badge mengambang tersebar di perimeter hero
-  // (kiri/kanan/atas/bawah) agar tidak menumpuk di atas card utama. Ketika scroll
-  // dimulai, semua badge tetap mengikuti timeline assembly menuju slot final.
-  const x = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startX, startX, startX * 0.7, startX * 0.3, 0, 0]);
-  const y = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startY + entryY, startY + entryY, startY * 0.7 + entryY * 0.5, startY * 0.3, 0, 0]);
+  // Slot CSS adalah posisi FINAL. x/y/rotate/scale di bawah hanya menentukan keadaan START.
+  // Saat scroll, setiap badge bergerak halus ke slot final dan scale = 1.
+  const x = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startX, startX, startX * 0.72, startX * 0.3, 0, 0]);
+  const y = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startY, startY, startY * 0.72, startY * 0.3, 0, 0]);
   const rotate = useTransform(progress, [0, 0.44, 0.88, 1], [startR, startR * 0.52, 0, 0]);
-  const scale = useTransform(progress, [0, 0.18, 0.62, 0.9, 1], [mobile ? 0.78 : 0.84, mobile ? 0.8 : 0.86, 0.94, 1, 1]);
-  const opacity = useTransform(progress, [0, 0.06, 0.18, 1], [0.76, 0.82, 1, 1]);
+  const scale = useTransform(progress, [0, 0.18, 0.62, 0.9, 1], [startScale, startScale, 0.96, 1, 1]);
+  const opacity = useTransform(progress, [0, 0.06, 0.18, 1], [0.78, 0.86, 1, 1]);
+
+  const uniformSizeClass = item.uniformSize
+    ? (mobile
+      ? "h-[46px] w-[98px] justify-start gap-1.5 px-2.5 py-0 text-[8px] sm:h-[50px] sm:w-[108px] sm:gap-2 sm:px-3 sm:text-[9px]"
+      : "h-[58px] w-[124px] justify-start gap-2 px-3 py-0 text-[11px]")
+    : (mobile
+      ? "gap-1.5 px-2.5 py-2 text-[8px] sm:gap-2 sm:px-3 sm:py-2.5 sm:text-[9px]"
+      : "gap-2 px-3.5 py-3 text-[11px]");
 
   return (
     <motion.div
       aria-hidden="true"
       style={reducedMotion ? { opacity: 0.82 } : { x, y, rotate, scale, opacity }}
-      className={`pointer-events-none absolute z-30 flex items-center rounded-2xl border border-border/90 bg-card/95 font-extrabold tracking-[0.08em] shadow-xl shadow-black/10 backdrop-blur-xl ${mobile ? "gap-1.5 px-2.5 py-2 text-[8px] sm:gap-2 sm:px-3 sm:py-2.5 sm:text-[9px]" : "gap-2 px-3.5 py-3 text-[11px]"} ${mobile ? item.finalMobile : item.finalDesktop}`}
+      className={`pointer-events-none absolute z-30 flex items-center rounded-2xl border border-border/90 bg-card/95 font-extrabold tracking-[0.08em] shadow-xl shadow-black/10 backdrop-blur-xl ${uniformSizeClass} ${mobile ? item.finalMobile : item.finalDesktop}`}
     >
-      <span className={`grid place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary ${mobile ? "h-6 w-6 sm:h-7 sm:w-7" : "h-8 w-8"}`}>
+      <span className={`grid shrink-0 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary ${mobile ? "h-6 w-6 sm:h-7 sm:w-7" : "h-8 w-8"}`}>
         <item.icon className={mobile ? "h-3 w-3" : "h-3.5 w-3.5"} />
       </span>
-      <span>{item.label}</span>
+      <span className="whitespace-nowrap">{item.label}</span>
     </motion.div>
   );
 }
@@ -440,8 +465,8 @@ export default function Landing() {
   });
 
   /*
-   * V13 timeline:
-   * 0–10%   : copy hero masuk fade-up bergantian; card + badge pop-up bersama di area bawah.
+   * V14 timeline:
+   * 0–10%   : copy hero masuk fade-up; badge tersebar dengan ukuran start berbeda dan card utama tetap di bawah.
    * 10–40%  : hero naik, blur, dan redup sehingga panggung tengah terbuka.
    * 10–72%  : badge bergerak perlahan dari tepi menuju pusat dan kartu dirakit.
    * 72–100% : rakitan final ditahan, sementara section berikutnya mulai naik dari bawah untuk menghilangkan dead-space.
@@ -472,7 +497,7 @@ export default function Landing() {
   return (
     <div data-testid="landing-page" className="overflow-hidden">
       {/*
-        HERO V13 — komposisi center seperti referensi MEGA.
+        HERO V14 — start badge tersebar, final badge merapat ke card.
         Sticky memakai top-0 agar tidak menciptakan pita kosong di bawah navbar.
         Navbar tetap berada di atas karena z-index layout, sedangkan isi hero diberi safe padding.
       */}
