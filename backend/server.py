@@ -38,6 +38,11 @@ app = FastAPI(title="dapetOTP API")
 api = APIRouter(prefix="/api")
 SERVICE_LOGO_URLS: dict[str, str] = {}
 
+# DapetOTP memakai 90% durasi provider; 10% sisanya disisakan untuk auto-cancel.
+PROVIDER_CANCEL_BUFFER_RATIO = 0.10
+ORDER_EXPIRY_SCAN_SECONDS = 3
+_order_expiry_task = None
+
 
 @app.middleware("http")
 async def disable_pricing_cache(request: Request, call_next):
@@ -737,6 +742,26 @@ async def resolve_activation(cfg: dict, provider_order_id: str, attempts: int = 
     return None
 
 
+def parse_provider_expiry(value) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if value:
+        try:
+            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except Exception:
+            return None
+    return None
+
+
+def dapetotp_expiry(provider_expires_at: datetime, started_at: datetime) -> datetime:
+    """Gunakan 90% durasi provider sehingga 10% terakhir aman untuk auto-cancel."""
+    provider_expires_at = parse_provider_expiry(provider_expires_at) or provider_expires_at
+    started_at = parse_provider_expiry(started_at) or now()
+    duration_seconds = max(0.0, (provider_expires_at - started_at).total_seconds())
+    buffer_seconds = duration_seconds * PROVIDER_CANCEL_BUFFER_RATIO
+    return provider_expires_at - timedelta(seconds=buffer_seconds)
+
+
 async def create_number_order(
     user: dict,
     body: OrderIn,
@@ -784,14 +809,13 @@ async def create_number_order(
             raise HTTPException(400, "Saldo tidak cukup")
         await db.users.update_one({"_id": user["_id"]}, {"$inc": {"balance": -price}})
     cooldown = int(ocfg.get("cancel_cooldown_seconds") or 120)
-    exp_at = None
-    if detail.get("expiredTime"):
-        try:
-            exp_at = datetime.fromisoformat(str(detail["expiredTime"]).replace("Z", "+00:00"))
-        except Exception:
-            exp_at = None
-    if not exp_at or exp_at <= now():
-        exp_at = now() + timedelta(seconds=int(ocfg.get("order_expiry_seconds") or 900))
+    created_at = now()
+    provider_exp_at = parse_provider_expiry(detail.get("expiredTime"))
+    if not provider_exp_at or provider_exp_at <= created_at:
+        provider_exp_at = created_at + timedelta(seconds=int(ocfg.get("order_expiry_seconds") or 900))
+    exp_at = dapetotp_expiry(provider_exp_at, created_at)
+    if exp_at <= created_at:
+        exp_at = created_at
     raw_service_logo = (detail.get("service") or {}).get("imageUrl")
     doc = {
         "user_id": str(user["_id"]), "activation_id": activation_id,
@@ -804,9 +828,10 @@ async def create_number_order(
         "country_logo": (detail.get("country") or {}).get("imageUrl"),
         "price": price, "provider_price": provider_price, "status": "pending", "otp_codes": [],
         "source": source, "payment_method": payment_method, "payment_ref": payment_ref,
-        "refunded": False, "created_at": now(),
-        "cancel_available_at": now() + timedelta(seconds=cooldown),
+        "refunded": False, "created_at": created_at,
+        "cancel_available_at": created_at + timedelta(seconds=cooldown),
         "expires_at": exp_at,
+        "provider_expires_at": provider_exp_at,
     }
     res = await db.orders.insert_one(doc)
     await db.transactions.insert_one({"user_id": str(user["_id"]), "type": "purchase", "amount": -price,
@@ -865,11 +890,87 @@ def row_codes(row: dict) -> list:
     return out
 
 
+async def auto_expire_order(order: dict, cfg: dict) -> dict:
+    """Tandai expired di DapetOTP lalu batalkan activation provider selagi buffer 10% masih ada.
+
+    Refund hanya dilakukan setelah cancel provider berhasil. Jika provider sedang error, status tetap
+    `expired` untuk user dan worker akan mencoba cancel lagi pada scan berikutnya.
+    """
+    if order.get("otp_codes"):
+        return order
+
+    attempt_at = now()
+    stale_before = attempt_at - timedelta(seconds=15)
+    claim = await db.orders.update_one(
+        {
+            "_id": order["_id"],
+            "status": {"$in": ["pending", "expired"]},
+            "refunded": {"$ne": True},
+            "$and": [
+                {"$or": [{"otp_codes": {"$exists": False}}, {"otp_codes": []}]},
+                {"$or": [
+                    {"auto_cancel_claimed_at": {"$exists": False}},
+                    {"auto_cancel_claimed_at": {"$lt": stale_before}},
+                ]},
+            ],
+        },
+        {"$set": {
+            "status": "expired",
+            "auto_cancel_claimed_at": attempt_at,
+            "auto_cancel_attempt_at": attempt_at,
+        }},
+    )
+    if not claim.modified_count:
+        fresh = await db.orders.find_one({"_id": order["_id"]})
+        return fresh or order
+
+    fresh = await db.orders.find_one({"_id": order["_id"]})
+    if not fresh:
+        return order
+    if fresh.get("otp_codes"):
+        await db.orders.update_one({"_id": fresh["_id"]}, {"$unset": {"auto_cancel_claimed_at": ""}})
+        return fresh
+
+    try:
+        if fresh.get("activation_id"):
+            await smsv_request(
+                cfg.get("api_key"),
+                "PUT",
+                f"/v1/public/orders/cancel/{fresh['activation_id']}",
+                timeout=int(cfg.get("timeout_seconds") or 30),
+            )
+    except IntegrationError as e:
+        logger.warning("auto cancel provider gagal untuk order %s: %s", fresh.get("_id"), e)
+        await db.orders.update_one(
+            {"_id": fresh["_id"]},
+            {
+                "$set": {"status": "expired", "auto_cancel_last_error": str(e), "auto_cancel_attempt_at": attempt_at},
+                "$unset": {"auto_cancel_claimed_at": ""},
+            },
+        )
+        fresh["status"] = "expired"
+        fresh["auto_cancel_last_error"] = str(e)
+        return fresh
+
+    cancelled_at = now()
+    await db.orders.update_one(
+        {"_id": fresh["_id"]},
+        {
+            "$set": {"provider_cancelled_at": cancelled_at, "auto_cancel_attempt_at": attempt_at},
+            "$unset": {"auto_cancel_claimed_at": "", "auto_cancel_last_error": ""},
+        },
+    )
+    fresh["provider_cancelled_at"] = cancelled_at
+    return await refund_order(fresh, "expired", "Refund otomatis (batas waktu DapetOTP, provider dibatalkan)")
+
+
 async def refresh_order(order: dict) -> dict:
-    if order["status"] in ("success", "cancelled", "refunded", "expired"):
+    # Hanya `expired` dari mekanisme auto-cancel baru yang boleh retry. Data expired lama tetap terminal.
+    if order["status"] in ("success", "cancelled", "refunded"):
+        return order
+    if order["status"] == "expired" and (order.get("refunded") or not order.get("auto_cancel_attempt_at")):
         return order
     cfg = await get_settings("smsvirtual")
-    ocfg = await get_settings("orders")
     rows = await ongoing_rows(cfg)
 
     if rows is not None:
@@ -878,23 +979,33 @@ async def refresh_order(order: dict) -> dict:
             codes = row_codes(row)
             upd = {"otp_codes": codes, "phone_number": row.get("phoneNumber") or order.get("phone_number"),
                    "provider_status": row.get("status")}
-            exp_raw = row.get("expiredTime")
-            if exp_raw:
-                try:
-                    upd["expires_at"] = datetime.fromisoformat(str(exp_raw).replace("Z", "+00:00"))
-                except Exception:
-                    pass
+            provider_exp_at = parse_provider_expiry(row.get("expiredTime"))
+            if provider_exp_at:
+                # Ikuti expiredTime provider secara dinamis, tetapi sisakan 10% untuk auto-cancel.
+                upd["provider_expires_at"] = provider_exp_at
+                upd["expires_at"] = dapetotp_expiry(provider_exp_at, order.get("created_at") or now())
             st = row.get("status")
             if st in (5, 8):
                 await db.orders.update_one({"_id": order["_id"]}, {"$set": upd})
                 order.update(upd)
-                return await refund_order(order, "cancelled", "Refund otomatis (dibatalkan di provider)")
+                final_status = "expired" if order.get("status") == "expired" else "cancelled"
+                note = "Refund otomatis (auto-cancel DapetOTP)" if final_status == "expired" else "Refund otomatis (dibatalkan di provider)"
+                return await refund_order(order, final_status, note)
             if st == 6:
                 await db.orders.update_one({"_id": order["_id"]}, {"$set": upd})
                 order.update(upd)
-                return await refund_order(order, "refunded", "Refund order kedaluwarsa")
+                return await refund_order(order, "expired", "Refund order kedaluwarsa")
             await db.orders.update_one({"_id": order["_id"]}, {"$set": upd})
             order.update(upd)
+
+            # Kalau OTP ternyata masuk tepat di sekitar cutoff, jangan cancel/refund order yang sudah punya OTP.
+            if codes and order.get("status") == "expired" and not order.get("refunded"):
+                await db.orders.update_one({"_id": order["_id"]}, {
+                    "$set": {"status": "success"},
+                    "$unset": {"auto_cancel_claimed_at": "", "auto_cancel_last_error": ""},
+                })
+                order["status"] = "success"
+                return order
         else:
             # activation sudah keluar dari daftar berjalan
             if order.get("otp_codes"):
@@ -902,23 +1013,28 @@ async def refresh_order(order: dict) -> dict:
                 order["status"] = "success"
                 return order
             exp = order.get("expires_at")
-            expired = exp and (exp if exp.tzinfo else exp.replace(tzinfo=timezone.utc)) < now()
-            return await refund_order(order, "refunded" if expired else "cancelled",
-                                      "Refund otomatis (pesanan berakhir di provider)")
+            expired = bool(order.get("status") == "expired" or (exp and (exp if exp.tzinfo else exp.replace(tzinfo=timezone.utc)) <= now()))
+            return await refund_order(
+                order,
+                "expired" if expired else "cancelled",
+                "Refund otomatis (batas waktu DapetOTP)" if expired else "Refund otomatis (pesanan berakhir di provider)",
+            )
 
     exp = order.get("expires_at")
-    if exp and (exp if exp.tzinfo else exp.replace(tzinfo=timezone.utc)) < now() and order["status"] == "pending":
-        if ocfg.get("auto_refund_on_expire"):
-            return await refund_order(order, "refunded", "Refund order kedaluwarsa")
-        await db.orders.update_one({"_id": order["_id"]}, {"$set": {"status": "expired"}})
-        order["status"] = "expired"
+    locally_expired = bool(exp and (exp if exp.tzinfo else exp.replace(tzinfo=timezone.utc)) <= now())
+    if locally_expired and order.get("status") in ("pending", "expired") and not order.get("otp_codes"):
+        return await auto_expire_order(order, cfg)
     return order
 
 
 def public_order(doc: dict) -> dict:
     """Data pesanan untuk pelanggan tanpa detail integrasi internal."""
     d = clean(doc) if "_id" in doc else dict(doc)
-    for k in ("activation_id", "provider_price", "provider_status", "source", "country_logo", "service_logo_source", "service_code"):
+    for k in (
+        "activation_id", "provider_price", "provider_status", "provider_expires_at", "provider_cancelled_at",
+        "auto_cancel_claimed_at", "auto_cancel_attempt_at", "auto_cancel_last_error",
+        "source", "country_logo", "service_logo_source", "service_code",
+    ):
         d.pop(k, None)
     logo = str(d.get("service_logo") or "")
     if logo and not logo.startswith("/api/catalog/logo/"):
@@ -1844,8 +1960,12 @@ async def adm_report(month: str = ""):
         {"$match": {"created_at": {"$gte": start, "$lt": end}}},
         {"$group": {"_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
                     "orders": {"$sum": 1},
-                    "revenue": {"$sum": {"$cond": [{"$in": ["$status", ["cancelled", "refunded"]]}, 0, "$price"]}},
-                    "cost": {"$sum": {"$cond": [{"$in": ["$status", ["cancelled", "refunded"]]}, 0, "$provider_price"]}}}},
+                    "revenue": {"$sum": {"$cond": [{"$or": [
+                        {"$in": ["$status", ["cancelled", "refunded"]]}, {"$eq": ["$refunded", True]}
+                    ]}, 0, "$price"]}},
+                    "cost": {"$sum": {"$cond": [{"$or": [
+                        {"$in": ["$status", ["cancelled", "refunded"]]}, {"$eq": ["$refunded", True]}
+                    ]}, 0, "$provider_price"]}}}},
         {"$sort": {"_id": 1}},
     ]).to_list(40)
     topups = await db.transactions.aggregate([
@@ -1911,6 +2031,53 @@ async def adm_tg_test():
     return {"ok": True}
 
 
+async def migrate_pending_order_expiry_buffer():
+    """Samakan order pending lama maupun patch sebelumnya ke buffer dinamis 10%."""
+    pending = await db.orders.find({
+        "status": "pending",
+        "expires_at": {"$exists": True},
+    }).to_list(1000)
+    for order in pending:
+        provider_exp = parse_provider_expiry(order.get("provider_expires_at"))
+        if not provider_exp:
+            # Pada versi lama expires_at masih merupakan batas penuh dari provider.
+            provider_exp = parse_provider_expiry(order.get("expires_at"))
+        if not provider_exp:
+            continue
+        started_at = parse_provider_expiry(order.get("created_at")) or now()
+        local_exp = dapetotp_expiry(provider_exp, started_at)
+        if local_exp <= now():
+            local_exp = now()
+        await db.orders.update_one(
+            {"_id": order["_id"], "status": "pending"},
+            {"$set": {"provider_expires_at": provider_exp, "expires_at": local_exp}},
+        )
+
+
+async def order_expiry_worker():
+    """Auto-cancel order jatuh tempo walau user menutup dashboard/browser."""
+    while True:
+        try:
+            current = now()
+            docs = await db.orders.find({
+                "refunded": {"$ne": True},
+                "$or": [
+                    {"status": "pending", "expires_at": {"$lte": current}},
+                    {"status": "expired", "auto_cancel_attempt_at": {"$exists": True}},
+                ],
+            }).sort("expires_at", 1).limit(100).to_list(100)
+            for doc in docs:
+                try:
+                    await refresh_order(doc)
+                except Exception as e:
+                    logger.exception("worker auto-expire gagal untuk order %s: %s", doc.get("_id"), e)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.exception("worker auto-expire gagal: %s", e)
+        await asyncio.sleep(ORDER_EXPIRY_SCAN_SECONDS)
+
+
 app.include_router(api)
 app.include_router(v1)
 app.include_router(adm)
@@ -1942,7 +2109,20 @@ async def startup():
                                   "role": "user", "balance": 250000, "email_verified": True, "auth_provider": "password",
                                   "api_key": "dot_demo_" + secrets.token_hex(12), "created_at": now()})
 
+    await migrate_pending_order_expiry_buffer()
+
+    global _order_expiry_task
+    _order_expiry_task = asyncio.create_task(order_expiry_worker())
+
 
 @app.on_event("shutdown")
 async def shutdown():
+    global _order_expiry_task
+    if _order_expiry_task:
+        _order_expiry_task.cancel()
+        try:
+            await _order_expiry_task
+        except asyncio.CancelledError:
+            pass
+        _order_expiry_task = None
     client.close()
