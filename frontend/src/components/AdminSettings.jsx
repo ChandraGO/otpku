@@ -10,7 +10,7 @@ export const CATEGORIES = [
   { key: "contact", label: "Contact & Sosmed", desc: "Atur kontak dan username sosial media yang tampil di landing page serta Dashboard. Isi username tanpa @; setiap item bisa ditampilkan atau disembunyikan." },
   { key: "verification", label: "Verifikasi", desc: "Atur masa berlaku OTP email dan jeda kirim ulang." },
   { key: "orders", label: "Pesanan", desc: "Atur batas kedaluwarsa dan kebijakan pengembalian pesanan." },
-  { key: "pricing", label: "Harga", desc: "Markup global untuk semua layanan, biaya tetap, dan pembulatan. Markup level akun ditambahkan di atas nilai ini; override layanan dapat mengganti nilai global untuk layanan tertentu." },
+  { key: "pricing", label: "Harga", desc: "Harga jual dihitung dari modal riil provider setelah biaya beli coin dan pajak. Sistem lalu mengambil nilai yang lebih tinggi antara hasil markup atau modal + profit minimum aman, sehingga harga tidak jatuh di bawah target keuntungan." },
   { key: "smtp", label: "SMTP", desc: "Pengiriman email sistem dan konfigurasi server SMTP." },
   { key: "topup", label: "Isi Saldo", desc: "Batas minimum dan maksimum isi saldo pelanggan." },
   { key: "paykita", label: "Gateway Pembayaran", desc: "Kredensial gateway QRIS untuk checkout dan isi saldo (tidak terlihat oleh pengguna)." },
@@ -29,7 +29,7 @@ const LABELS = {
   order_expiry_seconds: "Kedaluwarsa pesanan (detik)", auto_refund_on_expire: "Refund otomatis saat kedaluwarsa",
   cancel_cooldown_seconds: "Jeda sebelum bisa batal (detik)", auto_refresh_seconds: "Auto-refresh dasbor (detik)",
   refund_window_seconds: "Jendela refund (detik)", allow_manual_cancel: "Izinkan batal manual",
-  markup_percent: "Markup (%)", fixed_fee: "Biaya tetap (Rp)", rounding_to: "Pembulatan ke (Rp)", rate_to_idr: "Kurs provider → IDR", min_profit: "Profit minimum (Rp)",
+  markup_percent: "Markup (%)", fixed_fee: "Biaya tetap (Rp)", rounding_to: "Pembulatan ke (Rp)", rate_to_idr: "Kurs dasar provider → IDR", provider_cost_multiplier: "Biaya beli per 1 unit / coin (Rp)", provider_tax_percent: "Pajak provider (%)", min_profit: "Profit minimum override (Rp)", safety_min_profit: "Profit minimum aman global (Rp)",
   host: "SMTP host", port: "Port", encryption: "Enkripsi (tls/ssl/none)", username: "Username", password: "Password", from_email: "Email pengirim", from_name: "Nama pengirim", enabled: "Aktif",
   min_amount: "Minimum isi saldo (Rp)", max_amount: "Maksimum isi saldo (Rp)", auto_approve: "Setujui otomatis", note: "Catatan untuk pelanggan",
   api_key: "API Key", webhook_secret: "Webhook secret", order_ttl_seconds: "Masa aktif order (detik)",
@@ -81,10 +81,50 @@ export const AdminSettings = ({ category, values, onSaved }) => {
 
   const entries = Object.entries(form).filter(([k]) => !k.endsWith("_set"));
 
+  const pricingPreview = (() => {
+    if (category !== "pricing") return null;
+    const sampleProviderPrice = 5000;
+    const rate = Math.max(0, Number(form.rate_to_idr ?? 1) || 0);
+    const multiplier = Math.max(0, Number(form.provider_cost_multiplier ?? 1) || 0);
+    const taxPercent = Math.max(0, Number(form.provider_tax_percent ?? 0) || 0);
+    const markupPercent = Number(form.markup_percent ?? 0) || 0;
+    const fixedFee = Number(form.fixed_fee ?? 0) || 0;
+    const minProfit = Math.max(0, Number(form.min_profit ?? 0) || 0);
+    const safetyMinProfit = Math.max(0, Number(form.safety_min_profit ?? 0) || 0);
+    const step = Math.max(1, Number(form.rounding_to ?? 1) || 1);
+    const beforeTax = sampleProviderPrice * rate * multiplier;
+    const tax = beforeTax * taxPercent / 100;
+    const cost = beforeTax + tax;
+    const markupPrice = cost * (1 + markupPercent / 100) + fixedFee;
+    const floor = cost + Math.max(minProfit, safetyMinProfit);
+    const sale = Math.ceil(Math.max(markupPrice, floor) / step) * step;
+    return { sampleProviderPrice, beforeTax, tax, cost, sale, profit: sale - cost };
+  })();
+
+  const idr = (n) => `Rp${Math.round(Number(n || 0)).toLocaleString("id-ID")}`;
+
   return (
     <div data-testid={`settings-panel-${category}`}>
       <h2 className="text-2xl font-extrabold">{meta?.label}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{meta?.desc}</p>
+
+      {category === "pricing" && pricingPreview && (
+        <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
+          <p className="font-bold text-emerald-500">Proteksi anti-rugi aktif</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Rumus: modal setelah pajak → hitung markup → bandingkan dengan modal + profit minimum aman → pakai harga yang paling tinggi.
+          </p>
+          <div className="mt-3 grid gap-2 text-xs sm:grid-cols-4">
+            <div><span className="text-muted-foreground">Contoh provider</span><p className="mono font-bold">{pricingPreview.sampleProviderPrice.toLocaleString("id-ID")} unit</p></div>
+            <div><span className="text-muted-foreground">Modal + pajak</span><p className="mono font-bold">{idr(pricingPreview.cost)}</p></div>
+            <div><span className="text-muted-foreground">Harga jual aman</span><p className="mono font-bold text-primary">{idr(pricingPreview.sale)}</p></div>
+            <div><span className="text-muted-foreground">Estimasi profit</span><p className="mono font-bold text-emerald-500">{idr(pricingPreview.profit)}</p></div>
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Untuk contoh pembelianmu 50.000 coin = Rp68.000 sebelum pajak, isi <b>Biaya beli per 1 unit / coin = 1,36</b>, <b>Pajak provider = 11%</b>, dan <b>Profit minimum aman = Rp5.000</b>.
+          </p>
+        </div>
+      )}
 
       {category === "contact" ? (
         <div className="mt-7 grid gap-4 lg:grid-cols-2">

@@ -64,6 +64,7 @@ export const AdminServicePricing = () => {
         markup_percent: valueFor("markup_percent"),
         fixed_fee: valueFor("fixed_fee"),
         rounding_to: valueFor("rounding_to"),
+        min_profit: valueFor("min_profit"),
       });
       toast.success(`Markup ${it.service_name} disimpan`);
       await loadOverrides();
@@ -88,7 +89,7 @@ export const AdminServicePricing = () => {
       <Card>
         <h2 className="text-2xl font-extrabold">Harga per Layanan</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Harga dasar diambil real-time dari provider. Kosongkan nilai lalu Simpan untuk menghapus override dan kembali memakai markup global. Harga “jual” di bawah adalah hasil kalkulasi backend yang sama dengan katalog pelanggan.
+          Harga provider diubah menjadi modal riil setelah biaya beli coin dan pajak. Sistem anti-rugi global tetap berlaku pada semua layanan. Kosongkan nilai override lalu Simpan untuk kembali memakai pengaturan global.
         </p>
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <div className="relative min-w-[220px] flex-1">
@@ -126,8 +127,11 @@ export const AdminServicePricing = () => {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold">{it.service_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      provider {rupiah(it.provider_price)} → jual <b className="text-primary">{rupiah(it.price)}</b>
-                      {ov ? " · markup khusus" : " · markup global"}
+                      provider {Number(it.provider_price || 0).toLocaleString("id-ID")} unit
+                      {it.provider_cost_after_tax != null && <> → modal <b>{rupiah(it.provider_cost_after_tax)}</b></>}
+                      {" → "}jual <b className="text-primary">{rupiah(it.price)}</b>
+                      {it.estimated_profit != null && <> · profit ±<b className="text-emerald-500">{rupiah(it.estimated_profit)}</b></>}
+                      {ov ? " · override layanan" : " · harga global"}
                     </p>
                   </div>
                 </div>
@@ -158,6 +162,17 @@ export const AdminServicePricing = () => {
                     type="number"
                     value={d.rounding_to ?? ov?.rounding_to ?? ""}
                     onChange={(e) => setDraft({ ...draft, [it.service_code]: { ...d, rounding_to: e.target.value } })}
+                    className="mt-1 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="block w-28">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Min profit</span>
+                  <input
+                    data-testid={`svcprice-minprofit-${i}`}
+                    type="number"
+                    value={d.min_profit ?? ov?.min_profit ?? ""}
+                    placeholder="global"
+                    onChange={(e) => setDraft({ ...draft, [it.service_code]: { ...d, min_profit: e.target.value } })}
                     className="mt-1 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                   />
                 </label>

@@ -86,6 +86,37 @@ def clean(doc: dict) -> dict:
     return d
 
 
+def order_brand_token(site_name: str) -> str:
+    """Nama brand untuk nomor order: tanpa spasi/simbol dan selalu uppercase.
+
+    Contoh: "KODE OTP" -> "KODEOTP".
+    """
+    token = re.sub(r"[^A-Za-z0-9]+", "", str(site_name or "")).upper()
+    return token[:32] or "OTP"
+
+
+def branded_order_no(site_name: str, provider_invoice: Optional[str] = None) -> str:
+    """Buat kode order publik mengikuti Nama brand / navbar.
+
+    Jika provider mengirim SMSVirtual-ORD-17872695871841, suffix provider tetap
+    dipertahankan tetapi prefix diganti brand situs, misalnya:
+    KODEOTP-ORD-17872695871841.
+    """
+    raw = str(provider_invoice or "").strip()
+    suffix = ""
+    if raw:
+        match = re.search(r"(?:^|-)ORD-([A-Za-z0-9_-]+)$", raw, flags=re.IGNORECASE)
+        if match:
+            suffix = re.sub(r"[^A-Za-z0-9]+", "", match.group(1)).upper()
+        if not suffix:
+            digits = re.sub(r"\D+", "", raw)
+            suffix = digits[-24:] if digits else re.sub(r"[^A-Za-z0-9]+", "", raw).upper()[-24:]
+    if not suffix:
+        # Fallback untuk order/ref internal yang tidak punya invoice provider.
+        suffix = f"{int(now().timestamp() * 1000)}{secrets.randbelow(10)}"
+    return f"{order_brand_token(site_name)}-ORD-{suffix}"
+
+
 # ---------------- settings ----------------
 DEFAULT_SETTINGS: dict[str, dict[str, Any]] = {
     "site": {
@@ -109,7 +140,16 @@ DEFAULT_SETTINGS: dict[str, dict[str, Any]] = {
     "verification": {"otp_length": 6, "otp_ttl_seconds": 600, "resend_cooldown_seconds": 60, "max_attempts": 5, "require_email_verification": True},
     "orders": {"order_expiry_seconds": 900, "auto_refund_on_expire": True, "refund_window_seconds": 300,
                "allow_manual_cancel": True, "cancel_cooldown_seconds": 120, "auto_refresh_seconds": 3},
-    "pricing": {"markup_percent": 0, "fixed_fee": 0, "rounding_to": 1, "rate_to_idr": 1, "min_profit": 0},
+    "pricing": {
+        "markup_percent": 0, "fixed_fee": 0, "rounding_to": 100, "rate_to_idr": 1,
+        # Screenshot pembelian provider: 50.000 coin = Rp68.000 sebelum pajak => Rp1,36/coin.
+        # Field baru ini sengaja dipisah dari rate_to_idr supaya instalasi lama yang sudah
+        # menyimpan rate_to_idr=1 langsung mendapatkan perhitungan modal yang benar.
+        "provider_cost_multiplier": 1.36, "provider_tax_percent": 11,
+        # Profit minimum lama tetap didukung untuk override. Safety floor global memastikan
+        # harga jual tidak pernah berada di bawah modal setelah pajak + Rp5.000.
+        "min_profit": 0, "safety_min_profit": 5000,
+    },
     "smtp": {"host": "", "port": 587, "encryption": "tls", "username": "", "password": "", "from_email": "", "from_name": "dapetOTP", "enabled": False},
     "topup": {"min_amount": 10000, "max_amount": 5000000, "auto_approve": True, "note": "Saldo masuk otomatis setelah pembayaran terdeteksi."},
     "paykita": {"api_key": "", "webhook_secret": "", "order_ttl_seconds": 900, "enabled": False},
@@ -304,13 +344,54 @@ async def log_activity(user_id, action, meta=None):
     await db.activity.insert_one({"user_id": str(user_id) if user_id else None, "action": action, "meta": meta or {}, "created_at": now()})
 
 
+def pricing_breakdown(provider_price: float, p: dict) -> dict:
+    """Hitung harga jual berdasarkan MODAL RIIL provider, bukan harga coin mentah.
+
+    Rumus aman:
+      modal = harga_provider × kurs × biaya_per_unit × (1 + pajak_provider)
+      harga_markup = modal × (1 + markup) + biaya_tetap
+      harga_jual = max(harga_markup, modal + profit_minimum_aman)
+
+    Dengan setting bawaan saat ini, 5.000 coin =>
+      5.000 × 1,36 × 1,11 = Rp7.548 modal riil.
+    Harga jual minimal menjadi Rp12.548 (dibulatkan sesuai rounding_to), sehingga
+    markup kecil tidak bisa membuat transaksi rugi atau profit di bawah Rp5.000.
+    """
+    provider_units = max(0.0, float(provider_price or 0))
+    rate_to_idr = max(0.0, float(p.get("rate_to_idr") or 1))
+    cost_multiplier = max(0.0, float(p.get("provider_cost_multiplier") or 1))
+    tax_percent = max(0.0, float(p.get("provider_tax_percent") or 0))
+    markup_percent = float(p.get("markup_percent") or 0)
+    fixed_fee = float(p.get("fixed_fee") or 0)
+
+    cost_before_tax = provider_units * rate_to_idr * cost_multiplier
+    provider_tax = cost_before_tax * tax_percent / 100
+    cost_after_tax = cost_before_tax + provider_tax
+
+    markup_price = cost_after_tax * (1 + markup_percent / 100) + fixed_fee
+    requested_min_profit = max(0.0, float(p.get("min_profit") or 0))
+    safety_min_profit = max(0.0, float(p.get("safety_min_profit") or 0))
+    effective_min_profit = max(requested_min_profit, safety_min_profit)
+    safe_price = cost_after_tax + effective_min_profit
+
+    raw_price = max(markup_price, safe_price)
+    step = max(1, int(p.get("rounding_to") or 1))
+    price = int(math.ceil(raw_price / step) * step)
+
+    return {
+        "provider_units": provider_units,
+        "cost_before_tax": cost_before_tax,
+        "provider_tax": provider_tax,
+        "cost_after_tax": cost_after_tax,
+        "markup_percent": markup_percent,
+        "effective_min_profit": effective_min_profit,
+        "price": price,
+        "estimated_profit": price - cost_after_tax,
+    }
+
+
 def apply_pricing(provider_price: float, p: dict) -> int:
-    base = float(provider_price) * float(p.get("rate_to_idr") or 1)
-    price = base * (1 + float(p.get("markup_percent") or 0) / 100) + float(p.get("fixed_fee") or 0)
-    if base + float(p.get("min_profit") or 0) > price:
-        price = base + float(p.get("min_profit") or 0)
-    step = int(p.get("rounding_to") or 1) or 1
-    return int(math.ceil(price / step) * step)
+    return pricing_breakdown(provider_price, p)["price"]
 
 
 async def pricing_for(code: str, base_pricing: dict, tier: str = "member") -> dict:
@@ -743,6 +824,7 @@ async def services(request: Request, country_id: str, page: int = 1, page_size: 
         p["markup_percent"] = float(p.get("markup_percent") or 0) + tier_add_pct
         p["fixed_fee"] = float(p.get("fixed_fee") or 0) + tier_add_fee
         provider_price = tier_price(best)
+        breakdown = pricing_breakdown(provider_price, p)
         out.append({
             "service_country_price_id": best.get("id"),
             "service_name": (svc.get("name") or "-").strip(),
@@ -753,15 +835,24 @@ async def services(request: Request, country_id: str, page: int = 1, page_size: 
             "provider_price": provider_price,
             "provider_price_min": tier_price(tiers[0]),
             "provider_price_max": tier_price(tiers[-1]),
+            "provider_cost_before_tax": breakdown["cost_before_tax"],
+            "provider_tax": breakdown["provider_tax"],
+            "provider_cost_after_tax": breakdown["cost_after_tax"],
+            "estimated_profit": breakdown["estimated_profit"],
+            "minimum_profit": breakdown["effective_min_profit"],
             "markup_percent": p.get("markup_percent") or 0,
             "markup_source": "layanan" if ov else "global",
-            "price": apply_pricing(provider_price, p),
+            "price": breakdown["price"],
             "tiers": [{"id": t.get("id"), "provider_price": tier_price(t), "price": apply_pricing(tier_price(t), p),
                        "stock": t.get("stock")} for t in tiers],
         })
     out.sort(key=lambda x: x["service_name"].lower())
     if not full:
-        hide = ("provider_price", "provider_price_min", "provider_price_max", "markup_percent", "markup_source")
+        hide = (
+            "provider_price", "provider_price_min", "provider_price_max",
+            "provider_cost_before_tax", "provider_tax", "provider_cost_after_tax",
+            "estimated_profit", "minimum_profit", "markup_percent", "markup_source",
+        )
         out = [{**{k: v for k, v in i.items() if k not in hide},
                 "tiers": [{"id": t["id"], "price": t["price"], "stock": t.get("stock")} for t in i["tiers"]]}
                for i in out]
@@ -904,7 +995,19 @@ async def create_number_order(
     provider_price = detail.get("price") or listing.get("totalPrice") or listing.get("amount") or 0
     svc_code = (detail.get("service") or {}).get("code")
     p = await pricing_for(svc_code, pricing, user.get("tier") or "member")
-    calculated_price = apply_pricing(provider_price, p)
+    breakdown = pricing_breakdown(provider_price, p)
+    calculated_price = breakdown["price"]
+    if forced_price is not None and int(forced_price) < calculated_price:
+        # Pembayaran langsung mungkin dibuat beberapa detik sebelum provider menaikkan
+        # harga. Jangan penuhi order dengan nominal lama jika sudah berada di bawah
+        # modal + profit minimum aman; batalkan aktivasi provider dan coba server lain.
+        try:
+            await smsv_request(cfg.get("api_key"), "PUT", f"/v1/public/orders/cancel/{activation_id}")
+        except Exception:
+            pass
+        raise DirectProviderOrderError(
+            f"Harga provider berubah; pembayaran Rp{int(forced_price):,} di bawah harga aman Rp{calculated_price:,}"
+        )
     price = int(forced_price) if forced_price is not None else calculated_price
     if charge_balance:
         fresh = await db.users.find_one({"_id": user["_id"]})
@@ -924,16 +1027,22 @@ async def create_number_order(
     if exp_at <= created_at:
         exp_at = created_at
     raw_service_logo = (detail.get("service") or {}).get("imageUrl")
+    provider_invoice_no = detail.get("invoiceNo") or listing.get("invoiceNo")
+    site = await get_settings("site")
     doc = {
         "user_id": str(user["_id"]), "activation_id": activation_id,
-        "invoice_no": detail.get("invoiceNo") or listing.get("invoiceNo"),
+        "invoice_no": branded_order_no(site.get("site_name"), provider_invoice_no),
+        "provider_invoice_no": provider_invoice_no,
         "phone_number": detail.get("phoneNumber"), "service_name": (detail.get("service") or {}).get("name") or body.service_name,
         "service_code": svc_code,
         "service_logo_source": raw_service_logo,
         "service_logo": public_service_logo(svc_code, raw_service_logo),
         "country_name": (detail.get("country") or {}).get("name") or body.country_name,
         "country_logo": (detail.get("country") or {}).get("imageUrl"),
-        "price": price, "provider_price": provider_price, "status": "pending", "otp_codes": [],
+        "price": price, "provider_price": provider_price,
+        "provider_cost_after_tax": breakdown["cost_after_tax"],
+        "estimated_profit": price - breakdown["cost_after_tax"],
+        "status": "pending", "otp_codes": [],
         "source": source, "payment_method": payment_method, "payment_ref": payment_ref,
         "refunded": False, "created_at": created_at,
         "cancel_available_at": created_at + timedelta(seconds=cooldown),
@@ -1134,11 +1243,18 @@ async def refresh_order(order: dict) -> dict:
     return order
 
 
-def public_order(doc: dict) -> dict:
-    """Data pesanan untuk pelanggan tanpa detail integrasi internal."""
+def public_order(doc: dict, site_name: Optional[str] = None) -> dict:
+    """Data pesanan untuk pelanggan tanpa detail integrasi internal.
+
+    site_name opsional juga membuat order lama langsung mengikuti brand navbar saat
+    ditampilkan, tanpa perlu migrasi database.
+    """
     d = clean(doc) if "_id" in doc else dict(doc)
+    if site_name and d.get("invoice_no"):
+        raw_for_suffix = d.get("provider_invoice_no") or d.get("invoice_no")
+        d["invoice_no"] = branded_order_no(site_name, raw_for_suffix)
     for k in (
-        "activation_id", "provider_price", "provider_status", "provider_expires_at", "provider_cancelled_at",
+        "activation_id", "provider_price", "provider_invoice_no", "provider_status", "provider_expires_at", "provider_cancelled_at",
         "auto_cancel_claimed_at", "auto_cancel_attempt_at", "auto_cancel_last_error",
         "source", "country_logo", "service_logo_source", "service_code",
     ):
@@ -1151,13 +1267,15 @@ def public_order(doc: dict) -> dict:
 
 @api.post("/orders")
 async def post_order(body: OrderIn, user: dict = Depends(get_current_user)):
-    return public_order(await create_number_order(user, body, "web"))
+    site = await get_settings("site")
+    return public_order(await create_number_order(user, body, "web"), site.get("site_name"))
 
 
 @api.get("/orders")
 async def list_orders(user: dict = Depends(get_current_user)):
     docs = await db.orders.find({"user_id": str(user["_id"])}).sort("created_at", -1).to_list(100)
-    return {"items": [public_order(await refresh_order(d)) for d in docs]}
+    site = await get_settings("site")
+    return {"items": [public_order(await refresh_order(d), site.get("site_name")) for d in docs]}
 
 
 @api.get("/orders/{order_id}")
@@ -1165,7 +1283,8 @@ async def get_order(order_id: str, user: dict = Depends(get_current_user)):
     d = await db.orders.find_one({"_id": oid(order_id), "user_id": str(user["_id"])})
     if not d:
         raise HTTPException(404, "Order tidak ditemukan")
-    return public_order(await refresh_order(d))
+    site = await get_settings("site")
+    return public_order(await refresh_order(d), site.get("site_name"))
 
 
 @api.post("/orders/{order_id}/cancel")
@@ -1294,35 +1413,24 @@ async def rate_order(order_id: str, body: RatingIn, user: dict = Depends(get_cur
     if not d:
         raise HTTPException(404, "Pesanan tidak ditemukan")
     if d.get("status") != "success":
-        raise HTTPException(400, "Rating hanya tersedia untuk pesanan yang sudah selesai")
+        raise HTTPException(400, "Feedback hanya tersedia untuk pesanan yang sudah selesai")
     if d.get("rating"):
-        raise HTTPException(400, "Pesanan ini sudah diberi rating")
+        raise HTTPException(400, "Pesanan ini sudah diberi feedback")
 
     stars = int(body.stars)
-    bonus = stars * 100
     result = await db.orders.update_one(
         {"_id": order_oid, "user_id": uid, "status": "success", "rating": {"$exists": False}},
         {"$set": {
             "rating": stars,
             "rating_comment": body.comment.strip(),
-            "rating_bonus": bonus,
             "rated_at": now(),
         }},
     )
     if not result.modified_count:
-        raise HTTPException(400, "Pesanan ini sudah diberi rating")
+        raise HTTPException(400, "Pesanan ini sudah diberi feedback")
 
-    await db.users.update_one({"_id": user["_id"]}, {"$inc": {"balance": bonus}})
-    await db.transactions.insert_one({
-        "user_id": uid,
-        "type": "rating_bonus",
-        "amount": bonus,
-        "ref": order_id,
-        "note": f"Bonus feedback {stars} bintang",
-        "created_at": now(),
-    })
-    await log_activity(user["_id"], "order.rating", {"order_id": order_id, "stars": stars, "bonus": bonus})
-    return {"ok": True, "stars": stars, "bonus": bonus}
+    await log_activity(user["_id"], "order.rating", {"order_id": order_id, "stars": stars})
+    return {"ok": True, "stars": stars}
 
 
 @api.post("/orders/{order_id}/resend")
@@ -1598,7 +1706,8 @@ async def create_direct_payment(body: DirectOrderPaymentIn, user: dict = Depends
         raise HTTPException(400, "Harga layanan tidak valid")
 
     pk = await get_settings("paykita")
-    ref = "ORD-" + secrets.token_hex(5).upper()
+    site = await get_settings("site")
+    ref = branded_order_no(site.get("site_name"))
     ttl = int(pk.get("order_ttl_seconds") or 900)
     webhook = f"{os.environ.get('FRONTEND_URL', '')}/api/webhooks/paykita"
     try:

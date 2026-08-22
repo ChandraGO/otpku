@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { RefreshCw, Send, XCircle, Copy, Clock, CheckCircle2, Loader2, PlayCircle, BadgeCheck, Star, Gift } from "lucide-react";
+import { RefreshCw, Send, XCircle, Copy, Clock, CheckCircle2, Loader2, PlayCircle, BadgeCheck, Star } from "lucide-react";
 import { toast } from "sonner";
 import { http, errMsg, rupiah } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
@@ -53,8 +53,8 @@ export const OrderCard = ({ order, onChange, highlight }) => {
   const rate = async (stars) => {
     setBusy("rating");
     try {
-      const { data } = await http.post(`/orders/${order.id}/rating`, { stars });
-      toast.success(`Terima kasih! Bonus ${rupiah(data.bonus)} sudah masuk ke saldo.`);
+      await http.post(`/orders/${order.id}/rating`, { stars });
+      toast.success("Terima kasih atas feedback-nya!");
       onChange?.();
     } catch (e) {
       toast.error(errMsg(e));
@@ -182,16 +182,13 @@ export const OrderCard = ({ order, onChange, highlight }) => {
                   <Star key={n} className={`h-4 w-4 ${n <= Number(order.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/35"}`} />
                 ))}
               </div>
-              <span className="text-xs font-bold">Rating {order.rating}/5</span>
-              <span className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-500">
-                <Gift className="h-3.5 w-3.5" /> Bonus {rupiah(order.rating_bonus || Number(order.rating) * 100)}
-              </span>
+              <span className="text-xs font-bold">Feedback {order.rating}/5</span>
             </div>
           ) : (
             <div data-testid={`order-rating-${order.id}`} className="flex flex-wrap items-center gap-3">
               <div>
-                <p className="text-xs font-bold">Beri rating pesanan</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Bonus feedback Rp100–Rp500, sesuai jumlah bintang. Hanya bisa sekali.</p>
+                <p className="text-xs font-bold">Beri feedback pesanan</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Bagikan penilaianmu untuk membantu kami meningkatkan layanan. Hanya bisa sekali.</p>
               </div>
               <div className="flex items-center gap-1 sm:ml-auto">
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -199,8 +196,8 @@ export const OrderCard = ({ order, onChange, highlight }) => {
                     key={n}
                     type="button"
                     data-testid={`order-rating-${order.id}-${n}`}
-                    title={`${n} bintang · bonus ${rupiah(n * 100)}`}
-                    aria-label={`${n} bintang, bonus ${rupiah(n * 100)}`}
+                    title={`${n} bintang`}
+                    aria-label={`${n} bintang`}
                     disabled={busy === "rating"}
                     onClick={() => rate(n)}
                     className="group grid h-10 w-10 place-items-center rounded-xl border border-border bg-background transition-all hover:-translate-y-0.5 hover:border-amber-400 disabled:opacity-50"
