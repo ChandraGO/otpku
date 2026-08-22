@@ -32,7 +32,11 @@ export const OrderCard = ({ order, onChange, highlight }) => {
   const cancelLeft = order.cancel_available_at ? (new Date(order.cancel_available_at).getTime() - tick) / 1000 : 0;
   const hasOtp = (order.otp_codes || []).length > 0;
   const canCancel = isPending && cancelLeft <= 0 && !hasOtp && expLeft > 0;
-  const [style, label] = STATUS[order.status] || STATUS.cancelled;
+  // Selama user belum menekan Selesai, backend tetap boleh berstatus pending agar tombol Complete tetap tersedia.
+  // Namun begitu kode sudah ada, badge tidak boleh lagi mengatakan "MENUNGGU OTP".
+  const [style, label] = hasOtp && isPending
+    ? ["bg-emerald-500/15 text-emerald-500 border-emerald-500/40", "OTP DITERIMA"]
+    : (STATUS[order.status] || STATUS.cancelled);
 
   const run = async (key, fn, ok) => {
     setBusy(key);
@@ -148,7 +152,7 @@ export const OrderCard = ({ order, onChange, highlight }) => {
 
         {isPending && (
           <div className="flex flex-wrap items-start gap-2">
-            {!order.ready && (
+            {!order.ready && !hasOtp && (
               <Btn id="y" testid={`order-ready-${order.id}`} icon={PlayCircle} label="Siap" tone="primary"
                 onClick={() => run("y", () => http.post(`/orders/${order.id}/ready`), "Nomor siap menerima OTP")} />
             )}

@@ -528,6 +528,20 @@ def public_service_logo(service_code: str, upstream_url: str) -> str:
     return f"/api/catalog/logo/{code}"
 
 
+def service_logo_fallback(service_code: str) -> Response:
+    """Kembalikan logo placeholder valid agar browser tidak membanjiri console dengan 404 logo provider."""
+    code = re.sub(r"[^A-Za-z0-9]", "", str(service_code or ""))[:3].upper() or "OTP"
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+<rect width="96" height="96" rx="20" fill="#172033"/>
+<text x="48" y="55" text-anchor="middle" font-family="Arial,sans-serif" font-size="24" font-weight="700" fill="#60a5fa">{code}</text>
+</svg>'''.encode("utf-8")
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=3600", "X-DapetOTP-Logo-Fallback": "1"},
+    )
+
+
 @api.get("/catalog/logo/{service_code}")
 async def catalog_logo(service_code: str):
     url = SERVICE_LOGO_URLS.get(service_code)
@@ -537,18 +551,18 @@ async def catalog_logo(service_code: str):
         if url:
             SERVICE_LOGO_URLS[service_code] = url
     if not url:
-        raise HTTPException(404, "Logo tidak ditemukan")
+        return service_logo_fallback(service_code)
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=False) as c:
             r = await c.get(url)
         content_type = (r.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
         if r.status_code != 200 or not content_type.startswith("image/"):
-            raise HTTPException(404, "Logo tidak ditemukan")
+            logger.info("logo provider tidak tersedia untuk %s (status=%s)", service_code, r.status_code)
+            return service_logo_fallback(service_code)
         return Response(content=r.content, media_type=content_type, headers={"Cache-Control": "public, max-age=86400"})
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(404, "Logo tidak ditemukan")
+    except Exception as e:
+        logger.info("logo provider gagal dimuat untuk %s: %s", service_code, e)
+        return service_logo_fallback(service_code)
 
 
 @api.get("/public/stats")
@@ -1194,12 +1208,65 @@ async def ready_order(order_id: str, user: dict = Depends(get_current_user)):
     d = await db.orders.find_one({"_id": oid(order_id), "user_id": str(user["_id"])})
     if not d:
         raise HTTPException(404, "Order tidak ditemukan")
+
+    # Endpoint dibuat idempotent. Bila ready sudah pernah berhasil, klik ulang tidak perlu meneruskan ke provider.
+    if d.get("ready"):
+        return {"ok": True, "already_ready": True}
+
+    # OTP yang sudah tersimpan berarti activation sudah melewati tahap ready; jangan panggil provider lagi.
+    if d.get("otp_codes"):
+        await db.orders.update_one({"_id": d["_id"]}, {"$set": {"ready": True}})
+        return {"ok": True, "already_ready": True, "otp_received": True}
+
+    if d.get("status") != "pending":
+        raise HTTPException(400, "Pesanan ini sudah tidak menunggu OTP")
+
     cfg = await get_settings("smsvirtual")
+
+    # Sinkronkan sekali sebelum PUT /ready. Ini menutup race saat OTP baru saja masuk di provider
+    # tetapi polling 3 detik frontend belum sempat memperbarui database lokal.
+    rows = await ongoing_rows(cfg, force=True)
+    if rows is not None:
+        row = next((r for r in rows if r.get("id") == d.get("activation_id")), None)
+        if row:
+            codes = row_codes(row)
+            if codes:
+                await db.orders.update_one(
+                    {"_id": d["_id"]},
+                    {"$set": {
+                        "otp_codes": codes,
+                        "phone_number": row.get("phoneNumber") or d.get("phone_number"),
+                        "provider_status": row.get("status"),
+                        "ready": True,
+                    }},
+                )
+                return {"ok": True, "already_ready": True, "otp_received": True}
+
     try:
         await smsv_request(cfg.get("api_key"), "PUT", f"/v1/public/orders/ready/{d['activation_id']}")
     except IntegrationError as e:
+        # Provider dapat menolak /ready bila status activation berubah tepat saat request berjalan.
+        # Cek ulang: jika OTP ternyata sudah ada, anggap operasi berhasil/idempotent.
+        rows = await ongoing_rows(cfg, force=True)
+        if rows is not None:
+            row = next((r for r in rows if r.get("id") == d.get("activation_id")), None)
+            if row:
+                codes = row_codes(row)
+                if codes:
+                    await db.orders.update_one(
+                        {"_id": d["_id"]},
+                        {"$set": {
+                            "otp_codes": codes,
+                            "phone_number": row.get("phoneNumber") or d.get("phone_number"),
+                            "provider_status": row.get("status"),
+                            "ready": True,
+                        }},
+                    )
+                    return {"ok": True, "already_ready": True, "otp_received": True}
+
         logger.warning("order ready gagal: %s", e)
-        raise HTTPException(400, "Layanan sementara tidak tersedia. Coba lagi sebentar.")
+        raise HTTPException(400, "Nomor belum bisa ditandai siap. Klik Cek; jika OTP sudah muncul, tombol Siap tidak diperlukan.")
+
     await db.orders.update_one({"_id": d["_id"]}, {"$set": {"ready": True}})
     return {"ok": True}
 
