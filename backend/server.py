@@ -294,6 +294,11 @@ class BlogIn(BaseModel):
     published: bool = True
 
 
+class BlogCommentIn(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+    parent_id: Optional[str] = None
+
+
 # ---------------- helpers ----------------
 async def log_activity(user_id, action, meta=None):
     await db.activity.insert_one({"user_id": str(user_id) if user_id else None, "action": action, "meta": meta or {}, "created_at": now()})
@@ -1834,6 +1839,57 @@ async def public_blog():
     return {"items": [clean(d) for d in docs]}
 
 
+def public_blog_comment(doc: dict) -> dict:
+    return {
+        "id": str(doc.get("_id")),
+        "parent_id": str(doc.get("parent_id")) if doc.get("parent_id") else None,
+        "author_name": doc.get("author_name") or "Pengguna",
+        "author_role": doc.get("author_role") or "user",
+        "body": doc.get("body") or "",
+        "created_at": (doc.get("created_at") if isinstance(doc.get("created_at"), str) else (doc.get("created_at") or now()).isoformat()),
+    }
+
+
+@api.get("/blog/{slug}/comments")
+async def public_blog_comments(slug: str):
+    post = await db.blog_posts.find_one({"slug": slug, "published": True}, {"_id": 1})
+    if not post:
+        raise HTTPException(404, "Artikel tidak ditemukan")
+    docs = await db.blog_comments.find({"post_id": str(post["_id"])}).sort("created_at", 1).to_list(1000)
+    return {"items": [public_blog_comment(d) for d in docs]}
+
+
+@api.post("/blog/{slug}/comments")
+async def create_blog_comment(slug: str, body: BlogCommentIn, user: dict = Depends(get_current_user)):
+    post = await db.blog_posts.find_one({"slug": slug, "published": True}, {"_id": 1})
+    if not post:
+        raise HTTPException(404, "Artikel tidak ditemukan")
+
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(400, "Komentar tidak boleh kosong")
+
+    parent_oid = None
+    if body.parent_id:
+        parent_oid = oid(body.parent_id)
+        parent = await db.blog_comments.find_one({"_id": parent_oid, "post_id": str(post["_id"])}, {"_id": 1})
+        if not parent:
+            raise HTTPException(404, "Komentar yang dibalas tidak ditemukan")
+
+    doc = {
+        "post_id": str(post["_id"]),
+        "parent_id": parent_oid,
+        "user_id": str(user["_id"]),
+        "author_name": (user.get("name") or "Pengguna").strip()[:120],
+        "author_role": user.get("role") or "user",
+        "body": text,
+        "created_at": now(),
+    }
+    res = await db.blog_comments.insert_one(doc)
+    await log_activity(user["_id"], "blog_comment", {"post_id": str(post["_id"]), "parent_id": str(parent_oid) if parent_oid else None})
+    return public_blog_comment({**doc, "_id": res.inserted_id})
+
+
 @api.get("/blog/{slug}")
 async def public_blog_detail(slug: str):
     doc = await db.blog_posts.find_one({"slug": slug, "published": True})
@@ -2050,7 +2106,9 @@ async def adm_update_blog(post_id: str, body: BlogIn):
 
 @adm.delete("/blog/{post_id}")
 async def adm_delete_blog(post_id: str):
-    await db.blog_posts.delete_one({"_id": oid(post_id)})
+    post_oid = oid(post_id)
+    await db.blog_posts.delete_one({"_id": post_oid})
+    await db.blog_comments.delete_many({"post_id": str(post_oid)})
     return {"ok": True}
 
 
@@ -2260,6 +2318,8 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("api_key")
     await db.login_attempts.create_index("identifier")
+    await db.blog_comments.create_index([("post_id", 1), ("created_at", 1)])
+    await db.blog_comments.create_index("parent_id")
     admin_email = os.environ["ADMIN_EMAIL"].lower()
     admin_password = os.environ["ADMIN_PASSWORD"]
     existing = await db.users.find_one({"email": admin_email})

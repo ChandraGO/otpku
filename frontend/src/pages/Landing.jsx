@@ -172,6 +172,10 @@ const ASSEMBLY_PIECES = [
     mobile: [-52, -112, -10],
     startScaleDesktop: 0.88,
     startScaleMobile: 0.82,
+    floatFinal: true,
+    floatY: 6,
+    floatDuration: 3.2,
+    floatDelay: 0.05,
   },
   {
     icon: Activity,
@@ -184,6 +188,10 @@ const ASSEMBLY_PIECES = [
     mobile: [58, -104, 10],
     startScaleDesktop: 1.16,
     startScaleMobile: 1.04,
+    floatFinal: true,
+    floatY: 8,
+    floatDuration: 3.55,
+    floatDelay: 0.35,
   },
   {
     icon: Wallet,
@@ -197,6 +205,10 @@ const ASSEMBLY_PIECES = [
     mobile: [-52, 118, 8],
     startScaleDesktop: 0.96,
     startScaleMobile: 0.9,
+    floatFinal: true,
+    floatY: 7,
+    floatDuration: 3.75,
+    floatDelay: 0.18,
   },
   {
     icon: CheckCircle2,
@@ -210,6 +222,10 @@ const ASSEMBLY_PIECES = [
     mobile: [54, -52, -8],
     startScaleDesktop: 1.08,
     startScaleMobile: 1.0,
+    floatFinal: true,
+    floatY: 6,
+    floatDuration: 3.35,
+    floatDelay: 0.55,
   },
   {
     icon: Layers3,
@@ -228,6 +244,18 @@ const ASSEMBLY_PIECES = [
 function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
   const [startX, startY, startR] = mobile ? item.mobile : item.desktop;
   const startScale = mobile ? (item.startScaleMobile ?? 0.9) : (item.startScaleDesktop ?? 0.94);
+  const [atFinal, setAtFinal] = useState(() => progress.get() >= 0.91);
+
+  useEffect(() => {
+    const updateFinalState = (latest) => {
+      const next = latest >= 0.91;
+      setAtFinal((current) => (current === next ? current : next));
+    };
+
+    updateFinalState(progress.get());
+    const unsubscribe = progress.on("change", updateFinalState);
+    return unsubscribe;
+  }, [progress]);
 
   // Slot CSS adalah posisi FINAL. x/y/rotate/scale di bawah hanya menentukan keadaan START.
   // Saat scroll, setiap badge bergerak halus ke slot final dan scale = 1.
@@ -245,17 +273,34 @@ function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
       ? "gap-1.5 px-2.5 py-2 text-[8px] sm:gap-2 sm:px-3 sm:py-2.5 sm:text-[9px]"
       : "gap-2 px-3.5 py-3 text-[11px]");
 
+  const shouldFloat = Boolean(item.floatFinal && atFinal && !reducedMotion);
+  const floatDistance = mobile ? Math.max(4, Math.round((item.floatY ?? 6) * 0.72)) : (item.floatY ?? 6);
+
   return (
-    <motion.div
+    <div
       aria-hidden="true"
-      style={reducedMotion ? { opacity: 0.82 } : { x, y, rotate, scale, opacity }}
-      className={`pointer-events-none absolute z-30 flex items-center rounded-2xl border border-border/90 bg-card/95 font-extrabold tracking-[0.08em] shadow-xl shadow-black/10 backdrop-blur-xl ${uniformSizeClass} ${mobile ? item.finalMobile : item.finalDesktop}`}
+      className={`pointer-events-none absolute z-30 ${mobile ? item.finalMobile : item.finalDesktop}`}
     >
-      <span className={`grid shrink-0 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary ${mobile ? "h-6 w-6 sm:h-7 sm:w-7" : "h-8 w-8"}`}>
-        <item.icon className={mobile ? "h-3 w-3" : "h-3.5 w-3.5"} />
-      </span>
-      <span className="whitespace-nowrap">{item.label}</span>
-    </motion.div>
+      <motion.div style={reducedMotion ? { opacity: 0.82 } : { x, y, rotate, scale, opacity }}>
+        <motion.div
+          animate={shouldFloat
+            ? { y: [0, -floatDistance, 0, Math.round(floatDistance * 0.45), 0], rotate: [0, 0.65, 0, -0.45, 0] }
+            : { y: 0, rotate: 0 }}
+          transition={shouldFloat
+            ? {
+              y: { duration: item.floatDuration ?? 3.4, repeat: Infinity, ease: "easeInOut", delay: item.floatDelay ?? 0 },
+              rotate: { duration: (item.floatDuration ?? 3.4) + 0.45, repeat: Infinity, ease: "easeInOut", delay: item.floatDelay ?? 0 },
+            }
+            : { duration: 0.28, ease: "easeOut" }}
+          className={`flex items-center rounded-2xl border border-border/90 bg-card/95 font-extrabold tracking-[0.08em] shadow-xl shadow-black/10 backdrop-blur-xl ${uniformSizeClass}`}
+        >
+          <span className={`grid shrink-0 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary ${mobile ? "h-6 w-6 sm:h-7 sm:w-7" : "h-8 w-8"}`}>
+            <item.icon className={mobile ? "h-3 w-3" : "h-3.5 w-3.5"} />
+          </span>
+          <span className="whitespace-nowrap">{item.label}</span>
+        </motion.div>
+      </motion.div>
+    </div>
   );
 }
 

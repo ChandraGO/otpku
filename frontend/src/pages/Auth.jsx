@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { http, errMsg } from "@/lib/api";
@@ -30,7 +30,10 @@ const Field = ({ label, testid, type, ...rest }) => (
 export default function Auth({ mode }) {
   const isLogin = mode === "login";
   const nav = useNavigate();
+  const location = useLocation();
   const { setUser } = useAuth();
+  const rawNext = new URLSearchParams(location.search).get("next") || "";
+  const nextPath = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "";
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [otp, setOtp] = useState("");
   const [stage, setStage] = useState("form");
@@ -46,11 +49,11 @@ export default function Auth({ mode }) {
         const { data } = await http.post("/auth/login", { email: form.email, password: form.password });
         setUser(data.user);
         toast.success("Berhasil masuk");
-        nav(data.user.role === "admin" ? "/admin" : "/dashboard");
+        nav(nextPath || (data.user.role === "admin" ? "/admin" : "/dashboard"));
       } else {
         const { data } = await http.post("/auth/register", form);
         if (data.needs_verification) { setStage("otp"); toast.success("Kode verifikasi dikirim ke email"); }
-        else { setUser(data.user); nav("/dashboard"); }
+        else { setUser(data.user); nav(nextPath || "/dashboard"); }
       }
     } catch (err) { toast.error(errMsg(err)); }
     setBusy(false);
@@ -63,7 +66,7 @@ export default function Auth({ mode }) {
       const { data } = await http.post("/auth/verify-otp", { email: form.email, code: otp });
       setUser(data.user);
       toast.success("Email terverifikasi");
-      nav("/dashboard");
+      nav(nextPath || "/dashboard");
     } catch (err) { toast.error(errMsg(err)); }
     setBusy(false);
   };
@@ -98,7 +101,11 @@ export default function Auth({ mode }) {
             </form>
             <p className="mt-6 text-center text-sm text-muted-foreground">
               {isLogin ? "Belum punya akun? " : "Sudah punya akun? "}
-              <Link data-testid="auth-switch" to={isLogin ? "/daftar" : "/masuk"} className="font-bold text-primary">
+              <Link
+                data-testid="auth-switch"
+                to={`${isLogin ? "/daftar" : "/masuk"}${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`}
+                className="font-bold text-primary"
+              >
                 {isLogin ? "Daftar" : "Masuk"}
               </Link>
             </p>

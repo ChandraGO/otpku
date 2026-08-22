@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { http } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
 import { AnnouncementContent } from "@/components/AnnouncementContent";
+import { BlogComments } from "@/components/BlogComments";
 
 const articleUrl = (slug) => `${window.location.origin}/blog/${encodeURIComponent(slug)}`;
 
@@ -72,6 +73,9 @@ export const BlogFeed = ({ initialSlug = "" }) => {
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
           <p className="text-xs text-muted-foreground">Bagikan link artikel ini agar bisa dibuka langsung.</p>
           <button onClick={() => shareArticle(selected)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground"><Share2 className="h-4 w-4" /> Share</button>
+        </div>
+        <div className="mt-8">
+          <BlogComments slug={selected.slug} />
         </div>
       </article>
     );
