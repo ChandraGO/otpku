@@ -9,6 +9,7 @@ import math
 import asyncio
 import secrets
 import logging
+import re
 from urllib.parse import urlparse
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Any
@@ -109,6 +110,9 @@ DEFAULT_SETTINGS: dict[str, dict[str, Any]] = {
         "reseller_markup_percent": 12, "reseller_fixed_fee": 0,
         "vip_markup_percent": 6, "vip_fixed_fee": 0,
         "reseller_min_topup": 500000, "vip_min_topup": 2000000,
+        "member_benefits": "Akses seluruh layanan\nAPI key pribadi\nHarga level Member",
+        "reseller_benefits": "Harga layanan lebih murah dari Member\nAPI key pribadi\nCocok untuk dijual kembali\nSemua benefit Member",
+        "vip_benefits": "Harga level paling rendah\nAPI key pribadi\nCocok untuk volume transaksi tinggi\nSemua benefit Reseller",
     },
     "backup": {"auto_backup": False, "retention_days": 30, "last_backup_at": ""},
 }
@@ -260,6 +264,23 @@ class ReplyIn(BaseModel):
 
 class SettingsIn(BaseModel):
     values: dict
+
+
+class ApiKeyChangeIn(BaseModel):
+    custom_key: Optional[str] = None
+
+
+class TierUpgradeIn(BaseModel):
+    tier: str
+
+
+class BlogIn(BaseModel):
+    title: str = Field(min_length=1, max_length=220)
+    slug: str = Field(default="", max_length=220)
+    excerpt: str = Field(default="", max_length=600)
+    body: str = Field(default="", max_length=100000)
+    cover_url: str = Field(default="", max_length=6000000)
+    published: bool = True
 
 
 # ---------------- helpers ----------------
@@ -433,11 +454,33 @@ async def logout(response: Response):
     return {"ok": True}
 
 
+async def set_user_api_key(user: dict, custom_key: Optional[str] = None) -> str:
+    if custom_key is None or not str(custom_key).strip():
+        key = "dot_" + secrets.token_hex(20)
+    else:
+        raw = str(custom_key).strip()
+        key = raw if raw.startswith("dot_") else f"dot_{raw}"
+        if len(key) < 12 or len(key) > 96:
+            raise HTTPException(400, "API key custom harus 12-96 karakter")
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", key):
+            raise HTTPException(400, "API key hanya boleh berisi huruf, angka, underscore, dan strip")
+
+    exists = await db.users.find_one({"api_key": key, "_id": {"$ne": user["_id"]}}, {"_id": 1})
+    if exists:
+        raise HTTPException(409, "API key sudah digunakan akun lain")
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {"api_key": key}})
+    await log_activity(user["_id"], "api_key.change", {"custom": bool(custom_key and str(custom_key).strip())})
+    return key
+
+
 @api.post("/auth/api-key/rotate")
 async def rotate_key(user: dict = Depends(get_current_user)):
-    key = "dot_" + secrets.token_hex(20)
-    await db.users.update_one({"_id": user["_id"]}, {"$set": {"api_key": key}})
-    return {"api_key": key}
+    return {"api_key": await set_user_api_key(user)}
+
+
+@api.post("/auth/api-key")
+async def change_api_key(body: ApiKeyChangeIn, user: dict = Depends(get_current_user)):
+    return {"api_key": await set_user_api_key(user, body.custom_key)}
 
 
 # ---------------- public ----------------
@@ -521,16 +564,19 @@ async def public_tiers(request: Request):
     return {
         "current": (me or {}).get("tier") or "member",
         "items": [
-            {"key": "member", "label": "Member", "color": "slate", "min_topup": 0},
-            {"key": "reseller", "label": "Reseller", "color": "sky", "min_topup": t.get("reseller_min_topup") or 0},
-            {"key": "vip", "label": "VIP", "color": "amber", "min_topup": t.get("vip_min_topup") or 0},
+            {"key": "member", "label": "Member", "color": "slate", "min_topup": 0,
+             "markup_percent": t.get("member_markup_percent") or 0, "benefits": t.get("member_benefits") or ""},
+            {"key": "reseller", "label": "Reseller", "color": "sky", "min_topup": t.get("reseller_min_topup") or 0,
+             "markup_percent": t.get("reseller_markup_percent") or 0, "benefits": t.get("reseller_benefits") or ""},
+            {"key": "vip", "label": "VIP", "color": "amber", "min_topup": t.get("vip_min_topup") or 0,
+             "markup_percent": t.get("vip_markup_percent") or 0, "benefits": t.get("vip_benefits") or ""},
         ],
     }
 
 
 @api.get("/announcements")
 async def list_announcements():
-    docs = await db.announcements.find({"active": True}).sort("created_at", -1).to_list(20)
+    docs = await db.announcements.find({"active": True}).sort([("pinned", -1), ("created_at", -1)]).to_list(20)
     return {"items": [clean(d) for d in docs]}
 
 
@@ -558,6 +604,32 @@ async def me_summary(user: dict = Depends(get_current_user)):
         "next_tier": ("reseller" if tier == "member" else "vip" if tier == "reseller" else None),
         "next_tier_min_topup": (tcfg.get("reseller_min_topup") if tier == "member" else tcfg.get("vip_min_topup") if tier == "reseller" else None),
     }
+
+
+@api.post("/me/tier/upgrade")
+async def upgrade_my_tier(body: TierUpgradeIn, user: dict = Depends(get_current_user)):
+    target = str(body.tier or "").lower()
+    rank = {"member": 0, "reseller": 1, "vip": 2}
+    current = str(user.get("tier") or "member").lower()
+    if target not in rank or target == "member":
+        raise HTTPException(400, "Level upgrade tidak dikenal")
+    if rank.get(current, 0) >= rank[target]:
+        raise HTTPException(400, "Akun sudah berada di level tersebut atau lebih tinggi")
+
+    tcfg = await get_settings("tiers")
+    required = int(tcfg.get(f"{target}_min_topup") or 0)
+    uid = str(user["_id"])
+    rows = await db.transactions.aggregate([
+        {"$match": {"user_id": uid, "type": "topup"}},
+        {"$group": {"_id": None, "t": {"$sum": "$amount"}}},
+    ]).to_list(1)
+    total = int(rows[0]["t"] if rows else 0)
+    if total < required:
+        raise HTTPException(400, f"Total deposit belum cukup. Minimal Rp{required:,.0f}".replace(",", "."))
+
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {"tier": target, "tier_upgraded_at": now()}})
+    await log_activity(user["_id"], "tier.upgrade", {"from": current, "to": target, "topup_total": total})
+    return {"tier": target, "topup_total": total}
 
 
 @api.get("/catalog/tier-prices")
@@ -1722,6 +1794,38 @@ async def v1_topup_status(topup_id: str, user: dict = Depends(api_key_user)):
     return {"data": await get_topup(topup_id, user), "message": "success"}
 
 
+# ---------------- blog ----------------
+def slugify_blog(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower()).strip("-")
+    return slug[:180] or f"artikel-{secrets.token_hex(3)}"
+
+
+def validate_blog_cover(value: str):
+    v = (value or "").strip()
+    if not v:
+        return
+    if v.startswith("data:image/"):
+        if len(v) > 5_700_000:
+            raise HTTPException(400, "Ukuran cover maksimal 4 MB")
+        return
+    if not (v.startswith("https://") or v.startswith("http://")):
+        raise HTTPException(400, "Cover harus berupa URL http(s) atau gambar lokal")
+
+
+@api.get("/blog")
+async def public_blog():
+    docs = await db.blog_posts.find({"published": True}).sort("published_at", -1).to_list(100)
+    return {"items": [clean(d) for d in docs]}
+
+
+@api.get("/blog/{slug}")
+async def public_blog_detail(slug: str):
+    doc = await db.blog_posts.find_one({"slug": slug, "published": True})
+    if not doc:
+        raise HTTPException(404, "Artikel tidak ditemukan")
+    return clean(doc)
+
+
 # ---------------- admin ----------------
 adm = APIRouter(prefix="/api/admin", dependencies=[Depends(require_admin)])
 
@@ -1842,6 +1946,7 @@ class AnnouncementIn(BaseModel):
     label: str = "INFORMASI"
     color: str = "sky"
     active: bool = True
+    pinned: bool = False
     image_url: str = ""
     image_caption: str = Field(default="", max_length=500)
 
@@ -1863,7 +1968,7 @@ def validate_announcement_image(value: str):
 
 @adm.get("/announcements")
 async def adm_announcements():
-    docs = await db.announcements.find({}).sort("created_at", -1).to_list(100)
+    docs = await db.announcements.find({}).sort([("pinned", -1), ("created_at", -1)]).to_list(100)
     return {"items": [clean(d) for d in docs]}
 
 
@@ -1885,6 +1990,51 @@ async def adm_update_announcement(ann_id: str, body: AnnouncementIn):
 @adm.delete("/announcements/{ann_id}")
 async def adm_delete_announcement(ann_id: str):
     await db.announcements.delete_one({"_id": oid(ann_id)})
+    return {"ok": True}
+
+
+@adm.get("/blog")
+async def adm_blog():
+    docs = await db.blog_posts.find({}).sort("updated_at", -1).to_list(200)
+    return {"items": [clean(d) for d in docs]}
+
+
+@adm.post("/blog")
+async def adm_create_blog(body: BlogIn):
+    validate_blog_cover(body.cover_url)
+    base = slugify_blog(body.slug or body.title)
+    slug = base
+    n = 2
+    while await db.blog_posts.find_one({"slug": slug}, {"_id": 1}):
+        slug = f"{base}-{n}"
+        n += 1
+    doc = {**body.model_dump(), "title": body.title.strip(), "slug": slug, "created_at": now(), "updated_at": now()}
+    if body.published:
+        doc["published_at"] = now()
+    res = await db.blog_posts.insert_one(doc)
+    return clean({**doc, "_id": res.inserted_id})
+
+
+@adm.put("/blog/{post_id}")
+async def adm_update_blog(post_id: str, body: BlogIn):
+    validate_blog_cover(body.cover_url)
+    old = await db.blog_posts.find_one({"_id": oid(post_id)})
+    if not old:
+        raise HTTPException(404, "Artikel tidak ditemukan")
+    slug = slugify_blog(body.slug or body.title)
+    conflict = await db.blog_posts.find_one({"slug": slug, "_id": {"$ne": old["_id"]}}, {"_id": 1})
+    if conflict:
+        raise HTTPException(409, "Slug artikel sudah digunakan")
+    upd = {**body.model_dump(), "title": body.title.strip(), "slug": slug, "updated_at": now()}
+    if body.published and not old.get("published_at"):
+        upd["published_at"] = now()
+    await db.blog_posts.update_one({"_id": old["_id"]}, {"$set": upd})
+    return {"ok": True, "slug": slug}
+
+
+@adm.delete("/blog/{post_id}")
+async def adm_delete_blog(post_id: str):
+    await db.blog_posts.delete_one({"_id": oid(post_id)})
     return {"ok": True}
 
 

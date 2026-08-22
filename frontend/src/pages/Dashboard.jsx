@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Wallet, Copy, Ticket, LayoutDashboard, ShoppingCart, ListOrdered, KeyRound, LifeBuoy, ChevronLeft, ChevronRight, Menu, X, Radio } from "lucide-react";
+import { Wallet, Copy, Ticket, LayoutDashboard, ShoppingCart, ListOrdered, KeyRound, LifeBuoy, ChevronLeft, ChevronRight, Menu, X, Radio, Crown, BookOpen, CheckCircle2, Shuffle } from "lucide-react";
 import { toast } from "sonner";
 import { http, errMsg, rupiah } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
@@ -8,15 +8,21 @@ import { Overview } from "@/components/Overview";
 import { PaymentPanel, TopupForm } from "@/components/Payment";
 import { useAuth } from "@/context/AuthContext";
 import { ServiceCatalog } from "@/components/ServiceCatalog";
+import { AccountUpgrade } from "@/components/AccountUpgrade";
+import { BlogFeed } from "@/components/BlogFeed";
 
 const TABS = [
   { key: "ringkasan", label: "Ringkasan", icon: LayoutDashboard },
   { key: "beli", label: "Beli Nomor", icon: ShoppingCart },
   { key: "pesanan", label: "Pesanan", icon: ListOrdered },
   { key: "saldo", label: "Isi Saldo", icon: Wallet },
+  { key: "upgrade", label: "Upgrade Akun", icon: Crown },
+  { key: "blog", label: "Blog", icon: BookOpen },
   { key: "tiket", label: "Tiket", icon: LifeBuoy },
   { key: "api", label: "API Key", icon: KeyRound },
 ];
+
+const BOTTOM_KEYS = ["ringkasan", "beli", "pesanan", "saldo", "tiket"];
 
 const Card = ({ children, className = "", ...rest }) => (
   <div {...rest} className={`rounded-3xl border border-border bg-card p-5 sm:p-6 ${className}`}>{children}</div>
@@ -63,6 +69,9 @@ export default function Dashboard() {
   const [payment, setPayment] = useState(null);
   const [payNote, setPayNote] = useState("");
   const [synced, setSynced] = useState(null);
+  const [apiCustom, setApiCustom] = useState("");
+  const [apiBusy, setApiBusy] = useState(false);
+  const [apiSuccess, setApiSuccess] = useState("");
   const topRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -122,6 +131,21 @@ export default function Dashboard() {
       setPayNote(`Bayar langsung untuk ${item.service_name} · ${rupiah(data.amount || price)}. Pembayaran ini tidak mengisi saldo; setelah lunas pesanan dibuat otomatis.`);
       go("beli");
     } catch (e) { toast.error(errMsg(e)); }
+  };
+
+  const changeApiKey = async (customKey = null) => {
+    setApiBusy(true);
+    try {
+      const { data } = await http.post("/auth/api-key", { custom_key: customKey || null });
+      setUser((prev) => ({ ...(prev || {}), api_key: data.api_key }));
+      setApiCustom("");
+      setApiSuccess(data.api_key);
+      toast.success("API key berhasil diperbarui");
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setApiBusy(false);
+    }
   };
 
   const shownOrders = focusOrder && orders ? orders.filter((o) => o.id === focusOrder) : orders;
@@ -202,6 +226,12 @@ export default function Dashboard() {
             )}
           </div>
           <NavItems compact={collapsed} />
+          {!collapsed && summary?.next_tier && (
+            <button onClick={() => go("upgrade")} className="mt-3 w-full rounded-2xl border border-primary/30 bg-primary/10 p-3 text-left hover:border-primary">
+              <div className="flex items-center gap-2 text-xs font-bold text-primary"><Crown className="h-4 w-4" /> Upgrade {summary.next_tier.toUpperCase()}</div>
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">Syarat total deposit {rupiah(summary.next_tier_min_topup)}</p>
+            </button>
+          )}
           <button
             data-testid="dash-sidebar-toggle"
             onClick={() => setCollapsed((c) => !c)}
@@ -307,6 +337,10 @@ export default function Dashboard() {
             </div>
           )}
 
+          {tab === "upgrade" && <AccountUpgrade summary={summary} onGo={go} onUpgraded={load} />}
+
+          {tab === "blog" && <BlogFeed />}
+
           {tab === "tiket" && (
             <div className="grid gap-5 lg:grid-cols-2">
               <Card>
@@ -360,21 +394,48 @@ export default function Dashboard() {
           )}
 
           {tab === "api" && (
-            <Card>
-              <p className="font-bold">API Key</p>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <code data-testid="dash-apikey" className="mono min-w-0 flex-1 truncate rounded-xl bg-muted px-4 py-3 text-xs">{user?.api_key}</code>
-                <button data-testid="dash-copy-apikey" onClick={() => copyText(user?.api_key)} className="flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-xs font-bold hover:border-primary hover:text-primary"><Copy className="h-3.5 w-3.5" /> Copy</button>
-                <button data-testid="dash-rotate-apikey" onClick={() => act(() => http.post("/auth/api-key/rotate"), "API key diperbarui")} className="rounded-xl bg-primary px-4 py-3 text-xs font-bold text-primary-foreground">Ganti</button>
+            <div className="space-y-5">
+              <Card>
+                <p className="font-bold">API Key</p>
+                <p className="mt-1 text-xs text-muted-foreground">Key aktif untuk header <code className="mono">x-api-key</code>.</p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <code data-testid="dash-apikey" className="mono min-w-0 flex-1 truncate rounded-xl bg-muted px-4 py-3 text-xs">{user?.api_key}</code>
+                  <button data-testid="dash-copy-apikey" onClick={() => copyText(user?.api_key, "API key disalin")} className="flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-xs font-bold hover:border-primary hover:text-primary"><Copy className="h-3.5 w-3.5" /> Copy</button>
+                  <button data-testid="dash-rotate-apikey" disabled={apiBusy} onClick={() => changeApiKey(null)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-bold text-primary-foreground disabled:opacity-60"><Shuffle className="h-3.5 w-3.5" /> Buat Random</button>
+                </div>
+              </Card>
+
+              <Card>
+                <p className="font-bold">Custom API Key</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">Boleh membuat key sendiri. Prefix <code className="mono">dot_</code> akan ditambahkan otomatis bila belum ditulis. Gunakan 12–96 karakter; huruf, angka, underscore, atau strip.</p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <input data-testid="dash-custom-apikey" value={apiCustom} onChange={(e) => setApiCustom(e.target.value)} placeholder="contoh: toko_saya_2026" className="mono min-w-0 flex-1 rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none focus:border-primary" />
+                  <button data-testid="dash-save-custom-apikey" disabled={apiBusy || !apiCustom.trim()} onClick={() => changeApiKey(apiCustom.trim())} className="rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">Simpan Custom Key</button>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {apiSuccess && (
+            <div className="fixed inset-0 z-[90] grid place-items-center bg-background/80 p-4 backdrop-blur-sm" data-testid="api-success-popup">
+              <div className="w-full max-w-md rounded-3xl border border-primary/30 bg-card p-6 shadow-2xl">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-500/15 text-emerald-500"><CheckCircle2 className="h-6 w-6" /></span>
+                <h3 className="mt-4 text-2xl font-extrabold">API Key berhasil diganti</h3>
+                <p className="mt-2 text-sm text-muted-foreground">Simpan key baru ini. Key sebelumnya langsung tidak berlaku.</p>
+                <code className="mono mt-4 block break-all rounded-2xl bg-muted p-4 text-xs">{apiSuccess}</code>
+                <div className="mt-5 flex gap-2">
+                  <button onClick={() => copyText(apiSuccess, "API key disalin")} className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-border px-4 py-3 text-sm font-bold hover:border-primary hover:text-primary"><Copy className="h-4 w-4" /> Copy</button>
+                  <button onClick={() => setApiSuccess("")} className="flex-1 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">Selesai</button>
+                </div>
               </div>
-            </Card>
+            </div>
           )}
         </main>
       </div>
 
       <nav data-testid="dash-bottom-nav" className="fixed bottom-0 left-0 right-0 z-50 border-t border-border glass px-2 pb-2 pt-2 lg:hidden">
         <div className="flex items-center justify-between">
-          {TABS.slice(0, 5).map(({ key, label, icon: Icon }) => (
+          {TABS.filter((t) => BOTTOM_KEYS.includes(t.key)).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               data-testid={`bottom-nav-${key}`}

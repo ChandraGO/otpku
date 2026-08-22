@@ -6,6 +6,7 @@ import { AdminSettings, CATEGORIES } from "@/components/AdminSettings";
 import { AdminReport } from "@/components/AdminReport";
 import { AdminServicePricing } from "@/components/AdminServicePricing";
 import { AdminAnnouncements } from "@/components/AdminAnnouncements";
+import { AdminBlog } from "@/components/AdminBlog";
 import { useSite } from "@/context/SiteContext";
 
 const Card = ({ children, className = "", ...rest }) => (
@@ -17,6 +18,7 @@ const SECTIONS = [
   { key: "report", label: "Laporan Untung Rugi" },
   { key: "svcprice", label: "Harga per Layanan" },
   { key: "announcements", label: "Pengumuman" },
+  { key: "blog", label: "Blog / Artikel" },
   { key: "users", label: "Pengguna" },
   { key: "orders", label: "Pesanan" },
   { key: "topups", label: "Isi Saldo" },
@@ -109,6 +111,7 @@ export default function Admin() {
           {section === "report" && <AdminReport />}
           {section === "svcprice" && <AdminServicePricing />}
           {section === "announcements" && <AdminAnnouncements />}
+          {section === "blog" && <AdminBlog />}
 
           {section === "overview" && stats && (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

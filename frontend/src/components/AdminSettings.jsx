@@ -40,10 +40,11 @@ const LABELS = {
   reseller_markup_percent: "Markup Reseller (%)", reseller_fixed_fee: "Biaya tetap Reseller (Rp)",
   vip_markup_percent: "Markup VIP (%)", vip_fixed_fee: "Biaya tetap VIP (Rp)",
   reseller_min_topup: "Min deposit Reseller (Rp)", vip_min_topup: "Min deposit VIP (Rp)",
+  member_benefits: "Benefit Member", reseller_benefits: "Benefit Reseller", vip_benefits: "Benefit VIP",
 };
 
 const SECRET = ["password", "api_key", "webhook_secret", "telegram_bot_token"];
-const LONG_TEXT = new Set(["meta_description", "note"]);
+const LONG_TEXT = new Set(["meta_description", "note", "member_benefits", "reseller_benefits", "vip_benefits"]);
 
 export const AdminSettings = ({ category, values, onSaved }) => {
   const [form, setForm] = useState(values || {});
@@ -70,13 +71,6 @@ export const AdminSettings = ({ category, values, onSaved }) => {
     <div data-testid={`settings-panel-${category}`}>
       <h2 className="text-2xl font-extrabold">{meta?.label}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{meta?.desc}</p>
-      {category === "site" && (
-        <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs leading-5 text-muted-foreground">
-          <b className="text-foreground">Nama brand / navbar</b> mengubah tulisan logo di navbar, landing page, footer, dan judul Admin.
-          <br />
-          <b className="text-foreground">Judul tab browser / SEO</b> mengubah judul tab browser secara langsung setelah disimpan. Favicon, deskripsi, dan thumbnail berbagi juga mengikuti pengaturan di sini.
-        </div>
-      )}
 
       <div className="mt-7 grid gap-4 sm:grid-cols-2">
         {entries.map(([k, v]) => {

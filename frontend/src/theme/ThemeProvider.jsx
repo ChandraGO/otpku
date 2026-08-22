@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 export const ACCENTS = {
-  ungu: { label: "Ungu", dot: "#8b5cf6", dark: "263 85% 66%", light: "263 70% 55%" },
-  biru: { label: "Biru", dot: "#3b82f6", dark: "217 91% 60%", light: "217 88% 52%" },
-  hijau: { label: "Hijau", dot: "#22c55e", dark: "142 71% 45%", light: "142 65% 38%" },
-  merah: { label: "Merah", dot: "#ef4444", dark: "0 84% 60%", light: "0 74% 48%" },
+  ungu: { label: "Ungu", dot: "#8b5cf6", dark: "263 85% 66%", light: "263 70% 55%", logoFilter: "hue-rotate(44deg) saturate(1.08)" },
+  biru: { label: "Biru", dot: "#3b82f6", dark: "217 91% 60%", light: "217 88% 52%", logoFilter: "none" },
+  hijau: { label: "Hijau", dot: "#22c55e", dark: "142 71% 45%", light: "142 65% 38%", logoFilter: "hue-rotate(-76deg) saturate(1.08)" },
+  merah: { label: "Merah", dot: "#ef4444", dark: "0 84% 60%", light: "0 74% 48%", logoFilter: "hue-rotate(143deg) saturate(1.08)" },
 };
 
 function relLuminance(r, g, b) {
@@ -50,6 +50,7 @@ export function ThemeProvider({ children }) {
     root.style.setProperty("--primary", hsl);
     root.style.setProperty("--ring", hsl);
     root.style.setProperty("--primary-foreground", pickForeground(hsl));
+    root.style.setProperty("--brand-logo-filter", (ACCENTS[accent] || ACCENTS.biru).logoFilter || "none");
   }, [mode, accent]);
 
   useEffect(() => {

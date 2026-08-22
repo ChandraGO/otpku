@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, BookOpen, Tag, HelpCircle, LayoutDashboard, ShieldCheck, LogOut, Menu, X } from "lucide-react";
+import { Home, BookOpen, Tag, HelpCircle, LayoutDashboard, ShieldCheck, LogOut, Menu, X, FileText } from "lucide-react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/lib/i18n";
@@ -15,7 +15,7 @@ const Brand = ({ name = "dapetOTP", logoUrl = "" }) => {
     <Link to="/" data-testid="brand-logo" className="flex min-w-0 items-center gap-3">
       <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-primary brand-glow">
         {logoUrl ? (
-          <img src={logoUrl} alt={clean} className="h-full w-full object-contain" />
+          <img src={logoUrl} alt={clean} className="theme-brand-logo h-full w-full object-contain" />
         ) : (
           <span className="text-lg font-extrabold text-primary-foreground">{initial}</span>
         )}
@@ -34,12 +34,13 @@ export const Navbar = () => {
   const loc = useLocation();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
-  const appShell = loc.pathname.startsWith("/dasbor") || loc.pathname.startsWith("/admin");
+  const appShell = loc.pathname.startsWith("/dashboard") || loc.pathname.startsWith("/admin");
 
   const links = [
     { to: "/", label: t("home"), icon: Home },
     { to: "/docs", label: t("docs"), icon: BookOpen },
     { to: "/harga", label: t("pricing"), icon: Tag },
+    { to: "/blog", label: "Blog", icon: FileText },
     { to: "/faq", label: t("faq"), icon: HelpCircle },
   ];
 
@@ -70,7 +71,7 @@ export const Navbar = () => {
           {user ? (
             <>
               <Link
-                to="/dasbor"
+                to="/dashboard"
                 data-testid="nav-dashboard"
                 className="hidden items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:flex"
               >
@@ -111,7 +112,7 @@ export const Navbar = () => {
 
       {open && (
         <div className="border-t border-border px-5 py-3 lg:hidden" data-testid="nav-mobile-menu">
-          {[...links, ...(user ? [{ to: "/dasbor", label: t("dashboard"), icon: LayoutDashboard }] : [{ to: "/masuk", label: t("login"), icon: LayoutDashboard }]),
+          {[...links, ...(user ? [{ to: "/dashboard", label: t("dashboard"), icon: LayoutDashboard }] : [{ to: "/masuk", label: t("login"), icon: LayoutDashboard }]),
             ...(user?.role === "admin" ? [{ to: "/admin", label: t("admin"), icon: ShieldCheck }] : [])].map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-muted-foreground hover:bg-accent hover:text-foreground">
               <Icon className="h-4 w-4" /> {label}

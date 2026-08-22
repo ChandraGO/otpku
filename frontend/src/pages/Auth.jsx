@@ -46,11 +46,11 @@ export default function Auth({ mode }) {
         const { data } = await http.post("/auth/login", { email: form.email, password: form.password });
         setUser(data.user);
         toast.success("Berhasil masuk");
-        nav(data.user.role === "admin" ? "/admin" : "/dasbor");
+        nav(data.user.role === "admin" ? "/admin" : "/dashboard");
       } else {
         const { data } = await http.post("/auth/register", form);
         if (data.needs_verification) { setStage("otp"); toast.success("Kode verifikasi dikirim ke email"); }
-        else { setUser(data.user); nav("/dasbor"); }
+        else { setUser(data.user); nav("/dashboard"); }
       }
     } catch (err) { toast.error(errMsg(err)); }
     setBusy(false);
@@ -63,7 +63,7 @@ export default function Auth({ mode }) {
       const { data } = await http.post("/auth/verify-otp", { email: form.email, code: otp });
       setUser(data.user);
       toast.success("Email terverifikasi");
-      nav("/dasbor");
+      nav("/dashboard");
     } catch (err) { toast.error(errMsg(err)); }
     setBusy(false);
   };

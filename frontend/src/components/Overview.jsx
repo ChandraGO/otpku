@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Wallet, BadgeCheck, ShoppingBag, PieChart, ShoppingCart, Plus, Megaphone, Crown, ChevronRight } from "lucide-react";
+import { Wallet, BadgeCheck, ShoppingBag, PieChart, ShoppingCart, Plus, Megaphone, Crown, ChevronRight, Pin } from "lucide-react";
 import { http, rupiah } from "@/lib/api";
 import { AnnouncementContent } from "@/components/AnnouncementContent";
 
@@ -157,6 +157,7 @@ export const Overview = ({ summary, onGo }) => {
             <div key={a.id} data-testid={`announcement-${a.id}`} className="rounded-2xl border border-border bg-background p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${LABEL_TONE[a.label] || LABEL_TONE.INFORMASI}`}>{a.label}</span>
+                {a.pinned && <span className="flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary"><Pin className="h-3 w-3 fill-current" /> PIN</span>}
                 <span className="text-[11px] text-muted-foreground">{new Date(a.created_at).toLocaleString("id-ID")}</span>
               </div>
               <p className="mt-2 text-sm font-bold">{a.title}</p>

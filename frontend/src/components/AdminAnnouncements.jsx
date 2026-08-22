@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Megaphone, Plus, Trash2, Loader2, Pencil, X, Save, Upload, Image as ImageIcon,
-  Bold, Italic, Underline, Strikethrough, Quote, EyeOff, List, ListOrdered, Code2, Link2,
+  Bold, Italic, Underline, Strikethrough, Quote, EyeOff, List, ListOrdered, Code2, Link2, Pin,
 } from "lucide-react";
 import { toast } from "sonner";
 import { http, errMsg } from "@/lib/api";
@@ -15,7 +15,7 @@ const TONE = {
   PROMO: "bg-emerald-500/15 text-emerald-500 border-emerald-500/40",
   MAINTENANCE: "bg-amber-500/15 text-amber-500 border-amber-500/40",
 };
-const EMPTY = { title: "", body: "", label: "INFORMASI", active: true, image_url: "", image_caption: "" };
+const EMPTY = { title: "", body: "", label: "INFORMASI", active: true, pinned: false, image_url: "", image_caption: "" };
 const MAX_IMAGE = 4 * 1024 * 1024;
 
 const Card = ({ children, className = "", ...rest }) => (
@@ -147,6 +147,7 @@ export const AdminAnnouncements = () => {
       body: item.body || "",
       label: item.label || "INFORMASI",
       active: item.active !== false,
+      pinned: item.pinned === true,
       image_url: item.image_url || "",
       image_caption: item.image_caption || "",
     });
@@ -264,6 +265,10 @@ export const AdminAnnouncements = () => {
             ))}
           </div>
 
+          <button type="button" onClick={() => setForm({ ...form, pinned: !form.pinned })} className={`flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-xs font-bold ${form.pinned ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+            <Pin className={`h-4 w-4 ${form.pinned ? "fill-current" : ""}`} /> {form.pinned ? "Pengumuman dipin" : "Pin pengumuman"}
+          </button>
+
           <div className="flex flex-wrap gap-2">
             <button data-testid="ann-submit" onClick={submit} disabled={busy} className="flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : editingId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
@@ -283,11 +288,15 @@ export const AdminAnnouncements = () => {
           <Card key={a.id} data-testid={`admin-ann-${a.id}`}>
             <div className="flex flex-wrap items-start gap-3">
               <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${TONE[a.label] || TONE.INFORMASI}`}>{a.label}</span>
+              {a.pinned && <span className="flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary"><Pin className="h-3 w-3 fill-current" /> PIN</span>}
               <div className="min-w-[180px] flex-1">
                 <p className="text-sm font-bold">{a.title}</p>
                 <AnnouncementContent body={a.body} imageUrl={a.image_url} imageCaption={a.image_caption} className="mt-2 max-w-3xl" />
               </div>
               <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={async () => { await http.put(`/admin/announcements/${a.id}`, { ...a, pinned: !a.pinned }); load(); }} className={`rounded-xl border p-2.5 ${a.pinned ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary hover:text-primary"}`} title={a.pinned ? "Lepas pin" : "Pin"}>
+                  <Pin className={`h-4 w-4 ${a.pinned ? "fill-current" : ""}`} />
+                </button>
                 <button type="button" onClick={() => edit(a)} className="rounded-xl border border-border p-2.5 text-muted-foreground hover:border-primary hover:text-primary" title="Edit">
                   <Pencil className="h-4 w-4" />
                 </button>

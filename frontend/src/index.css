@@ -77,6 +77,11 @@
     border: 1px solid hsl(var(--border));
 }
 .brand-glow { box-shadow: var(--elev); }
+.theme-brand-logo {
+    filter: var(--brand-logo-filter, none);
+    transition: filter .22s ease;
+}
+
 .rise { animation: rise .6s cubic-bezier(.22,1,.36,1) both; }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .hover-lift { transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease, border-color .25s ease; }

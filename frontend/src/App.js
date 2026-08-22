@@ -14,12 +14,13 @@ import Faq from "@/pages/Faq";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Admin from "@/pages/Admin";
+import Blog from "@/pages/Blog";
 
 const Guard = ({ children, adminOnly }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="py-24 text-center text-sm text-muted-foreground">Memuat…</div>;
   if (!user) return <Navigate to="/masuk" replace />;
-  if (adminOnly && user.role !== "admin") return <Navigate to="/dasbor" replace />;
+  if (adminOnly && user.role !== "admin") return <Navigate to="/dashboard" replace />;
   return children;
 };
 
@@ -37,9 +38,12 @@ export default function App() {
                 <Route path="/docs" element={<Docs />} />
                 <Route path="/harga" element={<Catalog />} />
                 <Route path="/faq" element={<Faq />} />
+                <Route path="/blog" element={<Blog />} />
+                <Route path="/blog/:slug" element={<Blog />} />
                 <Route path="/masuk" element={<Auth mode="login" />} />
                 <Route path="/daftar" element={<Auth mode="register" />} />
-                <Route path="/dasbor" element={<Guard><Dashboard /></Guard>} />
+                <Route path="/dashboard" element={<Guard><Dashboard /></Guard>} />
+                <Route path="/dasbor" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/admin" element={<Guard adminOnly><Admin /></Guard>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
