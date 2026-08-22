@@ -168,8 +168,8 @@ const ASSEMBLY_PIECES = [
     finalMobile: "left-[11%] top-[1%]",
     desktop: [-150, -90, -12],
     mobile: [-38, -172, -10],
-    entryDesktopY: 110,
-    entryMobileY: 90,
+    entryDesktopY: 38,
+    entryMobileY: 42,
   },
   {
     icon: Activity,
@@ -178,8 +178,8 @@ const ASSEMBLY_PIECES = [
     finalMobile: "right-[11%] top-[1%]",
     desktop: [150, -85, 12],
     mobile: [4, -168, 10],
-    entryDesktopY: 110,
-    entryMobileY: 90,
+    entryDesktopY: 95,
+    entryMobileY: 78,
   },
   {
     icon: Wallet,
@@ -211,10 +211,9 @@ function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
   const [startX, startY, startR] = mobile ? item.mobile : item.desktop;
   const entryY = mobile ? (item.entryMobileY || 0) : (item.entryDesktopY || 0);
 
-  // Posisi CSS adalah SLOT FINAL. Saat load, dua badge bagian atas diberi safe-offset
-  // tambahan supaya ikut pop-up bersama card tetapi tidak naik menutupi CTA/chip hero.
-  // Offset ini dilepas bertahap begitu scroll dimulai sehingga posisi final assembly
-  // dan seluruh efek scroll sesudahnya tetap sama.
+  // Posisi CSS adalah SLOT FINAL. Saat load badge mengambang tersebar di perimeter hero
+  // (kiri/kanan/atas/bawah) agar tidak menumpuk di atas card utama. Ketika scroll
+  // dimulai, semua badge tetap mengikuti timeline assembly menuju slot final.
   const x = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startX, startX, startX * 0.7, startX * 0.3, 0, 0]);
   const y = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startY + entryY, startY + entryY, startY * 0.7 + entryY * 0.5, startY * 0.3, 0, 0]);
   const rotate = useTransform(progress, [0, 0.44, 0.88, 1], [startR, startR * 0.52, 0, 0]);
@@ -245,7 +244,14 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
     [0, 0.22, 0.5, 0.7, 0.88, 1],
     [0, 0, mobile ? 16 : 28, mobile ? 54 : 86, mobile ? 94 : 150, mobile ? 110 : 175]
   );
-  const cardY = useTransform(progress, [0, 0.36, 0.72, 1], [0, mobile ? 10 : 16, 0, 0]);
+  // Hanya card utama yang diparkir di bawah saat first load. Floating badges tetap
+  // tersebar di perimeter hero. Dock dilepas setelah scroll dimulai sehingga card
+  // masuk ke assembly tanpa pernah menutup CTA/chip pada posisi awal.
+  const cardDockY = useTransform(
+    progress,
+    [0, 0.08, 0.28, 0.52, 1],
+    [mobile ? 330 : 390, mobile ? 330 : 390, mobile ? 80 : 110, 0, 0]
+  );
   const cardRotate = useTransform(progress, [0, 0.48, 0.88, 1], [0, 1.2, 0, 0]);
   const cardScale = useTransform(progress, [0, 0.42, 0.82, 1], [1, 0.965, 1, 1]);
   const haloRotate = useTransform(progress, [0, 0.48, 0.88, 1], [-16, -5, 14, 14]);
@@ -279,7 +285,7 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
 
       <div className="absolute inset-0 z-20 flex items-center justify-center">
         <motion.div
-          style={reducedMotion ? { opacity: 1 } : { y: cardY, rotate: cardRotate, scale: cardScale, opacity: 1 }}
+          style={reducedMotion ? { opacity: 1 } : { y: cardDockY, rotate: cardRotate, scale: cardScale, opacity: 1 }}
           className={`w-full overflow-hidden rounded-[26px] border border-border bg-card/95 shadow-2xl shadow-black/15 backdrop-blur-xl ${mobile ? "max-w-[310px]" : "max-w-[560px]"}`}
         >
           <div className={`flex items-center gap-2 border-b border-border bg-muted/40 ${mobile ? "px-3 py-2.5" : "px-4 py-3"}`}>
@@ -451,11 +457,8 @@ export default function Landing() {
     "blur(9px)",
   ]);
   const assemblyProgress = useTransform(smoothHeroProgress, [0, 0.085, 0.72, 1], [0, 0, 1, 1]);
-  // Saat halaman pertama dimuat, seluruh assembly diparkir lebih bawah agar CTA dan
-  // chip hero punya ruang aman. Assembly baru naik setelah copy hero mulai bergerak,
-  // sehingga tidak ada fase card/floating badge menimpa konten utama.
-  const assemblyDockYMobile = useTransform(smoothHeroProgress, [0, 0.08, 0.26, 1], [330, 330, 0, 0]);
-  const assemblyDockYDesktop = useTransform(smoothHeroProgress, [0, 0.08, 0.26, 1], [360, 360, 0, 0]);
+  // Floating badge tidak didock bersama card. Hanya card utama yang diparkir di bawah
+  // di dalam AssemblyVisual agar posisi awal badge tetap tersebar mengelilingi hero.
   const scrollHintOpacity = useTransform(smoothHeroProgress, [0, 0.055, 0.14, 1], [0.72, 0.72, 0, 0]);
 
   useEffect(() => {
@@ -482,7 +485,7 @@ export default function Landing() {
             style={reducedMotion ? undefined : { y: copyY, opacity: copyOpacity, scale: copyScale, filter: copyFilter }}
             className="absolute inset-0 z-10 will-change-transform"
           >
-            <div className="mx-auto flex h-full max-w-7xl items-center justify-center px-5 pb-[24vh] pt-[76px] sm:px-6 sm:pt-[82px] lg:px-8">
+            <div className="mx-auto flex h-full max-w-7xl items-center justify-center px-5 pb-[20vh] pt-[84px] sm:px-6 sm:pt-[90px] lg:px-8">
               <div className="w-full">
                 <HeroCopy site={site} t={t} L={L} reducedMotion={reducedMotion} />
                 <motion.div
@@ -497,12 +500,12 @@ export default function Landing() {
           </motion.div>
 
           {/*
-            Assembly tetap memenuhi viewport. V13 mempertahankan overflow-visible pada sticky karena itulah
-            yang memotong bagian bawah kartu saat sticky mulai lepas. Titik final juga diturunkan
-            sedikit lagi dan scene dipendekkan agar section berikutnya masuk lebih cepat.
+            Assembly tetap memenuhi viewport. Floating badges dibiarkan berada di perimeter hero pada
+            first load, sementara card utama diparkir di bawah. Saat scroll semua elemen bergerak
+            mengikuti timeline yang sama menuju komposisi final.
           */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[70px] z-20 flex items-center justify-center px-2 sm:top-[76px] sm:px-5 lg:px-8">
-            <motion.div style={reducedMotion ? undefined : { y: assemblyDockYMobile }} className="w-full lg:hidden">
+            <motion.div className="w-full lg:hidden">
               <motion.div
                 initial={reducedMotion ? false : { opacity: 0, y: 58, scale: 0.97 }}
                 animate={reducedMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
@@ -511,7 +514,7 @@ export default function Landing() {
                 <AssemblyVisual progress={assemblyProgress} reducedMotion={reducedMotion} stats={stats} L={L} mobile />
               </motion.div>
             </motion.div>
-            <motion.div style={reducedMotion ? undefined : { y: assemblyDockYDesktop }} className="hidden w-full lg:block">
+            <motion.div className="hidden w-full lg:block">
               <motion.div
                 initial={reducedMotion ? false : { opacity: 0, y: 66, scale: 0.97 }}
                 animate={reducedMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
