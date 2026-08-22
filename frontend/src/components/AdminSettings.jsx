@@ -7,6 +7,7 @@ import { http, errMsg } from "@/lib/api";
 
 export const CATEGORIES = [
   { key: "site", label: "Situs & SEO", desc: "Identitas bisnis, favicon, thumbnail berbagi, dan metadata mesin pencarian." },
+  { key: "contact", label: "Contact & Sosmed", desc: "Atur kontak dan username sosial media yang tampil di landing page serta Dashboard. Isi username tanpa @; setiap item bisa ditampilkan atau disembunyikan." },
   { key: "verification", label: "Verifikasi", desc: "Atur masa berlaku OTP email dan jeda kirim ulang." },
   { key: "orders", label: "Pesanan", desc: "Atur batas kedaluwarsa dan kebijakan pengembalian pesanan." },
   { key: "pricing", label: "Harga", desc: "Markup global untuk semua layanan, biaya tetap, dan pembulatan. Markup level akun ditambahkan di atas nilai ini; override layanan dapat mengganti nilai global untuk layanan tertentu." },
@@ -43,6 +44,19 @@ const LABELS = {
   member_benefits: "Benefit Member", reseller_benefits: "Benefit Reseller", vip_benefits: "Benefit VIP",
 };
 
+
+const CONTACT_FIELDS = [
+  { key: "website", enabled: "website_enabled", label: "Link Website", placeholder: "contoh: dapetotp.com" },
+  { key: "phone", enabled: "phone_enabled", label: "Nomor HP", placeholder: "contoh: +6281234567890" },
+  { key: "support_email", enabled: "support_email_enabled", label: "Email Support", placeholder: "contoh: support@dapetotp.com" },
+  { key: "telegram", enabled: "telegram_enabled", label: "Username Telegram", placeholder: "contoh: chandrahafi" },
+  { key: "instagram", enabled: "instagram_enabled", label: "Username Instagram", placeholder: "contoh: chandrahafi" },
+  { key: "tiktok", enabled: "tiktok_enabled", label: "Username TikTok", placeholder: "contoh: chandrahafi" },
+  { key: "x", enabled: "x_enabled", label: "Username X", placeholder: "contoh: chandrahafi" },
+  { key: "facebook", enabled: "facebook_enabled", label: "Username Facebook", placeholder: "contoh: chandrahafi" },
+  { key: "youtube", enabled: "youtube_enabled", label: "Username YouTube", placeholder: "contoh: chandrahafi" },
+];
+
 const SECRET = ["password", "api_key", "webhook_secret", "telegram_bot_token"];
 const LONG_TEXT = new Set(["meta_description", "note", "member_benefits", "reseller_benefits", "vip_benefits"]);
 
@@ -72,60 +86,93 @@ export const AdminSettings = ({ category, values, onSaved }) => {
       <h2 className="text-2xl font-extrabold">{meta?.label}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{meta?.desc}</p>
 
-      <div className="mt-7 grid gap-4 sm:grid-cols-2">
-        {entries.map(([k, v]) => {
-          const isBool = typeof v === "boolean";
-          const isNum = typeof v === "number";
-          const isSecret = SECRET.includes(k);
-          if (isBool) {
-            return (
-              <label key={k} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3.5">
-                <span className="text-sm font-semibold">{LABELS[k] || k}</span>
+      {category === "contact" ? (
+        <div className="mt-7 grid gap-4 lg:grid-cols-2">
+          {CONTACT_FIELDS.map((item) => (
+            <div key={item.key} className="rounded-2xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold">{item.label}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">Button OFF = tidak tampil ke user.</p>
+                </div>
                 <Switch
-                  data-testid={`setting-${category}-${k}`}
-                  checked={v}
-                  onCheckedChange={(checked) => setForm({ ...form, [k]: checked })}
-                  aria-label={LABELS[k] || k}
+                  data-testid={`setting-contact-${item.enabled}`}
+                  checked={Boolean(form[item.enabled])}
+                  onCheckedChange={(checked) => setForm({ ...form, [item.enabled]: checked })}
+                  aria-label={`Tampilkan ${item.label}`}
                 />
+              </div>
+              <input
+                data-testid={`setting-contact-${item.key}`}
+                type={item.key === "support_email" ? "email" : "text"}
+                autoComplete="off"
+                value={form[item.key] ?? ""}
+                placeholder={item.placeholder}
+                onChange={(e) => setForm({ ...form, [item.key]: e.target.value })}
+                className="mono mt-3 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
+              />
+              {["telegram", "instagram", "tiktok", "x", "facebook", "youtube"].includes(item.key) && (
+                <p className="mt-2 text-[11px] text-muted-foreground">Cukup isi username, misalnya <span className="mono">chandrahafi</span>. Tampilan ke user otomatis menjadi <span className="mono">@chandrahafi</span>.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-7 grid gap-4 sm:grid-cols-2">
+          {entries.map(([k, v]) => {
+            const isBool = typeof v === "boolean";
+            const isNum = typeof v === "number";
+            const isSecret = SECRET.includes(k);
+            if (isBool) {
+              return (
+                <label key={k} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3.5">
+                  <span className="text-sm font-semibold">{LABELS[k] || k}</span>
+                  <Switch
+                    data-testid={`setting-${category}-${k}`}
+                    checked={v}
+                    onCheckedChange={(checked) => setForm({ ...form, [k]: checked })}
+                    aria-label={LABELS[k] || k}
+                  />
+                </label>
+              );
+            }
+            return (
+              <label key={k} className="block">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{LABELS[k] || k}</span>
+                {isSecret ? (
+                  <PasswordInput
+                    data-testid={`setting-${category}-${k}`}
+                    autoComplete="new-password"
+                    value={v === "••••••••" ? "" : (v ?? "")}
+                    placeholder={form[`${k}_set`] ? "tersimpan — isi untuk mengganti" : ""}
+                    onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+                    className="mt-2"
+                    inputClassName="mono rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
+                  />
+                ) : LONG_TEXT.has(k) ? (
+                  <textarea
+                    data-testid={`setting-${category}-${k}`}
+                    rows={5}
+                    autoComplete="off"
+                    value={v ?? ""}
+                    onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+                    className="themed-scrollbar mt-2 min-h-[140px] w-full resize-y rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-6 outline-none transition-colors focus:border-primary"
+                  />
+                ) : (
+                  <input
+                    data-testid={`setting-${category}-${k}`}
+                    type={isNum ? "number" : "text"}
+                    autoComplete="off"
+                    value={v ?? ""}
+                    onChange={(e) => setForm({ ...form, [k]: isNum ? Number(e.target.value) : e.target.value })}
+                    className="mono mt-2 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
+                  />
+                )}
               </label>
             );
-          }
-          return (
-            <label key={k} className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{LABELS[k] || k}</span>
-              {isSecret ? (
-                <PasswordInput
-                  data-testid={`setting-${category}-${k}`}
-                  autoComplete="new-password"
-                  value={v === "••••••••" ? "" : (v ?? "")}
-                  placeholder={form[`${k}_set`] ? "tersimpan — isi untuk mengganti" : ""}
-                  onChange={(e) => setForm({ ...form, [k]: e.target.value })}
-                  className="mt-2"
-                  inputClassName="mono rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
-                />
-              ) : LONG_TEXT.has(k) ? (
-                <textarea
-                  data-testid={`setting-${category}-${k}`}
-                  rows={5}
-                  autoComplete="off"
-                  value={v ?? ""}
-                  onChange={(e) => setForm({ ...form, [k]: e.target.value })}
-                  className="themed-scrollbar mt-2 min-h-[140px] w-full resize-y rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-6 outline-none transition-colors focus:border-primary"
-                />
-              ) : (
-                <input
-                  data-testid={`setting-${category}-${k}`}
-                  type={isNum ? "number" : "text"}
-                  autoComplete="off"
-                  value={v ?? ""}
-                  onChange={(e) => setForm({ ...form, [k]: isNum ? Number(e.target.value) : e.target.value })}
-                  className="mono mt-2 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
-                />
-              )}
-            </label>
-          );
-        })}
-      </div>
+          })}
+        </div>
+      )}
 
       <div className="mt-7 flex flex-wrap items-center gap-3">
         <button data-testid={`settings-save-${category}`} onClick={save} disabled={busy} className="flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">

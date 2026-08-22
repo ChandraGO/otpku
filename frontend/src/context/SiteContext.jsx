@@ -14,6 +14,7 @@ const DEFAULT_SITE = {
 
 const SiteContext = createContext({
   site: DEFAULT_SITE,
+  contact: {},
   topup: null,
   loading: true,
   refreshSite: async () => {},
@@ -91,6 +92,7 @@ function applyDocumentBranding(site = DEFAULT_SITE) {
 
 export function SiteProvider({ children }) {
   const [site, setSite] = useState(DEFAULT_SITE);
+  const [contact, setContact] = useState({});
   const [topup, setTopup] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -108,6 +110,7 @@ export function SiteProvider({ children }) {
         params: { _ts: Date.now() },
       });
       applySite(data?.site || {});
+      setContact(data?.contact || {});
       setTopup(data?.topup || null);
       return data;
     } catch (_) {
@@ -128,7 +131,7 @@ export function SiteProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const value = useMemo(() => ({ site, topup, loading, refreshSite, applySite }), [site, topup, loading, refreshSite, applySite]);
+  const value = useMemo(() => ({ site, contact, topup, loading, refreshSite, applySite }), [site, contact, topup, loading, refreshSite, applySite]);
   return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>;
 }
 

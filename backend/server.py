@@ -95,6 +95,17 @@ DEFAULT_SETTINGS: dict[str, dict[str, Any]] = {
         "meta_description": "Beli nomor virtual untuk verifikasi OTP ratusan layanan. Saldo fleksibel, API publik, dan dukungan 24/7.",
         "meta_keywords": "otp, nomor virtual, sms virtual, verifikasi",
     },
+    "contact": {
+        "website": "", "website_enabled": False,
+        "phone": "", "phone_enabled": False,
+        "support_email": "support@dapetotp.com", "support_email_enabled": True,
+        "telegram": "", "telegram_enabled": False,
+        "instagram": "", "instagram_enabled": False,
+        "tiktok": "", "tiktok_enabled": False,
+        "x": "", "x_enabled": False,
+        "facebook": "", "facebook_enabled": False,
+        "youtube": "", "youtube_enabled": False,
+    },
     "verification": {"otp_length": 6, "otp_ttl_seconds": 600, "resend_cooldown_seconds": 60, "max_attempts": 5, "require_email_verification": True},
     "orders": {"order_expiry_seconds": 900, "auto_refund_on_expire": True, "refund_window_seconds": 300,
                "allow_manual_cancel": True, "cancel_cooldown_seconds": 120, "auto_refresh_seconds": 3},
@@ -490,8 +501,13 @@ async def public_settings(response: Response):
     # navbar, title browser, favicon, dan metadata langsung terbaca frontend.
     response.headers["Cache-Control"] = "no-store, max-age=0"
     site = await get_settings("site")
+    contact = await get_settings("contact")
     topup = await get_settings("topup")
-    return {"site": site, "topup": {"min_amount": topup["min_amount"], "max_amount": topup["max_amount"], "note": topup.get("note")}}
+    return {
+        "site": site,
+        "contact": contact,
+        "topup": {"min_amount": topup["min_amount"], "max_amount": topup["max_amount"], "note": topup.get("note")},
+    }
 
 
 def public_service_logo(service_code: str, upstream_url: str) -> str:

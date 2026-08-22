@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Bold, BookOpen, Code2, Eye, EyeOff, Image as ImageIcon, Italic, Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, Save, Trash2, Upload, X } from "lucide-react";
+import { Bold, BookOpen, Code2, Eye, EyeOff, ExternalLink, Image as ImageIcon, Italic, Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, Save, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { http, errMsg } from "@/lib/api";
 import { AnnouncementContent } from "@/components/AnnouncementContent";
@@ -195,12 +195,13 @@ export const AdminBlog = () => {
             <div className="min-w-[220px] flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${post.published ? "border-emerald-500/40 text-emerald-500" : "border-border text-muted-foreground"}`}>{post.published ? "PUBLISHED" : "DRAFT"}</span>
-                <span className="mono text-[10px] text-muted-foreground">/{post.slug}</span>
+                <span className="mono text-[10px] text-muted-foreground">/blog/{post.slug}</span>
               </div>
               <p className="mt-2 font-bold">{post.title}</p>
               {post.excerpt && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{post.excerpt}</p>}
             </div>
             <div className="flex gap-2">
+              {post.published && <a href={`/blog/${post.slug}`} target="_blank" rel="noreferrer noopener" className="rounded-xl border border-border p-2.5 text-muted-foreground hover:border-primary hover:text-primary" title="Buka artikel"><ExternalLink className="h-4 w-4" /></a>}
               <button onClick={() => edit(post)} className="rounded-xl border border-border p-2.5 text-muted-foreground hover:border-primary hover:text-primary" title="Edit"><Pencil className="h-4 w-4" /></button>
               <button onClick={async () => { if (!window.confirm("Hapus artikel ini?")) return; await http.delete(`/admin/blog/${post.id}`); toast.success("Artikel dihapus"); if (editingId === post.id) reset(); load(); }} className="rounded-xl border border-border p-2.5 text-muted-foreground hover:border-destructive hover:text-destructive" title="Hapus"><Trash2 className="h-4 w-4" /></button>
             </div>

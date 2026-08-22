@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Wallet, Copy, Ticket, LayoutDashboard, ShoppingCart, ListOrdered, KeyRound, LifeBuoy, ChevronLeft, ChevronRight, Menu, X, Radio, Crown, BookOpen, CheckCircle2, Shuffle } from "lucide-react";
+import { Wallet, Copy, Ticket, LayoutDashboard, ShoppingCart, ListOrdered, KeyRound, LifeBuoy, ChevronLeft, ChevronRight, Menu, X, Radio, Crown, BookOpen, CheckCircle2, Shuffle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { http, errMsg, rupiah } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
@@ -10,6 +10,8 @@ import { useAuth } from "@/context/AuthContext";
 import { ServiceCatalog } from "@/components/ServiceCatalog";
 import { AccountUpgrade } from "@/components/AccountUpgrade";
 import { BlogFeed } from "@/components/BlogFeed";
+import { ContactLinks, getVisibleContacts } from "@/components/ContactLinks";
+import { useSite } from "@/context/SiteContext";
 
 const TABS = [
   { key: "ringkasan", label: "Ringkasan", icon: LayoutDashboard },
@@ -20,6 +22,7 @@ const TABS = [
   { key: "blog", label: "Blog", icon: BookOpen },
   { key: "tiket", label: "Tiket", icon: LifeBuoy },
   { key: "api", label: "API Key", icon: KeyRound },
+  { key: "contact", label: "Contact US", icon: MessageCircle },
 ];
 
 const BOTTOM_KEYS = ["ringkasan", "beli", "pesanan", "saldo", "tiket"];
@@ -54,6 +57,7 @@ const Skeleton = () => (
 
 export default function Dashboard() {
   const { user, setUser, refresh } = useAuth();
+  const { contact } = useSite();
   const [tab, setTab] = useState("ringkasan");
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("dot_sidebar") === "1");
   const [drawer, setDrawer] = useState(false);
@@ -149,10 +153,11 @@ export default function Dashboard() {
   };
 
   const shownOrders = focusOrder && orders ? orders.filter((o) => o.id === focusOrder) : orders;
+  const visibleContacts = getVisibleContacts(contact);
 
-  const NavItems = ({ compact }) => (
+  const NavItems = ({ compact, includeContact = true }) => (
     <nav className="space-y-1">
-      {TABS.map(({ key, label, icon: Icon }) => (
+      {TABS.filter((item) => includeContact || item.key !== "contact").map(({ key, label, icon: Icon }) => (
         <button
           key={key}
           data-testid={`dash-tab-${key}`}
@@ -225,13 +230,22 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          <NavItems compact={collapsed} />
+          <NavItems compact={collapsed} includeContact={false} />
           {!collapsed && summary?.next_tier && (
             <button onClick={() => go("upgrade")} className="mt-3 w-full rounded-2xl border border-primary/30 bg-primary/10 p-3 text-left hover:border-primary">
               <div className="flex items-center gap-2 text-xs font-bold text-primary"><Crown className="h-4 w-4" /> Upgrade {summary.next_tier.toUpperCase()}</div>
               <p className="mt-1 text-[11px] leading-4 text-muted-foreground">Syarat total deposit {rupiah(summary.next_tier_min_topup)}</p>
             </button>
           )}
+          <button
+            data-testid="dash-sidebar-contact"
+            onClick={() => go("contact")}
+            title="Contact US"
+            className={`mt-3 flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-semibold transition-colors ${collapsed ? "justify-center" : ""} ${tab === "contact" ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+          >
+            <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl ${tab === "contact" ? "bg-primary-foreground/20" : "bg-muted"}`}><MessageCircle className="h-4 w-4" /></span>
+            {!collapsed && <span>Contact US</span>}
+          </button>
           <button
             data-testid="dash-sidebar-toggle"
             onClick={() => setCollapsed((c) => !c)}
@@ -340,6 +354,20 @@ export default function Dashboard() {
           {tab === "upgrade" && <AccountUpgrade summary={summary} onGo={go} onUpgraded={load} />}
 
           {tab === "blog" && <BlogFeed />}
+
+          {tab === "contact" && (
+            <Card>
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/15 text-primary"><MessageCircle className="h-5 w-5" /></span>
+                <div>
+                  <p className="text-xl font-extrabold">Contact US</p>
+                  <p className="text-sm text-muted-foreground">Hubungi kami melalui kontak resmi yang tersedia.</p>
+                </div>
+              </div>
+              <ContactLinks contact={contact} className="mt-6" />
+              {visibleContacts.length === 0 && <p className="mt-5 text-sm text-muted-foreground">Kontak belum diatur oleh admin.</p>}
+            </Card>
+          )}
 
           {tab === "tiket" && (
             <div className="grid gap-5 lg:grid-cols-2">

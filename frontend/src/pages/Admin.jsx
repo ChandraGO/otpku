@@ -27,7 +27,7 @@ const SECTIONS = [
 ];
 
 export default function Admin() {
-  const { site, applySite } = useSite();
+  const { site, applySite, refreshSite } = useSite();
   const [section, setSection] = useState("overview");
   const [stats, setStats] = useState(null);
   const [settings, setSettings] = useState(null);
@@ -103,6 +103,7 @@ export default function Admin() {
                 onSaved={(cat, data) => {
                   setSettings((prev) => ({ ...prev, [cat]: data }));
                   if (cat === "site") applySite(data);
+                  if (cat === "contact") refreshSite();
                 }}
               />
             </Card>

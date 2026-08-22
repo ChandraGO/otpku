@@ -1,15 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion, useInView, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
+import { motion, useInView, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
 import {
   ArrowRight, Zap, Wallet, Activity, MousePointerClick, KeyRound, Gauge, Code2,
-  Server, Cpu, Database, Globe2, ShieldCheck, LifeBuoy, Terminal, CheckCircle2,
-  ArrowUpRight, Sparkles, Radio, Layers3
+  Globe2, ShieldCheck, LifeBuoy, Terminal, CheckCircle2,
+  ArrowUpRight, Sparkles, Radio, Layers3, BookOpen, CalendarDays, ShoppingCart
 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { http, rupiah } from "@/lib/api";
 import { useSite } from "@/context/SiteContext";
 import { useI18n } from "@/lib/i18n";
+import { ContactLinks, getVisibleContacts } from "@/components/ContactLinks";
 
 const CHIPS = [
   { icon: Zap, id: "Cepat", en: "Fast" },
@@ -25,16 +26,17 @@ const WHY = [
 ];
 
 const RUNTIME = [
-  { icon: Server, t: "Satu origin", d_id: "Frontend dan API berjalan pada satu origin agar jalur request lebih singkat.", d_en: "Frontend and API share one origin for shorter request paths." },
-  { icon: Cpu, t: "FastAPI persisten", d_id: "Backend FastAPI berjalan sebagai service persisten di belakang reverse proxy.", d_en: "FastAPI runs as a persistent service behind a reverse proxy." },
-  { icon: Database, t: "Sinkron otomatis", d_id: "Status pesanan, OTP, dan pengembalian saldo diperbarui otomatis tanpa langkah tambahan.", d_en: "Order status, OTP and balance returns update automatically." },
+  { icon: ShoppingCart, t_id: "Pilih layanan", t_en: "Choose a service", d_id: "Pilih layanan dan negara yang dibutuhkan, lalu cek harga sebelum membeli.", d_en: "Choose the service and country you need, then check the price before buying." },
+  { icon: Wallet, t_id: "Bayar sesuai pilihan", t_en: "Pay your way", d_id: "Gunakan saldo atau Bayar Langsung tanpa harus deposit lebih dulu.", d_en: "Use your balance or Pay Directly without making a deposit first." },
+  { icon: Activity, t_id: "Terima OTP otomatis", t_en: "Receive OTP automatically", d_id: "Nomor, status, OTP, dan refund diperbarui otomatis dari dashboard.", d_en: "Numbers, status, OTPs and refunds update automatically in your dashboard." },
 ];
 
 const FAQ = [
-  ["Apakah semua endpoint wajib pakai API key?", "Ya. Semua endpoint /api/v1 memerlukan header x-api-key milik akunmu. Key bisa diganti kapan saja dari dasbor."],
+  ["Apakah semua endpoint wajib pakai API key?", "Ya. Semua endpoint /api/v1 memerlukan header x-api-key milik akunmu. Key bisa diganti kapan saja dari dashboard."],
+  ["Apakah wajib top up atau deposit dulu?", "Tidak. Kamu bisa langsung membeli layanan dengan opsi Bayar Langsung. Top up saldo hanya pilihan jika ingin transaksi berikutnya lebih cepat dari saldo akun."],
   ["Kalau OTP tidak masuk, saldo hangus?", "Tidak. Gunakan Kirim ulang (gratis selama masih dalam waktu proses) atau batalkan pesanan; saldo dikembalikan penuh untuk pesanan yang dibatalkan atau kedaluwarsa."],
   ["Bagaimana alur pesan nomor?", "Pilih layanan, klik Beli nomor, tekan Siap agar nomor mulai menerima OTP, lalu tunggu kode masuk dan klik Selesai setelah OTP terpakai."],
-  ["Bagaimana cara isi saldo?", "Buat pembayaran dari dasbor. Setelah pembayaran terdeteksi, saldo bertambah otomatis — bisa juga dibuat langsung dari API."],
+  ["Bagaimana cara isi saldo?", "Buat pembayaran dari dashboard. Setelah pembayaran terdeteksi, saldo bertambah otomatis — bisa juga dibuat langsung dari API."],
   ["Apakah saldo bisa dikembalikan setelah pesanan selesai?", "Tidak. Saldo hanya dikembalikan untuk pesanan yang dibatalkan atau kedaluwarsa; pesanan selesai dianggap terpakai."],
   ["Bisa pilih server?", "Bisa. Setiap layanan punya beberapa pilihan server, pilih sebelum memesan nomor."],
 ];
@@ -54,51 +56,6 @@ const CODE = `$ curl "${process.env.REACT_APP_BACKEND_URL}/api/v1/orders" \\
     "otp_codes": []
   }
 }`;
-
-function TypewriterText({ text = "", speed = 18, delay = 0, active = true, inline = false, className = "" }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, amount: 0.12, margin: "0px 0px -6% 0px" });
-  const reducedMotion = useReducedMotion();
-  const [visibleLength, setVisibleLength] = useState(reducedMotion ? text.length : 0);
-  const started = useRef(false);
-
-  useEffect(() => {
-    started.current = false;
-    setVisibleLength(reducedMotion ? text.length : 0);
-  }, [text, reducedMotion]);
-
-  useEffect(() => {
-    if (reducedMotion) {
-      setVisibleLength(text.length);
-      return undefined;
-    }
-    if (!active || !inView || started.current || !text) return undefined;
-
-    started.current = true;
-    let intervalId;
-    const timerId = window.setTimeout(() => {
-      let cursor = 0;
-      const step = Math.max(1, text.length > 180 ? 3 : text.length > 90 ? 2 : 1);
-      intervalId = window.setInterval(() => {
-        cursor = Math.min(text.length, cursor + step);
-        setVisibleLength(cursor);
-        if (cursor >= text.length) window.clearInterval(intervalId);
-      }, Math.max(8, speed));
-    }, Math.max(0, delay));
-
-    return () => {
-      window.clearTimeout(timerId);
-      if (intervalId) window.clearInterval(intervalId);
-    };
-  }, [active, delay, inView, reducedMotion, speed, text]);
-
-  return (
-    <span ref={ref} className={`${inline ? "inline-grid" : "grid"} ${className}`} aria-label={text}>
-      <span aria-hidden="true" className="invisible col-start-1 row-start-1">{text}</span>
-      <span aria-hidden="true" className="col-start-1 row-start-1">{text.slice(0, visibleLength)}</span>
-    </span>
-  );
-}
 
 function CountUp({ value, format = (n) => Math.round(n).toLocaleString("id-ID"), duration = 1150 }) {
   const ref = useRef(null);
@@ -180,73 +137,16 @@ function highlightCodeLine(line, index) {
   return <span key={`code-${index}`} className="text-slate-400">{line}</span>;
 }
 
-function HighlightedTypewriterCode({ code }) {
-  const ref = useRef(null);
-  const reducedMotion = useReducedMotion();
-  const [started, setStarted] = useState(Boolean(reducedMotion));
-  const [visibleLength, setVisibleLength] = useState(reducedMotion ? code.length : 0);
-
-  // Trigger khusus console: mulai ketika bagian atas console benar-benar masuk viewport,
-  // bukan saat section baru sedikit terlihat. Jadi animasinya tidak selesai duluan sebelum
-  // pengguna sempat melihatnya di layar HP.
-  useEffect(() => {
-    if (reducedMotion) {
-      setStarted(true);
-      setVisibleLength(code.length);
-      return undefined;
-    }
-
-    const node = ref.current;
-    if (!node || started) return undefined;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        setStarted(true);
-        observer.disconnect();
-      },
-      { threshold: 0, rootMargin: "0px 0px -28% 0px" }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [code.length, reducedMotion, started]);
-
-  useEffect(() => {
-    if (!started || reducedMotion) return undefined;
-
-    setVisibleLength(0);
-    let intervalId;
-    const timerId = window.setTimeout(() => {
-      let cursor = 0;
-      intervalId = window.setInterval(() => {
-        // 2 karakter/tick dibuat cukup jelas terlihat, tetapi tetap nyaman dibaca.
-        cursor = Math.min(code.length, cursor + 2);
-        setVisibleLength(cursor);
-        if (cursor >= code.length) window.clearInterval(intervalId);
-      }, 18);
-    }, 220);
-
-    return () => {
-      window.clearTimeout(timerId);
-      if (intervalId) window.clearInterval(intervalId);
-    };
-  }, [code, reducedMotion, started]);
-
-  const visibleCode = code.slice(0, visibleLength);
-  const typing = started && visibleLength < code.length;
-
+function StaticHighlightedCode({ code }) {
   return (
-    <div ref={ref} className="themed-scrollbar mono grid min-w-0 max-w-full overflow-x-auto text-xs leading-relaxed sm:text-[13px]">
-      <pre aria-hidden="true" className="invisible col-start-1 row-start-1 w-max min-w-full p-5 sm:p-6">{code}</pre>
-      <pre data-testid="sample-code" aria-label={code} className="col-start-1 row-start-1 w-max min-w-full p-5 sm:p-6">
-        {visibleCode.split("\n").map((line, index, lines) => (
-          <React.Fragment key={`line-${index}`}>
+    <div className="themed-scrollbar mono min-w-0 max-w-full overflow-x-auto text-xs leading-relaxed sm:text-[13px]">
+      <pre data-testid="sample-code" aria-label={code} className="w-max min-w-full p-5 sm:p-6">
+        {code.split("\n").map((line, index, lines) => (
+          <React.Fragment key={`static-line-${index}`}>
             {highlightCodeLine(line, index)}
             {index < lines.length - 1 ? "\n" : null}
           </React.Fragment>
         ))}
-        {typing ? <span aria-hidden="true" className="ml-0.5 inline-block h-[1em] w-[0.55ch] animate-pulse align-[-0.12em] bg-sky-300" /> : null}
       </pre>
     </div>
   );
@@ -264,40 +164,40 @@ const ASSEMBLY_PIECES = [
   {
     icon: KeyRound,
     label: "API KEY",
-    finalDesktop: "left-[24%] top-[22%]",
-    finalMobile: "left-[8%] top-[24%]",
+    finalDesktop: "left-[28%] top-[2%]",
+    finalMobile: "left-[11%] top-[1%]",
     desktop: [-150, -90, -12],
     mobile: [-38, -172, -10],
   },
   {
     icon: Activity,
     label: "OTP LIVE",
-    finalDesktop: "right-[24%] top-[22%]",
-    finalMobile: "right-[8%] top-[24%]",
+    finalDesktop: "right-[28%] top-[2%]",
+    finalMobile: "right-[11%] top-[1%]",
     desktop: [150, -85, 12],
     mobile: [4, -168, 10],
   },
   {
     icon: Wallet,
     label: "SALDO",
-    finalDesktop: "left-[13%] top-[54%]",
-    finalMobile: "left-[2%] top-[49%]",
+    finalDesktop: "left-[2%] top-[54%]",
+    finalMobile: "left-[-5%] top-[52%]",
     desktop: [-125, 40, 10],
     mobile: [-38, 28, 8],
   },
   {
     icon: CheckCircle2,
     label: "200 OK",
-    finalDesktop: "right-[17%] top-[49%]",
-    finalMobile: "right-[2%] top-[49%]",
+    finalDesktop: "right-[2%] top-[49%]",
+    finalMobile: "right-[-5%] top-[52%]",
     desktop: [125, 48, -10],
     mobile: [38, 32, -8],
   },
   {
     icon: Layers3,
     label: "MULTI SERVER",
-    finalDesktop: "left-[41%] bottom-[8%]",
-    finalMobile: "left-[29%] bottom-[5%]",
+    finalDesktop: "left-[41%] bottom-[1%]",
+    finalMobile: "left-[29%] bottom-[0%]",
     desktop: [0, 88, 7],
     mobile: [0, 72, 7],
   },
@@ -323,21 +223,12 @@ function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
       <span className={`grid place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary ${mobile ? "h-6 w-6 sm:h-7 sm:w-7" : "h-8 w-8"}`}>
         <item.icon className={mobile ? "h-3 w-3" : "h-3.5 w-3.5"} />
       </span>
-      <TypewriterText text={item.label} speed={32} delay={520} inline />
+      <span>{item.label}</span>
     </motion.div>
   );
 }
 
 function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
-  const [assemblyTypingReady, setAssemblyTypingReady] = useState(Boolean(reducedMotion));
-
-  useMotionValueEvent(progress, "change", (latest) => {
-    if (latest >= 0.24) setAssemblyTypingReady(true);
-  });
-
-  useEffect(() => {
-    if (reducedMotion) setAssemblyTypingReady(true);
-  }, [reducedMotion]);
 
   // V12: final dinaikkan sedikit dari V11 agar komposisinya lebih pas di tengah viewport.
   // Clipping tetap dimatikan, jadi seluruh kartu tetap utuh. Gerak vertikal dibuat lebih landai
@@ -347,10 +238,9 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
     [0, 0.22, 0.5, 0.7, 0.88, 1],
     [0, 0, mobile ? 16 : 28, mobile ? 54 : 86, mobile ? 94 : 150, mobile ? 110 : 175]
   );
-  const cardY = useTransform(progress, [0, 0.22, 0.46, 0.7, 0.88, 1], [mobile ? 125 : 150, mobile ? 118 : 142, 64, 18, 0, 0]);
-  const cardRotate = useTransform(progress, [0, 0.48, 0.88, 1], [mobile ? 4 : 3.5, 1.4, 0, 0]);
-  const cardScale = useTransform(progress, [0, 0.25, 0.56, 0.86, 1], [mobile ? 0.76 : 0.78, 0.8, 0.9, 1, 1]);
-  const cardOpacity = useTransform(progress, [0, 0.22, 0.38, 0.58, 1], [0, 0, 0.2, 1, 1]);
+  const cardY = useTransform(progress, [0, 0.36, 0.72, 1], [0, mobile ? 10 : 16, 0, 0]);
+  const cardRotate = useTransform(progress, [0, 0.48, 0.88, 1], [0, 1.2, 0, 0]);
+  const cardScale = useTransform(progress, [0, 0.42, 0.82, 1], [1, 0.965, 1, 1]);
   const haloRotate = useTransform(progress, [0, 0.48, 0.88, 1], [-16, -5, 14, 14]);
   const haloScale = useTransform(progress, [0, 0.45, 0.88, 1], [0.7, 0.88, 1, 1]);
   const haloOpacity = useTransform(progress, [0, 0.28, 0.56, 0.88, 1], [0, 0, 0.12, 0.28, 0.28]);
@@ -382,7 +272,7 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
 
       <div className="absolute inset-0 z-20 flex items-center justify-center">
         <motion.div
-          style={reducedMotion ? { opacity: 0 } : { y: cardY, rotate: cardRotate, scale: cardScale, opacity: cardOpacity }}
+          style={reducedMotion ? { opacity: 1 } : { y: cardY, rotate: cardRotate, scale: cardScale, opacity: 1 }}
           className={`w-full overflow-hidden rounded-[26px] border border-border bg-card/95 shadow-2xl shadow-black/15 backdrop-blur-xl ${mobile ? "max-w-[310px]" : "max-w-[560px]"}`}
         >
           <div className={`flex items-center gap-2 border-b border-border bg-muted/40 ${mobile ? "px-3 py-2.5" : "px-4 py-3"}`}>
@@ -390,9 +280,9 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
             <div className={`mono ml-2 flex items-center gap-2 text-muted-foreground ${mobile ? "text-[9px]" : "text-[11px]"}`}>
-              <Terminal className="h-3.5 w-3.5" /> <TypewriterText text="api.dapetotp" speed={26} active={assemblyTypingReady} inline />
+              <Terminal className="h-3.5 w-3.5" /> api.dapetotp
             </div>
-            <span className={`ml-auto rounded-lg bg-emerald-500/10 font-bold text-emerald-500 ${mobile ? "px-1.5 py-1 text-[8px]" : "px-2 py-1 text-[10px]"}`}><TypewriterText text="ONLINE" speed={32} delay={160} active={assemblyTypingReady} inline /></span>
+            <span className={`ml-auto rounded-lg bg-emerald-500/10 font-bold text-emerald-500 ${mobile ? "px-1.5 py-1 text-[8px]" : "px-2 py-1 text-[10px]"}`}>ONLINE</span>
           </div>
           <div className={mobile ? "p-3.5" : "p-5 sm:p-6"}>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -404,18 +294,18 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
               ].map(([Icon, label]) => (
                 <div key={label} className={`flex items-center rounded-2xl border border-border bg-background/70 ${mobile ? "gap-2 p-2" : "gap-2.5 p-3"}`}>
                   <span className={`grid shrink-0 place-items-center rounded-xl bg-primary/10 text-primary ${mobile ? "h-6 w-6" : "h-8 w-8"}`}><Icon className={mobile ? "h-3.5 w-3.5" : "h-4 w-4"} /></span>
-                  <span className={`${mobile ? "text-[9px] leading-3" : "text-xs sm:text-sm"} font-bold`}><TypewriterText text={label} speed={24} delay={180} active={assemblyTypingReady} /></span>
+                  <span className={`${mobile ? "text-[9px] leading-3" : "text-xs sm:text-sm"} font-bold`}>{label}</span>
                 </div>
               ))}
             </div>
             <div className={`rounded-2xl border border-border bg-background ${mobile ? "mt-2 p-3" : "mt-3 p-4"}`}>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className={`font-bold uppercase tracking-[0.18em] text-muted-foreground ${mobile ? "text-[8px]" : "text-[10px]"}`}><TypewriterText text={L("Mulai dari", "Starting at")} speed={28} delay={320} active={assemblyTypingReady} /></p>
+                  <p className={`font-bold uppercase tracking-[0.18em] text-muted-foreground ${mobile ? "text-[8px]" : "text-[10px]"}`}>{L("Mulai dari", "Starting at")}</p>
                   <p className={`mt-1 font-extrabold text-primary ${mobile ? "text-lg" : "text-2xl"}`}>{stats?.cheapest ? rupiah(stats.cheapest) : "—"}</p>
                 </div>
                 <div className="text-right">
-                  <p className={`font-bold uppercase tracking-[0.18em] text-muted-foreground ${mobile ? "text-[8px]" : "text-[10px]"}`}><TypewriterText text={L("Layanan ID", "ID services")} speed={28} delay={360} active={assemblyTypingReady} /></p>
+                  <p className={`font-bold uppercase tracking-[0.18em] text-muted-foreground ${mobile ? "text-[8px]" : "text-[10px]"}`}>{L("Layanan ID", "ID services")}</p>
                   <p className={`mt-1 font-extrabold ${mobile ? "text-lg" : "text-2xl"}`}>{stats?.services ?? "—"}</p>
                 </div>
               </div>
@@ -427,46 +317,71 @@ function AssemblyVisual({ progress, reducedMotion, stats, L, mobile = false }) {
   );
 }
 
-function HeroCopy({ site, t, L }) {
+function InitialFadeUp({ children, delay = 0, className = "", reducedMotion = false }) {
+  return (
+    <motion.div
+      initial={reducedMotion ? false : { opacity: 0, y: 24, filter: "blur(6px)" }}
+      animate={reducedMotion ? undefined : { opacity: 1, y: 0, filter: "blur(0px)" }}
+      transition={{ duration: 0.58, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function HeroCopy({ site, t, L, reducedMotion }) {
   return (
     <div className="mx-auto w-full max-w-5xl text-center">
-      <span data-testid="hero-badge" className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-[11px] font-bold tracking-[0.22em] text-primary">
-        <Radio className="h-3.5 w-3.5" /> <TypewriterText text={L("REST API PUBLIK", "PUBLIC REST API")} speed={34} delay={80} inline />
-      </span>
+      <InitialFadeUp delay={0.05} reducedMotion={reducedMotion}>
+        <span data-testid="hero-badge" className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-[11px] font-bold tracking-[0.22em] text-primary">
+          <Radio className="h-3.5 w-3.5" /> {L("REST API PUBLIK", "PUBLIC REST API")}
+        </span>
+      </InitialFadeUp>
 
-      <h1 data-testid="hero-title" className="mx-auto mt-7 max-w-5xl text-4xl font-extrabold leading-[1.02] sm:text-5xl md:text-6xl lg:text-7xl">
-        <TypewriterText text={`${site?.site_name || "dapetOTP"}.`} speed={32} delay={260} />
-        <span className="mt-2 block text-primary"><TypewriterText text={L("Solusi verifikasi untuk semua layanan.", "Verification for every service.")} speed={28} delay={520} /></span>
-      </h1>
+      <InitialFadeUp delay={0.16} reducedMotion={reducedMotion}>
+        <h1 data-testid="hero-title" className="mx-auto mt-7 max-w-5xl text-4xl font-extrabold leading-[1.02] sm:text-5xl md:text-6xl lg:text-7xl">
+          <span className="block">{site?.site_name || "dapetOTP"}.</span>
+          <span className="mt-2 block text-primary">{L("Solusi verifikasi untuk semua layanan.", "Verification for every service.")}</span>
+        </h1>
+      </InitialFadeUp>
 
-      <p data-testid="hero-subtitle" className="mx-auto mt-7 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base lg:text-lg">
-        <TypewriterText
-          text={L(
+      <InitialFadeUp delay={0.28} reducedMotion={reducedMotion}>
+        <p data-testid="hero-subtitle" className="mx-auto mt-7 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base lg:text-lg">
+          {L(
             "Sewa nomor virtual, terima OTP realtime, isi saldo otomatis, dan otomatiskan semuanya lewat REST API dengan API key pribadi. Daftar, isi saldo, langsung pesan.",
             "Rent virtual numbers, receive OTPs in realtime, top up automatically and automate everything through a REST API with your own key."
           )}
-          speed={16}
-          delay={920}
-        />
-      </p>
+        </p>
+      </InitialFadeUp>
 
-      <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-        <Link data-testid="hero-cta-login" to="/masuk" className="soft-float group flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/25">
-          <TypewriterText text={t("getStarted")} speed={28} delay={1480} inline /> <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </Link>
-        <Link data-testid="hero-cta-pricing" to="/harga" className="soft-float rounded-2xl border border-border bg-card/80 px-6 py-3.5 text-sm font-bold backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:text-primary hover:shadow-lg hover:shadow-primary/5">
-          <TypewriterText text={L("Lihat Harga", "See Pricing")} speed={28} delay={1580} inline />
-        </Link>
-        <Link data-testid="hero-cta-docs" to="/docs" className="soft-float group flex items-center gap-1.5 rounded-2xl px-4 py-3.5 text-sm font-bold text-muted-foreground transition-all duration-300 hover:-translate-y-0.5 hover:text-primary">
-          <TypewriterText text={t("docs")} speed={30} delay={1680} inline /> <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-        </Link>
-      </div>
+      <InitialFadeUp delay={0.4} reducedMotion={reducedMotion}>
+        <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+          <Link data-testid="hero-cta-login" to="/masuk" className="soft-float group flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/25">
+            {t("getStarted")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </Link>
+          <Link data-testid="hero-cta-pricing" to="/harga" className="soft-float rounded-2xl border border-border bg-card/80 px-6 py-3.5 text-sm font-bold backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:text-primary hover:shadow-lg hover:shadow-primary/5">
+            {L("Lihat Harga", "See Pricing")}
+          </Link>
+          <Link data-testid="hero-cta-docs" to="/docs" className="soft-float group flex items-center gap-1.5 rounded-2xl px-4 py-3.5 text-sm font-bold text-muted-foreground transition-all duration-300 hover:-translate-y-0.5 hover:text-primary">
+            {t("docs")} <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+      </InitialFadeUp>
 
       <div className="mt-3 flex flex-wrap justify-center gap-2 sm:mt-9">
         {CHIPS.map((c, i) => (
-          <span key={c.id} data-testid={`hero-chip-${i}`} style={{ "--float-delay": `${i * -0.65}s` }} className="soft-float flex items-center gap-2 rounded-xl border border-border/80 bg-card/60 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur transition-[border-color,color,box-shadow] duration-300 hover:border-primary/50 hover:text-foreground hover:shadow-lg hover:shadow-primary/5">
-            <c.icon className="h-3.5 w-3.5 text-primary" /> <TypewriterText text={L(c.id, c.en)} speed={28} delay={1820 + i * 90} inline />
-          </span>
+          <motion.span
+            key={c.id}
+            data-testid={`hero-chip-${i}`}
+            initial={reducedMotion ? false : { opacity: 0, y: 18 }}
+            animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+            transition={{ duration: 0.48, delay: 0.54 + i * 0.075, ease: [0.22, 1, 0.36, 1] }}
+            style={{ "--float-delay": `${i * -0.65}s` }}
+            className="soft-float flex items-center gap-2 rounded-xl border border-border/80 bg-card/60 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur transition-[border-color,color,box-shadow] duration-300 hover:border-primary/50 hover:text-foreground hover:shadow-lg hover:shadow-primary/5"
+          >
+            <c.icon className="h-3.5 w-3.5 text-primary" /> {L(c.id, c.en)}
+          </motion.span>
         ))}
       </div>
     </div>
@@ -491,8 +406,9 @@ function Reveal({ children, className = "", delay = 0, x = 0, y = 28, amount = 0
 
 export default function Landing() {
   const { t, lang } = useI18n();
-  const { site } = useSite();
+  const { site, contact } = useSite();
   const [stats, setStats] = useState(null);
+  const [latestPosts, setLatestPosts] = useState([]);
   const heroSceneRef = useRef(null);
   const reducedMotion = useReducedMotion();
 
@@ -512,7 +428,7 @@ export default function Landing() {
 
   /*
    * V13 timeline:
-   * 0–10%   : hero centered + badge tersebar; tidak ada entrance saat refresh.
+   * 0–10%   : copy hero masuk fade-up bergantian; card + badge pop-up bersama di area bawah.
    * 10–40%  : hero naik, blur, dan redup sehingga panggung tengah terbuka.
    * 10–72%  : badge bergerak perlahan dari tepi menuju pusat dan kartu dirakit.
    * 72–100% : rakitan final ditahan, sementara section berikutnya mulai naik dari bawah untuk menghilangkan dead-space.
@@ -528,13 +444,19 @@ export default function Landing() {
     "blur(9px)",
   ]);
   const assemblyProgress = useTransform(smoothHeroProgress, [0, 0.085, 0.72, 1], [0, 0, 1, 1]);
+  // Saat halaman pertama dimuat, card dirapatkan ke bagian bawah agar tidak menutup copy hero.
+  // Begitu scroll dimulai, offset ini kembali ke 0 lalu timeline assembly lama mengambil alih.
+  const assemblyDockYMobile = useTransform(smoothHeroProgress, [0, 0.05, 0.16, 1], [220, 220, 0, 0]);
+  const assemblyDockYDesktop = useTransform(smoothHeroProgress, [0, 0.05, 0.16, 1], [210, 210, 0, 0]);
   const scrollHintOpacity = useTransform(smoothHeroProgress, [0, 0.055, 0.14, 1], [0.72, 0.72, 0, 0]);
 
   useEffect(() => {
     http.get("/public/stats").then(({ data }) => setStats(data)).catch(() => {});
+    http.get("/blog").then(({ data }) => setLatestPosts((data?.items || []).slice(0, 3))).catch(() => {});
   }, []);
 
   const L = (id, en) => (lang === "id" ? id : en);
+  const visibleContacts = getVisibleContacts(contact);
 
   return (
     <div data-testid="landing-page" className="overflow-hidden">
@@ -552,15 +474,15 @@ export default function Landing() {
             style={reducedMotion ? undefined : { y: copyY, opacity: copyOpacity, scale: copyScale, filter: copyFilter }}
             className="absolute inset-0 z-10 will-change-transform"
           >
-            <div className="mx-auto flex h-full max-w-7xl items-center justify-center px-5 pb-[5vh] pt-[76px] sm:px-6 sm:pt-[82px] lg:px-8">
+            <div className="mx-auto flex h-full max-w-7xl items-center justify-center px-5 pb-[24vh] pt-[76px] sm:px-6 sm:pt-[82px] lg:px-8">
               <div className="w-full">
-                <HeroCopy site={site} t={t} L={L} />
+                <HeroCopy site={site} t={t} L={L} reducedMotion={reducedMotion} />
                 <motion.div
                   style={reducedMotion ? { opacity: 0.72 } : { opacity: scrollHintOpacity }}
                   className="mx-auto mt-8 flex w-fit items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground"
                 >
                   <span className="h-7 w-px bg-primary/70" />
-                  <TypewriterText text={L("Scroll untuk merakit tampilan", "Scroll to assemble")} speed={24} delay={2140} inline />
+                  <span>{L("Scroll untuk merakit tampilan", "Scroll to assemble")}</span>
                 </motion.div>
               </div>
             </div>
@@ -572,12 +494,24 @@ export default function Landing() {
             sedikit lagi dan scene dipendekkan agar section berikutnya masuk lebih cepat.
           */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[70px] z-20 flex items-center justify-center px-2 sm:top-[76px] sm:px-5 lg:px-8">
-            <div className="w-full lg:hidden">
-              <AssemblyVisual progress={assemblyProgress} reducedMotion={reducedMotion} stats={stats} L={L} mobile />
-            </div>
-            <div className="hidden w-full lg:block">
-              <AssemblyVisual progress={assemblyProgress} reducedMotion={reducedMotion} stats={stats} L={L} />
-            </div>
+            <motion.div style={reducedMotion ? undefined : { y: assemblyDockYMobile }} className="w-full lg:hidden">
+              <motion.div
+                initial={reducedMotion ? false : { opacity: 0, y: 58, scale: 0.97 }}
+                animate={reducedMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.7, delay: 0.48, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <AssemblyVisual progress={assemblyProgress} reducedMotion={reducedMotion} stats={stats} L={L} mobile />
+              </motion.div>
+            </motion.div>
+            <motion.div style={reducedMotion ? undefined : { y: assemblyDockYDesktop }} className="hidden w-full lg:block">
+              <motion.div
+                initial={reducedMotion ? false : { opacity: 0, y: 66, scale: 0.97 }}
+                animate={reducedMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.7, delay: 0.48, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <AssemblyVisual progress={assemblyProgress} reducedMotion={reducedMotion} stats={stats} L={L} />
+              </motion.div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -589,27 +523,33 @@ export default function Landing() {
       */}
       <section className="relative z-0 -mt-[18svh] bg-muted/30 sm:-mt-[20svh] lg:-mt-[20vh]">
         <div className="mx-auto grid min-w-0 max-w-7xl gap-8 px-6 pb-14 pt-24 sm:py-16 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
-          <Reveal reducedMotion={reducedMotion} x={-26}>
-            <p className="text-xs font-bold tracking-[0.22em] text-primary"><TypewriterText text={L("CONTOH REQUEST", "SAMPLE REQUEST")} speed={30} /></p>
-            <h2 className="mt-4 max-w-full break-words text-3xl font-extrabold leading-tight sm:text-4xl"><TypewriterText text={L("Satu request, langsung jalan.", "One request, ready to go.")} speed={26} delay={180} /></h2>
-            <p className="mt-4 max-w-full text-sm leading-6 text-muted-foreground sm:max-w-md">
-              <TypewriterText text={L("Alur API dibuat sederhana: autentikasi dengan API key, kirim ID harga layanan, lalu pantau status dan OTP dari endpoint yang sama.", "The API flow stays simple: authenticate, send a service price ID, then monitor status and OTP from the same API.")} speed={14} delay={420} />
-            </p>
+          <div className="min-w-0">
+            <Reveal reducedMotion={reducedMotion} y={24} delay={0}>
+              <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("CONTOH REQUEST", "SAMPLE REQUEST")}</p>
+            </Reveal>
+            <Reveal reducedMotion={reducedMotion} y={24} delay={0.1}>
+              <h2 className="mt-4 max-w-full break-words text-3xl font-extrabold leading-tight sm:text-4xl">{L("Satu request, langsung jalan.", "One request, ready to go.")}</h2>
+            </Reveal>
+            <Reveal reducedMotion={reducedMotion} y={24} delay={0.2}>
+              <p className="mt-4 max-w-full text-sm leading-6 text-muted-foreground sm:max-w-md">{L("Alur API dibuat sederhana: autentikasi dengan API key, kirim ID harga layanan, lalu pantau status dan OTP dari endpoint yang sama.", "The API flow stays simple: authenticate, send a service price ID, then monitor status and OTP from the same API.")}</p>
+            </Reveal>
             <div className="mt-6 space-y-3 text-sm">
-              {[L("Header sederhana", "Simple headers"), L("Respons JSON konsisten", "Consistent JSON responses"), L("Siap dipakai dari backend apa pun", "Works from any backend")].map((x) => (
-                <div key={x} className="flex items-center gap-3 font-semibold"><CheckCircle2 className="h-4 w-4 text-primary" /> <TypewriterText text={x} speed={20} delay={680} /></div>
+              {[L("Header sederhana", "Simple headers"), L("Respons JSON konsisten", "Consistent JSON responses"), L("Siap dipakai dari backend apa pun", "Works from any backend")].map((x, i) => (
+                <Reveal key={x} reducedMotion={reducedMotion} y={18} delay={0.3 + i * 0.09}>
+                  <div className="flex items-center gap-3 font-semibold"><CheckCircle2 className="h-4 w-4 text-primary" /> {x}</div>
+                </Reveal>
               ))}
             </div>
-          </Reveal>
+          </div>
 
-          <Reveal reducedMotion={reducedMotion} x={26} delay={0.08}>
+          <Reveal reducedMotion={reducedMotion} y={24} delay={0.16}>
             <div className="w-full min-w-0 max-w-full overflow-hidden rounded-[28px] border border-border bg-[hsl(222_47%_6%)] text-slate-100 shadow-xl transition-transform duration-300 hover:-translate-y-1">
-            <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/5 px-5 py-3.5">
-              <span className="mono rounded-lg bg-emerald-400/15 px-2 py-1 text-[11px] font-bold text-emerald-300"><TypewriterText text="POST" speed={34} inline /></span>
-              <code className="mono text-xs text-slate-300"><TypewriterText text="/api/v1/orders" speed={26} delay={150} inline /></code>
-              <span className="mono ml-auto rounded-lg bg-blue-400/15 px-2 py-1 text-[11px] font-bold text-blue-300"><TypewriterText text="200 OK" speed={32} delay={300} inline /></span>
-            </div>
-              <HighlightedTypewriterCode code={CODE} />
+              <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/5 px-5 py-3.5">
+                <span className="mono rounded-lg bg-emerald-400/15 px-2 py-1 text-[11px] font-bold text-emerald-300">POST</span>
+                <code className="mono text-xs text-slate-300">/api/v1/orders</code>
+                <span className="mono ml-auto rounded-lg bg-blue-400/15 px-2 py-1 text-[11px] font-bold text-blue-300">200 OK</span>
+              </div>
+              <StaticHighlightedCode code={CODE} />
             </div>
           </Reveal>
         </div>
@@ -632,9 +572,9 @@ export default function Landing() {
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {WHY.map((w, i) => (
             <Reveal key={w.t_id} reducedMotion={reducedMotion} delay={i * 0.08} y={34} className="h-full">
-              <article data-testid={`why-card-${i}`} className="group relative h-full overflow-hidden rounded-[28px] border border-border bg-card p-7 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5">
+              <article data-testid={`why-card-${i}`} className="group relative h-full overflow-hidden rounded-[28px] border border-border bg-card p-7 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5">
                 <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full bg-primary/12 blur-3xl" />
-                <span className="relative grid h-12 w-12 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><w.icon className="h-5 w-5" /></span>
+                <span className="relative mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><w.icon className="h-5 w-5" /></span>
                 <h3 className="relative mt-8 text-xl font-extrabold">{L(w.t_id, w.t_en)}</h3>
                 <p className="relative mt-3 text-sm leading-6 text-muted-foreground">{L(w.d_id, w.d_en)}</p>
                 <div className="relative mt-7 h-px w-full bg-border" />
@@ -650,24 +590,24 @@ export default function Landing() {
         <div className="mx-auto max-w-7xl px-6 py-20">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <Reveal reducedMotion={reducedMotion} x={-22}>
-              <p className="text-xs font-bold tracking-[0.22em] text-primary">RUNTIME</p>
-              <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("Dibuat untuk akses ringan dan stabil.", "Built for light, stable access.")}</h2>
+              <p className="text-xs font-bold tracking-[0.22em] text-primary">{L("CARA KERJA", "HOW IT WORKS")}</p>
+              <h2 className="mt-4 text-3xl font-extrabold sm:text-4xl">{L("Dari pilih layanan sampai OTP, alurnya sederhana.", "From choosing a service to receiving an OTP, the flow stays simple.")}</h2>
             </Reveal>
             <Reveal reducedMotion={reducedMotion} x={22} delay={0.06}>
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-500"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> LIVE STACK</span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-500"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> {L("OTOMATIS", "AUTOMATIC")}</span>
             </Reveal>
           </div>
 
           <div className="relative mt-10 grid gap-4 lg:grid-cols-3">
             <div className="pointer-events-none absolute left-[16.6%] right-[16.6%] top-7 hidden h-px bg-border lg:block" />
             {RUNTIME.map((r, i) => (
-              <Reveal key={r.t} reducedMotion={reducedMotion} delay={i * 0.08} y={30} className="h-full">
+              <Reveal key={r.t_id} reducedMotion={reducedMotion} delay={i * 0.08} y={30} className="h-full">
                 <article data-testid={`runtime-card-${i}`} className="relative h-full rounded-[26px] border border-border bg-background p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
                   <div className="relative z-10 flex items-center gap-4">
                     <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><r.icon className="h-5 w-5" /></span>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">STEP 0{i + 1}</p>
-                      <h3 className="mt-1 text-lg font-extrabold">{r.t}</h3>
+                      <h3 className="mt-1 text-lg font-extrabold">{L(r.t_id, r.t_en)}</h3>
                     </div>
                   </div>
                   <p className="mt-5 text-sm leading-6 text-muted-foreground">{L(r.d_id, r.d_en)}</p>
@@ -746,6 +686,58 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* BLOG TERBARU */}
+      <section className="border-t border-border bg-card/35">
+        <div className="mx-auto max-w-7xl px-6 py-20">
+          <div className="flex flex-wrap items-end justify-between gap-5">
+            <Reveal reducedMotion={reducedMotion} x={-22}>
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/15 text-primary"><BookOpen className="h-5 w-5" /></span>
+                <div>
+                  <p className="text-xs font-bold tracking-[0.22em] text-primary">BLOG</p>
+                  <h2 className="mt-1 text-3xl font-extrabold sm:text-4xl">{L("Artikel terbaru.", "Latest articles.")}</h2>
+                </div>
+              </div>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">{L("Panduan, informasi layanan, dan update terbaru dari kami.", "Guides, service information and the latest updates from us.")}</p>
+            </Reveal>
+            <Reveal reducedMotion={reducedMotion} x={22} delay={0.06}>
+              <Link to="/blog" className="group flex items-center gap-2 rounded-2xl border border-border bg-background px-5 py-3 text-sm font-bold transition-all hover:-translate-y-0.5 hover:border-primary hover:text-primary">
+                {L("Lihat artikel lainnya", "See more articles")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </Reveal>
+          </div>
+
+          <div className="mt-9 grid gap-5 lg:grid-cols-3">
+            {latestPosts.map((post, i) => {
+              const date = post.published_at || post.created_at;
+              return (
+                <Reveal key={post.id || post.slug} reducedMotion={reducedMotion} delay={i * 0.08} y={28} className="h-full">
+                  <Link to={`/blog/${post.slug}`} className="group block h-full overflow-hidden rounded-[28px] border border-border bg-card transition-all hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5">
+                    {post.cover_url ? (
+                      <img src={post.cover_url} alt={post.title} className="h-48 w-full border-b border-border bg-muted object-cover" />
+                    ) : (
+                      <div className="grid h-48 w-full place-items-center border-b border-border bg-primary/5"><BookOpen className="h-9 w-9 text-primary/60" /></div>
+                    )}
+                    <div className="p-5">
+                      <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
+                        <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                        {date ? new Date(date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : L("Artikel", "Article")}
+                      </div>
+                      <h3 className="mt-3 line-clamp-2 text-xl font-extrabold transition-colors group-hover:text-primary">{post.title}</h3>
+                      {post.excerpt && <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">{post.excerpt}</p>}
+                      <p className="mt-5 flex items-center gap-2 text-xs font-bold text-primary">{L("Baca selengkapnya", "Read more")} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></p>
+                    </div>
+                  </Link>
+                </Reveal>
+              );
+            })}
+            {latestPosts.length === 0 && (
+              <div className="lg:col-span-3 rounded-3xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{L("Belum ada artikel yang dipublikasikan.", "No published articles yet.")}</div>
+            )}
+          </div>
+        </div>
+      </section>
+
       {/* FAQ */}
       <section className="border-t border-border bg-muted/25">
         <div className="mx-auto grid max-w-7xl gap-10 px-6 py-20 lg:grid-cols-[.7fr_1.3fr]">
@@ -769,13 +761,42 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-border py-10 text-center text-sm text-muted-foreground">
-        <Reveal reducedMotion={reducedMotion} y={16}>
-          <p className="flex flex-wrap items-center justify-center gap-2">
-          <LifeBuoy className="h-4 w-4 text-primary" />
-          © {new Date().getFullYear()} {site?.site_name || "dapetOTP"} — {site?.business_email || "support@dapetotp.com"}
-          </p>
-        </Reveal>
+      {visibleContacts.length > 0 && (
+        <section id="contact" className="border-t border-border bg-card/45">
+          <div className="mx-auto max-w-7xl px-6 py-20">
+            <Reveal reducedMotion={reducedMotion} y={24}>
+              <div className="mx-auto max-w-2xl text-center">
+                <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-primary/15 text-primary"><LifeBuoy className="h-5 w-5" /></span>
+                <p className="mt-5 text-xs font-bold tracking-[0.22em] text-primary">CONTACT US</p>
+                <h2 className="mt-3 text-3xl font-extrabold sm:text-4xl">{L("Butuh bantuan atau ingin terhubung?", "Need help or want to connect?")}</h2>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">{L("Pilih salah satu kontak resmi yang sedang aktif di bawah ini.", "Choose one of the active official contacts below.")}</p>
+              </div>
+              <ContactLinks contact={contact} className="mt-9" />
+            </Reveal>
+          </div>
+        </section>
+      )}
+
+      <footer className="border-t border-border bg-background">
+        <div className="mx-auto max-w-7xl px-6 py-10">
+          <div className="grid gap-7 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div>
+              <p className="text-xl font-extrabold text-foreground">{site?.site_name || "dapetOTP"}</p>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{site?.tagline || L("Solusi nomor virtual dan OTP untuk kebutuhan verifikasi.", "Virtual number and OTP solutions for verification needs.")}</p>
+            </div>
+            <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-muted-foreground">
+              <Link to="/harga" className="hover:text-primary">{L("Harga", "Pricing")}</Link>
+              <Link to="/docs" className="hover:text-primary">Docs</Link>
+              <Link to="/blog" className="hover:text-primary">Blog</Link>
+              <Link to="/faq" className="hover:text-primary">FAQ</Link>
+              {visibleContacts.length > 0 && <a href="#contact" className="hover:text-primary">Contact US</a>}
+            </nav>
+          </div>
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground">
+            <p>© {new Date().getFullYear()} {site?.site_name || "dapetOTP"}. All rights reserved.</p>
+            <p>REST API • OTP Realtime</p>
+          </div>
+        </div>
       </footer>
     </div>
   );
