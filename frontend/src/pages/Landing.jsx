@@ -168,6 +168,8 @@ const ASSEMBLY_PIECES = [
     finalMobile: "left-[11%] top-[1%]",
     desktop: [-150, -90, -12],
     mobile: [-38, -172, -10],
+    entryDesktopY: 110,
+    entryMobileY: 90,
   },
   {
     icon: Activity,
@@ -176,6 +178,8 @@ const ASSEMBLY_PIECES = [
     finalMobile: "right-[11%] top-[1%]",
     desktop: [150, -85, 12],
     mobile: [4, -168, 10],
+    entryDesktopY: 110,
+    entryMobileY: 90,
   },
   {
     icon: Wallet,
@@ -205,11 +209,14 @@ const ASSEMBLY_PIECES = [
 
 function AssemblyPiece({ item, progress, reducedMotion, mobile = false }) {
   const [startX, startY, startR] = mobile ? item.mobile : item.desktop;
+  const entryY = mobile ? (item.entryMobileY || 0) : (item.entryDesktopY || 0);
 
-  // Posisi CSS adalah SLOT FINAL. Transform di bawah menggeser badge ke tepi viewport
-  // pada progress 0, lalu mengembalikannya ke slot final saat progress mendekati 1.
+  // Posisi CSS adalah SLOT FINAL. Saat load, dua badge bagian atas diberi safe-offset
+  // tambahan supaya ikut pop-up bersama card tetapi tidak naik menutupi CTA/chip hero.
+  // Offset ini dilepas bertahap begitu scroll dimulai sehingga posisi final assembly
+  // dan seluruh efek scroll sesudahnya tetap sama.
   const x = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startX, startX, startX * 0.7, startX * 0.3, 0, 0]);
-  const y = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startY, startY, startY * 0.7, startY * 0.3, 0, 0]);
+  const y = useTransform(progress, [0, 0.1, 0.4, 0.68, 0.9, 1], [startY + entryY, startY + entryY, startY * 0.7 + entryY * 0.5, startY * 0.3, 0, 0]);
   const rotate = useTransform(progress, [0, 0.44, 0.88, 1], [startR, startR * 0.52, 0, 0]);
   const scale = useTransform(progress, [0, 0.18, 0.62, 0.9, 1], [mobile ? 0.78 : 0.84, mobile ? 0.8 : 0.86, 0.94, 1, 1]);
   const opacity = useTransform(progress, [0, 0.06, 0.18, 1], [0.76, 0.82, 1, 1]);
@@ -444,10 +451,11 @@ export default function Landing() {
     "blur(9px)",
   ]);
   const assemblyProgress = useTransform(smoothHeroProgress, [0, 0.085, 0.72, 1], [0, 0, 1, 1]);
-  // Saat halaman pertama dimuat, card dirapatkan ke bagian bawah agar tidak menutup copy hero.
-  // Begitu scroll dimulai, offset ini kembali ke 0 lalu timeline assembly lama mengambil alih.
-  const assemblyDockYMobile = useTransform(smoothHeroProgress, [0, 0.05, 0.16, 1], [220, 220, 0, 0]);
-  const assemblyDockYDesktop = useTransform(smoothHeroProgress, [0, 0.05, 0.16, 1], [210, 210, 0, 0]);
+  // Saat halaman pertama dimuat, seluruh assembly diparkir lebih bawah agar CTA dan
+  // chip hero punya ruang aman. Assembly baru naik setelah copy hero mulai bergerak,
+  // sehingga tidak ada fase card/floating badge menimpa konten utama.
+  const assemblyDockYMobile = useTransform(smoothHeroProgress, [0, 0.08, 0.26, 1], [330, 330, 0, 0]);
+  const assemblyDockYDesktop = useTransform(smoothHeroProgress, [0, 0.08, 0.26, 1], [360, 360, 0, 0]);
   const scrollHintOpacity = useTransform(smoothHeroProgress, [0, 0.055, 0.14, 1], [0.72, 0.72, 0, 0]);
 
   useEffect(() => {
