@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/usr/local/share/.cache/yarn \
 
 COPY frontend/ ./
 
-ARG REACT_APP_BACKEND_URL=https://dapetotp.jagoanproject.com
+ARG REACT_APP_BACKEND_URL=
 ENV REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
 
 # Cache webpack/CRACO dipertahankan antar build BuildKit.

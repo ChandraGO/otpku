@@ -1,0 +1,28 @@
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+production.env
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/build/
+.npm/
+.yarn/cache/
+
+# Deployment/runtime
+.deploy-state/
+*.log
+.DS_Store

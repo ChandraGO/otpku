@@ -50,18 +50,42 @@ def paykita_verify_signature(secret: str, timestamp: str, raw_body: bytes, signa
 async def smsv_request(api_key: str, method: str, path: str, params=None, json_body=None, timeout: int = 30):
     if not api_key:
         raise IntegrationError("SMS Virtual API key belum dikonfigurasi di admin")
-    async with httpx.AsyncClient(timeout=timeout) as c:
-        r = await c.request(
-            method, f"{SMSV_BASE}{path}", params=params, json=json_body,
-            headers={"x-api-key": api_key, "content-type": "application/json"},
-        )
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as c:
+            r = await c.request(
+                method, f"{SMSV_BASE}{path}", params=params, json=json_body,
+                headers={"x-api-key": api_key, "content-type": "application/json"},
+            )
+    except httpx.TimeoutException as e:
+        raise IntegrationError(f"Provider timeout setelah {timeout} detik") from e
+    except httpx.HTTPError as e:
+        raise IntegrationError(f"Provider connection error: {type(e).__name__}") from e
+
+    # Beberapa endpoint aksi dapat sah mengembalikan 204/empty body. Jangan anggap
+    # cancel gagal hanya karena tidak ada JSON setelah provider sudah menerima request.
+    if not r.content:
+        if r.status_code >= 400:
+            raise IntegrationError(f"Provider error ({r.status_code})")
+        return {}
+
     try:
         body = r.json()
     except Exception:
-        raise IntegrationError(f"Provider response invalid ({r.status_code})")
+        text = (r.text or "").strip()
+        if r.status_code >= 400:
+            raise IntegrationError(text[:300] or f"Provider error ({r.status_code})")
+        return {"raw": text[:1000]} if text else {}
+
     if r.status_code >= 400:
-        raise IntegrationError(body.get("message") or body.get("error") or "Provider error")
-    return body.get("data", body)
+        if isinstance(body, dict):
+            msg = body.get("message") or body.get("error") or body.get("detail")
+            if isinstance(msg, dict):
+                msg = msg.get("message") or msg.get("error")
+            raise IntegrationError(str(msg or f"Provider error ({r.status_code})"))
+        raise IntegrationError(f"Provider error ({r.status_code})")
+    if isinstance(body, dict):
+        return body.get("data", body)
+    return body
 
 
 def send_smtp_mail(cfg: dict, to_email: str, subject: str, html: str):

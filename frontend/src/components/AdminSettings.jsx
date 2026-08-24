@@ -26,8 +26,11 @@ const LABELS = {
   share_thumbnail_url: "URL thumbnail berbagi", meta_title: "Judul tab browser / SEO", meta_description: "Deskripsi SEO", meta_keywords: "Kata kunci SEO",
   otp_length: "Panjang kode OTP", otp_ttl_seconds: "Masa berlaku OTP (detik)", resend_cooldown_seconds: "Jeda kirim ulang (detik)",
   max_attempts: "Maks percobaan", require_email_verification: "Wajib verifikasi email",
-  order_expiry_seconds: "Kedaluwarsa pesanan (detik)", auto_refund_on_expire: "Refund otomatis saat kedaluwarsa",
-  cancel_cooldown_seconds: "Jeda sebelum bisa batal (detik)", auto_refresh_seconds: "Auto-refresh dasbor (detik)",
+  order_expiry_seconds: "Fallback masa aktif provider (detik)", auto_refund_on_expire: "Refund user bila provider sudah telanjur expired",
+  cancel_cooldown_seconds: "Jeda minimum sebelum cancel provider (detik)", auto_refresh_seconds: "Auto-refresh dasbor (detik)",
+  provider_cancel_buffer_seconds: "Buffer cancel minimum sebelum expired provider (detik)",
+  provider_cancel_buffer_ratio: "Buffer cancel relatif (0.20 = 20%)",
+  provider_cancel_safety_margin_seconds: "Sisa waktu minimum saat mulai cancel (detik)",
   refund_window_seconds: "Jendela refund (detik)", allow_manual_cancel: "Izinkan batal manual",
   markup_percent: "Markup (%)", fixed_fee: "Biaya tetap (Rp)", rounding_to: "Pembulatan ke (Rp)", rate_to_idr: "Kurs dasar provider → IDR", provider_cost_multiplier: "Biaya beli per 1 unit / coin (Rp)", provider_tax_percent: "Pajak provider (%)", min_profit: "Profit minimum override (Rp)", safety_min_profit: "Profit minimum aman global (Rp)",
   host: "SMTP host", port: "Port", encryption: "Enkripsi (tls/ssl/none)", username: "Username", password: "Password", from_email: "Email pengirim", from_name: "Nama pengirim", enabled: "Aktif",
@@ -49,12 +52,12 @@ const CONTACT_FIELDS = [
   { key: "website", enabled: "website_enabled", label: "Link Website", placeholder: "contoh: dapetotp.com" },
   { key: "phone", enabled: "phone_enabled", label: "Nomor HP", placeholder: "contoh: +6281234567890" },
   { key: "support_email", enabled: "support_email_enabled", label: "Email Support", placeholder: "contoh: support@dapetotp.com" },
-  { key: "telegram", enabled: "telegram_enabled", label: "Username Telegram", placeholder: "contoh: chandrahafi" },
-  { key: "instagram", enabled: "instagram_enabled", label: "Username Instagram", placeholder: "contoh: chandrahafi" },
-  { key: "tiktok", enabled: "tiktok_enabled", label: "Username TikTok", placeholder: "contoh: chandrahafi" },
-  { key: "x", enabled: "x_enabled", label: "Username X", placeholder: "contoh: chandrahafi" },
-  { key: "facebook", enabled: "facebook_enabled", label: "Username Facebook", placeholder: "contoh: chandrahafi" },
-  { key: "youtube", enabled: "youtube_enabled", label: "Username YouTube", placeholder: "contoh: chandrahafi" },
+  { key: "telegram", enabled: "telegram_enabled", label: "Username Telegram", placeholder: "contoh: namaakun" },
+  { key: "instagram", enabled: "instagram_enabled", label: "Username Instagram", placeholder: "contoh: namaakun" },
+  { key: "tiktok", enabled: "tiktok_enabled", label: "Username TikTok", placeholder: "contoh: namaakun" },
+  { key: "x", enabled: "x_enabled", label: "Username X", placeholder: "contoh: namaakun" },
+  { key: "facebook", enabled: "facebook_enabled", label: "Username Facebook", placeholder: "contoh: namaakun" },
+  { key: "youtube", enabled: "youtube_enabled", label: "Username YouTube", placeholder: "contoh: namaakun" },
 ];
 
 const SECRET = ["password", "api_key", "webhook_secret", "telegram_bot_token"];
@@ -152,7 +155,7 @@ export const AdminSettings = ({ category, values, onSaved }) => {
                 className="mono mt-3 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
               />
               {["telegram", "instagram", "tiktok", "x", "facebook", "youtube"].includes(item.key) && (
-                <p className="mt-2 text-[11px] text-muted-foreground">Cukup isi username, misalnya <span className="mono">chandrahafi</span>. Tampilan ke user otomatis menjadi <span className="mono">@chandrahafi</span>.</p>
+                <p className="mt-2 text-[11px] text-muted-foreground">Cukup isi username, misalnya <span className="mono">namaakun</span>. Tampilan ke user otomatis menjadi <span className="mono">@namaakun</span>.</p>
               )}
             </div>
           ))}

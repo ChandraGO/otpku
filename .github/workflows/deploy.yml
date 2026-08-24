@@ -2,9 +2,7 @@ name: Deploy dapetOTP ke VPS
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
     paths:
       - 'frontend/**'
       - 'backend/**'
@@ -28,50 +26,49 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Pastikan tool deploy tersedia
+      - name: Pasang rsync
         shell: bash
         run: |
           set -Eeuo pipefail
-          if ! command -v sshpass >/dev/null 2>&1 || ! command -v rsync >/dev/null 2>&1; then
-            sudo apt-get update -qq
-            sudo apt-get install -y sshpass rsync
-          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y rsync
 
-      - name: Siapkan SSH
+      - name: Siapkan SSH key
         shell: bash
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           set -Eeuo pipefail
-
           : "${VPS_HOST:?VPS_HOST belum diisi}"
           : "${VPS_USER:?VPS_USER belum diisi}"
-          : "${VPS_PASSWORD:?VPS_PASSWORD belum diisi}"
+          : "${VPS_SSH_KEY:?VPS_SSH_KEY belum diisi}"
+          : "${VPS_KNOWN_HOSTS:?VPS_KNOWN_HOSTS belum diisi}"
 
           VPS_PORT="${VPS_PORT:-22}"
           echo "VPS_PORT=$VPS_PORT" >> "$GITHUB_ENV"
 
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
-          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/dapetotp_deploy"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/dapetotp_deploy" "$HOME/.ssh/known_hosts"
 
-      - name: Cek VPS sekali
+      - name: Cek VPS
         shell: bash
         env:
-          SSHPASS: ${{ secrets.VPS_PASSWORD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -Eeuo pipefail
-          sshpass -e ssh \
+          ssh -i "$HOME/.ssh/dapetotp_deploy" \
             -p "$VPS_PORT" \
             -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=12 \
@@ -82,15 +79,14 @@ jobs:
              command -v rsync >/dev/null &&
              echo "VPS siap"'
 
-      - name: Sinkronkan hanya file yang berubah
+      - name: Sinkronkan source ke VPS
         shell: bash
         env:
-          SSHPASS: ${{ secrets.VPS_PASSWORD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -Eeuo pipefail
-          sshpass -e rsync -az --checksum --delete-delay \
+          rsync -az --checksum --delete-delay \
             --exclude='.git/' \
             --exclude='.github/' \
             --exclude='.env' \
@@ -100,20 +96,17 @@ jobs:
             --exclude='build/' \
             --exclude='__pycache__/' \
             --exclude='*.pyc' \
-            --exclude='dapetotp_deploy' \
-            --exclude='dapetotp_deploy.pub' \
-            -e "ssh -p $VPS_PORT -o StrictHostKeyChecking=yes -o ConnectTimeout=12" \
+            -e "ssh -i $HOME/.ssh/dapetotp_deploy -p $VPS_PORT -o StrictHostKeyChecking=yes -o ConnectTimeout=12" \
             ./ "$VPS_USER@$VPS_HOST:/opt/dapetotp/app/"
 
-      - name: Build cerdas dan deploy
+      - name: Build dan deploy
         shell: bash
         env:
-          SSHPASS: ${{ secrets.VPS_PASSWORD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -Eeuo pipefail
-          sshpass -e ssh \
+          ssh -i "$HOME/.ssh/dapetotp_deploy" \
             -p "$VPS_PORT" \
             -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=12 \

@@ -32,7 +32,7 @@ services:
       context: .
       dockerfile: deploy/frontend.Dockerfile
       args:
-        REACT_APP_BACKEND_URL: https://dapetotp.jagoanproject.com
+        REACT_APP_BACKEND_URL: ${FRONTEND_URL}
     restart: unless-stopped
     ports:
       - "127.0.0.1:3280:80"
