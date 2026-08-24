@@ -2,21 +2,8 @@
 
 Aplikasi web nomor virtual/OTP dengan backend FastAPI, MongoDB, frontend React, Docker Compose, dan auto-deploy GitHub Actions.
 
-## Perubahan penting pada versi ini
-
-Versi ini sudah diperkeras untuk masalah order yang keburu `expired` di provider sebelum sempat dibatalkan.
-
-- Auto-cancel sekarang mulai **lebih awal**: default minimal **180 detik** atau **20%** sebelum expired provider, mana yang lebih besar.
-- Sistem tetap menghormati masa hold/cooldown cancel bila masih ada waktu aman.
-- Worker mengecek order setiap 3 detik dan mencoba ulang cancel bila provider/API sempat gagal.
-- Timeout request status/cancel provider dibatasi agar satu request lambat tidak menghabiskan seluruh safety buffer.
-- Hilangnya activation dari halaman pertama `ongoing-activation` **tidak lagi dianggap otomatis cancelled**. Ini penting karena daftar provider bisa terkena pagination/cache.
-- Refund normal dilakukan setelah cancel provider terkonfirmasi. Bila provider sudah telanjur expired, order ditandai sebagai kejadian provider-loss untuk audit.
-- Auto-cancel yang berhasil tampil sebagai `cancelled`, bukan `expired`, supaya riwayat order tidak membingungkan.
-- Akun demo hardcoded dan password demo sudah dihapus.
-- File `__pycache__` dan workflow lama yang tidak relevan sudah dibuang.
-- Deploy GitHub Actions memakai **SSH private key**, bukan password VPS.
-- Domain frontend tidak lagi hardcoded; diambil dari `FRONTEND_URL`.
+Integrasi Kode OTp : https://sms-virtual.net/
+Integrasi Payment Polling : https://pay.digikita.id/
 
 ---
 
